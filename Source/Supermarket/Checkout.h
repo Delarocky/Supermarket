@@ -99,7 +99,7 @@ private:
     AAICustomerPawn* CurrentlyProcessingCustomer;
 
     void UpdateTotalProcessedText();
-    void DisplayProductsOnGrid(const TArray<FProductData>& Products);
     void ProcessNextProduct();
     void FinishProcessingCustomer();
+    void SpawnProductsOnGrid(const TArray<FProductData>& Products);
 };
