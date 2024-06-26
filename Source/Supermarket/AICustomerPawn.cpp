@@ -1,12 +1,13 @@
 // AICustomerPawn.cpp
 #include "AICustomerPawn.h"
-#include "Checkout.h"
 #include "Shelf.h"
 #include "Product.h"
+#include "Checkout.h"
 #include "ShoppingBag.h"
 #include "Kismet/GameplayStatics.h"
 #include "NavigationSystem.h"
 #include "AIController.h"
+#include "TimerManager.h"
 
 AAICustomerPawn::AAICustomerPawn()
 {
@@ -14,10 +15,8 @@ AAICustomerPawn::AAICustomerPawn()
 
     ShoppingBag = CreateDefaultSubobject<UShoppingBag>(TEXT("ShoppingBag"));
     CurrentState = ECustomerState::Idle;
-    MaxProductsToCollect = FMath::RandRange(5, 10);
     TargetShelf = nullptr;
     AIController = nullptr;
-    ItemsToPickUp = 0;
 }
 
 void AAICustomerPawn::BeginPlay()
@@ -28,6 +27,11 @@ void AAICustomerPawn::BeginPlay()
     {
         AIController->ReceiveMoveCompleted.AddDynamic(this, &AAICustomerPawn::OnMoveCompleted);
     }
+
+    // Choose a random number of total items to pick up (between 3 and 10)
+    TotalItemsToPickUp = FMath::RandRange(3, 10);
+    UE_LOG(LogTemp, Display, TEXT("AI %s: Will pick up a total of %d items."), *GetName(), TotalItemsToPickUp);
+
     UpdateState();
 }
 
@@ -41,7 +45,7 @@ void AAICustomerPawn::UpdateState()
     switch (CurrentState)
     {
     case ECustomerState::Idle:
-        if (ShoppingBag->GetProductCount() < MaxProductsToCollect)
+        if (ShoppingBag->GetProductCount() < TotalItemsToPickUp)
         {
             FindAndMoveToShelf();
         }
@@ -125,44 +129,31 @@ void AAICustomerPawn::TryPickUpProduct()
     if (!TargetShelf)
     {
         UE_LOG(LogTemp, Warning, TEXT("AI %s: No target shelf set."), *GetName());
-        FinishShopping();
+        FindAndMoveToShelf();
         return;
     }
 
-    if (ItemsToPickUp == 0)
-    {
-        ItemsToPickUp = 1;
-        UE_LOG(LogTemp, Display, TEXT("AI %s: Decided to pick up %d items from shelf %s."),
-            *GetName(), ItemsToPickUp, *TargetShelf->GetName());
-    }
-
-    if (ItemsToPickUp > 0 && TargetShelf->GetProductCount() > 0)
+    if (TargetShelf->GetProductCount() > 0 && ShoppingBag->GetProductCount() < TotalItemsToPickUp)
     {
         AProduct* PickedProduct = TargetShelf->RemoveRandomProduct();
         if (PickedProduct)
         {
             FProductData ProductData = PickedProduct->GetProductData();
             ShoppingBag->AddProduct(ProductData);
-            UE_LOG(LogTemp, Display, TEXT("AI %s: Picked up product %s from shelf %s. Total products: %d"),
-                *GetName(), *ProductData.Name, *TargetShelf->GetName(), ShoppingBag->GetProductCount());
+            UE_LOG(LogTemp, Display, TEXT("AI %s: Picked up product %s from shelf %s. Total products: %d/%d"),
+                *GetName(), *ProductData.Name, *TargetShelf->GetName(), ShoppingBag->GetProductCount(), TotalItemsToPickUp);
             PickedProduct->Destroy();
+        }
+    }
 
-            ItemsToPickUp--;
-        }
-
-        if (ItemsToPickUp > 0)
-        {
-            // Schedule next pickup in 1 second
-            GetWorld()->GetTimerManager().SetTimer(PickupTimerHandle, this, &AAICustomerPawn::TryPickUpProduct, 1.0f, false);
-        }
-        else
-        {
-            FinishShopping();
-        }
+    if (ShoppingBag->GetProductCount() < TotalItemsToPickUp)
+    {
+        // Move to next shelf after 1 second
+        GetWorld()->GetTimerManager().SetTimer(PickupTimerHandle, this, &AAICustomerPawn::FindAndMoveToShelf, 1.0f, false);
     }
     else
     {
-        FinishShopping();
+        FindAndMoveToCheckout();
     }
 }
 
@@ -170,7 +161,6 @@ void AAICustomerPawn::FindAndMoveToCheckout()
 {
     TArray<AActor*> FoundCheckouts;
     UGameplayStatics::GetAllActorsOfClass(GetWorld(), ACheckout::StaticClass(), FoundCheckouts);
-
     UE_LOG(LogTemp, Display, TEXT("AI %s: Found %d checkouts"), *GetName(), FoundCheckouts.Num());
 
     if (FoundCheckouts.Num() > 0)
@@ -192,10 +182,34 @@ void AAICustomerPawn::FindAndMoveToCheckout()
                 TargetCheckout->AddCustomerToQueue(this);
                 FVector NextQueuePosition = TargetCheckout->GetNextQueuePosition();
 
-                SimpleMoveTo(NextQueuePosition);
+                // Use AIController to move smoothly
+                if (AIController)
+                {
+                    FAIMoveRequest MoveRequest;
+                    MoveRequest.SetGoalLocation(NextQueuePosition);
+                    MoveRequest.SetAcceptanceRadius(10.0f); // Adjust this value as needed
 
-                CurrentState = ECustomerState::MovingToCheckout;
-                UE_LOG(LogTemp, Display, TEXT("AI %s: Moving to checkout %s"), *GetName(), *TargetCheckout->GetName());
+                    FNavPathSharedPtr NavPath;
+                    AIController->MoveTo(MoveRequest, &NavPath);
+
+                    if (NavPath.IsValid() && NavPath->IsValid())
+                    {
+                        CurrentState = ECustomerState::MovingToCheckout;
+                        UE_LOG(LogTemp, Display, TEXT("AI %s: Moving to checkout %s"), *GetName(), *TargetCheckout->GetName());
+                    }
+                    else
+                    {
+                        UE_LOG(LogTemp, Warning, TEXT("AI %s: Failed to find path to checkout %s"), *GetName(), *TargetCheckout->GetName());
+                        TargetCheckout->RemoveCustomerFromQueue(this);
+                        TargetCheckout = nullptr;
+                        StartRoaming();
+                    }
+                }
+                else
+                {
+                    UE_LOG(LogTemp, Error, TEXT("AI %s: AIController is null!"), *GetName());
+                    StartRoaming();
+                }
                 return;
             }
         }
@@ -255,7 +269,6 @@ void AAICustomerPawn::OnMoveCompleted(FAIRequestID RequestID, EPathFollowingResu
             CurrentState = ECustomerState::PickingUpProduct;
             TryPickUpProduct();
             break;
-
         case ECustomerState::MovingToCheckout:
             if (TargetCheckout)
             {
@@ -263,6 +276,7 @@ void AAICustomerPawn::OnMoveCompleted(FAIRequestID RequestID, EPathFollowingResu
                 if (QueuePosition == 0)
                 {
                     CurrentState = ECustomerState::CheckingOut;
+                    ProcessCheckout();
                 }
                 else
                 {
@@ -281,13 +295,22 @@ void AAICustomerPawn::OnMoveCompleted(FAIRequestID RequestID, EPathFollowingResu
     {
         UE_LOG(LogTemp, Warning, TEXT("AI %s: Move failed with result: %s"), *GetName(), *UEnum::GetValueAsString(Result));
 
-        // If movement failed, try to unstuck the AI
-        FVector NewLocation = GetActorLocation() + FVector(FMath::RandRange(-100.f, 100.f), FMath::RandRange(-100.f, 100.f), 0.f);
-        SetActorLocation(NewLocation, true);
-
-        // Reset the state to Idle and update
-        CurrentState = ECustomerState::Idle;
-        UpdateState();
+        // Handle failed movement
+        switch (CurrentState)
+        {
+        case ECustomerState::MovingToShelf:
+            FindAndMoveToShelf();
+            break;
+        case ECustomerState::MovingToCheckout:
+            if (TargetCheckout)
+            {
+                TargetCheckout->RemoveCustomerFromQueue(this);
+                TargetCheckout = nullptr;
+            }
+            StartRoaming();
+            break;
+            // ... (handle other states if needed)
+        }
     }
 }
 
@@ -356,19 +379,6 @@ AShelf* AAICustomerPawn::FindRandomStockedShelf()
     return nullptr;
 }
 
-void AAICustomerPawn::FinishShopping()
-{
-    // Clear the pickup timer if it's still active
-    if (GetWorld() && GetWorld()->GetTimerManager().IsTimerActive(PickupTimerHandle))
-    {
-        GetWorld()->GetTimerManager().ClearTimer(PickupTimerHandle);
-    }
-
-    UE_LOG(LogTemp, Display, TEXT("AI %s: Finished shopping at shelf %s. Total products: %d"),
-        *GetName(), *TargetShelf->GetName(), ShoppingBag->GetProductCount());
-    CurrentState = ECustomerState::Idle;
-    UpdateState();
-}
 
 void AAICustomerPawn::StartRoaming()
 {

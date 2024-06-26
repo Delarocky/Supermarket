@@ -57,12 +57,13 @@ private:
     ACheckout* TargetCheckout;
 
     UPROPERTY()
-    int32 MaxProductsToCollect;
+    int32 TotalItemsToPickUp;
 
     UPROPERTY()
     AAIController* AIController;
 
     FTimerHandle StateTimerHandle;
+    FTimerHandle PickupTimerHandle;
 
     void UpdateState();
     void FindAndMoveToShelf();
@@ -70,12 +71,9 @@ private:
     void FindAndMoveToCheckout();
     void ProcessCheckout();
     void LeaveStore();
-    void FinishShopping();
     void StartRoaming();
     void MoveToRandomLocation();
     void DestroySelf();
-    int32 ItemsToPickUp;
-    FTimerHandle PickupTimerHandle;
 
     UFUNCTION()
     void OnMoveCompleted(FAIRequestID RequestID, EPathFollowingResult::Type Result);

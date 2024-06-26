@@ -151,10 +151,11 @@ AProduct* AShelf::RemoveRandomProduct()
 {
     if (Products.Num() > 0)
     {
-        int32 RandomIndex = FMath::RandRange(0, Products.Num() - 1);
-        AProduct* RemovedProduct = Products[RandomIndex];
-        Products.RemoveAt(RandomIndex);
-        UE_LOG(LogTemp, Display, TEXT("Shelf %s: Removed random product %s. Remaining products: %d"),
+        // Remove the last product (most recently added)
+        AProduct* RemovedProduct = Products.Last();
+        Products.Pop();
+
+        UE_LOG(LogTemp, Display, TEXT("Shelf %s: Removed most recent product %s. Remaining products: %d"),
             *GetName(), *RemovedProduct->GetName(), Products.Num());
 
         // Detach the product from the shelf
@@ -162,6 +163,7 @@ AProduct* AShelf::RemoveRandomProduct()
 
         return RemovedProduct;
     }
+
     UE_LOG(LogTemp, Warning, TEXT("Shelf %s: Attempted to remove product, but shelf is empty."), *GetName());
     return nullptr;
 }
