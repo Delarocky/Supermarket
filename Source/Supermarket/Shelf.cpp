@@ -236,15 +236,14 @@ bool AShelf::IsSpotEmpty(const FVector& RelativeLocation) const
     return true;
 }
 
-AProduct* AShelf::RemoveRandomProduct()
+AProduct* AShelf::RemoveNextProduct()
 {
     if (Products.Num() > 0)
     {
-        // Remove the last product (most recently added)
-        AProduct* RemovedProduct = Products.Last();
-        Products.Pop();
+        AProduct* RemovedProduct = Products[0];
+        Products.RemoveAt(0);
 
-        UE_LOG(LogTemp, Display, TEXT("Shelf %s: Removed most recent product %s. Remaining products: %d"),
+        UE_LOG(LogTemp, Display, TEXT("Shelf %s: Removed product %s. Remaining products: %d"),
             *GetName(), *RemovedProduct->GetName(), Products.Num());
 
         // Detach the product from the shelf
@@ -256,6 +255,7 @@ AProduct* AShelf::RemoveRandomProduct()
     UE_LOG(LogTemp, Warning, TEXT("Shelf %s: Attempted to remove product, but shelf is empty."), *GetName());
     return nullptr;
 }
+
 
 
 int32 AShelf::GetProductCount() const

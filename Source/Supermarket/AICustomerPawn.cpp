@@ -67,13 +67,9 @@ void AAICustomerPawn::DecideNextAction()
     {
         MoveToRandomShelf();
     }
-    else if (ShoppingBag->GetProductCount() > 0)
-    {
-        MoveToCheckout();
-    }
     else
     {
-        LeaveStore();
+        MoveToCheckout();
     }
 }
 
@@ -120,9 +116,20 @@ void AAICustomerPawn::LeaveStore()
         if (NavSystem->GetRandomPointInNavigableRadius(FVector::ZeroVector, 10000.0f, ExitLocation))
         {
             MoveToLocation(ExitLocation.Location);
+            // Set a timer to destroy the AI after reaching the exit point
+            GetWorld()->GetTimerManager().SetTimer(ActionTimerHandle, this, &AAICustomerPawn::DestroySelf, 10.0f, false);
+        }
+        else
+        {
+            UE_LOG(LogTemp, Warning, TEXT("AI %s: Couldn't find exit point. Destroying immediately."), *GetName());
+            DestroySelf();
         }
     }
-    GetWorld()->GetTimerManager().SetTimer(ActionTimerHandle, this, &AAICustomerPawn::DestroySelf, 10.0f, false);
+    else
+    {
+        UE_LOG(LogTemp, Error, TEXT("AI %s: Navigation system not found. Destroying immediately."), *GetName());
+        DestroySelf();
+    }
 }
 
 void AAICustomerPawn::MoveToLocation(const FVector& Destination)
@@ -236,16 +243,13 @@ void AAICustomerPawn::TryPickUpProduct()
 {
     if (CurrentShelf && CurrentShelf->GetProductCount() > 0)
     {
-        AProduct* PickedProduct = CurrentShelf->RemoveRandomProduct();
+        AProduct* PickedProduct = CurrentShelf->RemoveNextProduct();
         if (PickedProduct)
         {
-            FProductData ProductData = PickedProduct->GetProductData();
-            ShoppingBag->AddProduct(ProductData);
+            ShoppingBag->AddProduct(PickedProduct);
 
             UE_LOG(LogTemp, Display, TEXT("AI %s: Picked up product %s from shelf %s. Total products: %d/%d"),
-                *GetName(), *ProductData.Name, *CurrentShelf->GetName(), ShoppingBag->GetProductCount(), TotalItemsToPickUp);
-
-            PickedProduct->Destroy();
+                *GetName(), *PickedProduct->GetProductName(), *CurrentShelf->GetName(), ShoppingBag->GetProductCount(), TotalItemsToPickUp);
 
             // Schedule the next product pickup after 1 second
             FTimerHandle NextPickupTimerHandle;

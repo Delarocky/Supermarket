@@ -82,21 +82,19 @@ void ACheckout::ProcessCustomer(AAICustomerPawn* Customer)
     {
         CurrentCustomer = Customer;
         UShoppingBag* ShoppingBag = Customer->GetShoppingBag();
-        TArray<FProductData> Products = ShoppingBag->GetProducts();
+        TArray<AProduct*> Products = ShoppingBag->GetProducts();
 
-        for (const FProductData& ProductData : Products)
+        for (AProduct* Product : Products)
         {
-            FActorSpawnParameters SpawnParams;
-            SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
-
-            FVector SpawnLocation = ItemSpawnPoint->GetComponentLocation();
-            FRotator SpawnRotation = ItemSpawnPoint->GetComponentRotation();
-
-            AProduct* NewProduct = GetWorld()->SpawnActor<AProduct>(AProduct::StaticClass(), SpawnLocation, SpawnRotation, SpawnParams);
-            if (NewProduct)
+            if (Product)
             {
-                NewProduct->InitializeProduct(ProductData);
-                ItemsOnCounter.Add(NewProduct);
+                FVector SpawnLocation = ItemSpawnPoint->GetComponentLocation();
+                FRotator SpawnRotation = ItemSpawnPoint->GetComponentRotation();
+
+                // Move the existing product to the spawn location instead of creating a new one
+                Product->SetActorLocation(SpawnLocation);
+                Product->SetActorRotation(SpawnRotation);
+                ItemsOnCounter.Add(Product);
             }
         }
 
@@ -104,7 +102,7 @@ void ACheckout::ProcessCustomer(AAICustomerPawn* Customer)
         TotalAmount = 0.0f;
         ProcessNextItem();
     }
-    else
+    else if (!CustomerQueue.Contains(Customer))
     {
         CustomerQueue.Add(Customer);
         UpdateQueuePositions();
@@ -126,13 +124,14 @@ void ACheckout::FinishCheckout()
     {
         UE_LOG(LogTemp, Display, TEXT("Checkout complete for customer %s. Total amount: $%.2f"), *CurrentCustomer->GetName(), TotalAmount);
         CurrentCustomer->OnCheckoutComplete();
-        ResetCheckout();
+        CurrentCustomer = nullptr;
     }
+
+    ResetCheckout();
 }
 
 void ACheckout::ResetCheckout()
 {
-    CurrentCustomer = nullptr;
     ItemsOnCounter.Empty();
     CurrentItemIndex = 0;
     TotalAmount = 0.0f;
@@ -146,7 +145,6 @@ void ACheckout::ResetCheckout()
         ProcessCustomer(NextCustomer);
     }
 }
-
 void ACheckout::UpdateQueuePositions()
 {
     for (int32 i = 0; i < CustomerQueue.Num(); ++i)

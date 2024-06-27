@@ -51,7 +51,7 @@ public:
     bool IsSpotEmpty(const FVector& RelativeLocation) const;
 
     UFUNCTION(BlueprintCallable, Category = "Shelf")
-    AProduct* RemoveRandomProduct();
+    AProduct* RemoveNextProduct();
 
     UFUNCTION(BlueprintCallable, Category = "Shelf")
     int32 GetProductCount() const;

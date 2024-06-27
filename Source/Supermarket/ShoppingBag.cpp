@@ -6,12 +6,15 @@ UShoppingBag::UShoppingBag()
     PrimaryComponentTick.bCanEverTick = false;
 }
 
-void UShoppingBag::AddProduct(const FProductData& ProductData)
+void UShoppingBag::AddProduct(AProduct* Product)
 {
-    Products.Add(ProductData);
+    if (Product)
+    {
+        Products.Add(Product);
+    }
 }
 
-TArray<FProductData> UShoppingBag::GetProducts() const
+TArray<AProduct*> UShoppingBag::GetProducts() const
 {
     return Products;
 }
@@ -29,9 +32,12 @@ void UShoppingBag::EmptyBag()
 float UShoppingBag::GetTotalCost() const
 {
     float TotalCost = 0.0f;
-    for (const auto& ProductData : Products)
+    for (const auto& Product : Products)
     {
-        TotalCost += ProductData.Price;
+        if (Product)
+        {
+            TotalCost += Product->GetPrice();
+        }
     }
     return TotalCost;
 }

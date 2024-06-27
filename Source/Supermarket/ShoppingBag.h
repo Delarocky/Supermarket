@@ -3,7 +3,7 @@
 
 #include "CoreMinimal.h"
 #include "Components/ActorComponent.h"
-#include "Product.h" // Make sure this includes the FProductData struct
+#include "Product.h"
 #include "ShoppingBag.generated.h"
 
 UCLASS(ClassGroup = (Custom), meta = (BlueprintSpawnableComponent))
@@ -15,10 +15,10 @@ public:
     UShoppingBag();
 
     UFUNCTION(BlueprintCallable, Category = "Shopping")
-    void AddProduct(const FProductData& ProductData);
+    void AddProduct(AProduct* Product);
 
     UFUNCTION(BlueprintCallable, Category = "Shopping")
-    TArray<FProductData> GetProducts() const;
+    TArray<AProduct*> GetProducts() const;
 
     UFUNCTION(BlueprintCallable, Category = "Shopping")
     int32 GetProductCount() const;
@@ -31,5 +31,5 @@ public:
 
 private:
     UPROPERTY()
-    TArray<FProductData> Products;
+    TArray<AProduct*> Products;
 };
