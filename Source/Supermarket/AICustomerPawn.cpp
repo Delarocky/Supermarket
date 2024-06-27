@@ -151,6 +151,7 @@ void AAICustomerPawn::MoveToLocation(const FVector& Destination)
     }
 }
 
+
 void AAICustomerPawn::TurnToFaceShelf()
 {
     if (!CurrentShelf)
@@ -176,7 +177,7 @@ void AAICustomerPawn::TurnToFaceShelf()
     DeltaRotation = UKismetMathLibrary::NormalizedDeltaRotator(TargetRotation, CurrentRotation);
 
     // Check if the AI is already facing the shelf within 1 degree
-    if (FMath::Abs(DeltaRotation.Yaw) <= 2.0f)
+    if (FMath::Abs(DeltaRotation.Yaw) <= 10.0f)
     {
         // If within 1 degree, don't turn, just pick up the item
         //UE_LOG(LogTemp, Warning, TEXT("AI %s: Already facing the shelf within 1 degree"), *GetName());
