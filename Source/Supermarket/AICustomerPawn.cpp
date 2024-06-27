@@ -179,7 +179,7 @@ void AAICustomerPawn::TurnToFaceShelf()
     if (FMath::Abs(DeltaRotation.Yaw) <= 2.0f)
     {
         // If within 1 degree, don't turn, just pick up the item
-        UE_LOG(LogTemp, Warning, TEXT("AI %s: Already facing the shelf within 1 degree"), *GetName());
+        //UE_LOG(LogTemp, Warning, TEXT("AI %s: Already facing the shelf within 1 degree"), *GetName());
         TryPickUpProduct();
         return;
     }

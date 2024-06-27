@@ -260,7 +260,7 @@ AProduct* AShelf::RemoveRandomProduct()
 
 int32 AShelf::GetProductCount() const
 {
-    UE_LOG(LogTemp, Display, TEXT("Shelf %s: Current product count: %d"), *GetName(), Products.Num());
+    //UE_LOG(LogTemp, Display, TEXT("Shelf %s: Current product count: %d"), *GetName(), Products.Num());
     return Products.Num();
 }
 
