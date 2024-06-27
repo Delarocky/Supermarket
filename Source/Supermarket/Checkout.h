@@ -4,12 +4,11 @@
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
 #include "Components/TextRenderComponent.h"
+#include "Components/SceneComponent.h"
+#include "AICustomerPawn.h"
+#include "ShoppingBag.h"
 #include "Product.h"
 #include "Checkout.generated.h"
-
-class AAICustomerPawn;
-class UShoppingBag;
-class USceneComponent;
 
 UCLASS()
 class SUPERMARKET_API ACheckout : public AActor
@@ -19,87 +18,54 @@ class SUPERMARKET_API ACheckout : public AActor
 public:
     ACheckout();
 
-    virtual void BeginPlay() override;
     virtual void Tick(float DeltaTime) override;
-
-    UFUNCTION(BlueprintCallable, Category = "Checkout")
-    void AddCustomerToQueue(AAICustomerPawn* Customer);
-
-    UFUNCTION(BlueprintCallable, Category = "Checkout")
-    void RemoveCustomerFromQueue(AAICustomerPawn* Customer);
 
     UFUNCTION(BlueprintCallable, Category = "Checkout")
     void ProcessCustomer(AAICustomerPawn* Customer);
 
     UFUNCTION(BlueprintCallable, Category = "Checkout")
-    FVector GetNextQueuePosition() const;
-
-    UFUNCTION(BlueprintCallable, Category = "Checkout")
     bool IsQueueFull() const;
 
-    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Checkout")
-    UTextRenderComponent* TotalProcessedText;
-
     UFUNCTION(BlueprintCallable, Category = "Checkout")
-    bool IsCustomerFirstInQueue(const AAICustomerPawn* Customer) const;
+    FVector GetNextQueuePosition() const;
 
-    UFUNCTION(BlueprintCallable, Category = "Checkout")
-    int32 GetCustomerQueuePosition(const AAICustomerPawn* Customer) const;
-
-    UFUNCTION(BlueprintCallable, Category = "Checkout")
-    bool IsCustomerBeingProcessed(const AAICustomerPawn* Customer) const;
-
-    UFUNCTION(BlueprintCallable, Category = "Checkout")
-    FVector GetQueuePosition(int32 Index) const;
-
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Checkout")
-    USceneComponent* ScannerLocation;
-
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Checkout")
-    int32 GridSizeX;
-
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Checkout")
-    int32 GridSizeY;
-
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Checkout")
-    float GridSpacing;
+protected:
+    virtual void BeginPlay() override;
 
 private:
-    UPROPERTY(VisibleAnywhere, Category = "Checkout")
-    USceneComponent* RootSceneComponent;
+    UPROPERTY(VisibleAnywhere, Category = "Components")
+    UStaticMeshComponent* CounterMesh;
 
-    UPROPERTY(VisibleAnywhere, Category = "Checkout")
+    UPROPERTY(VisibleAnywhere, Category = "Components")
+    UTextRenderComponent* TotalDisplay;
+
+    UPROPERTY(VisibleAnywhere, Category = "Components")
+    USceneComponent* ItemSpawnPoint;
+
+    UPROPERTY(VisibleAnywhere, Category = "Components")
+    USceneComponent* ItemEndPoint;
+
+    UPROPERTY(VisibleAnywhere, Category = "Components")
     TArray<USceneComponent*> QueuePositions;
-
-    UPROPERTY(VisibleAnywhere, Category = "Checkout")
-    UStaticMeshComponent* ConveyorBelt;
 
     UPROPERTY()
     TArray<AAICustomerPawn*> CustomerQueue;
 
     UPROPERTY()
-    float TotalProcessed;
+    AAICustomerPawn* CurrentCustomer;
 
     UPROPERTY()
-    float ProcessingTime;
+    TArray<AProduct*> ItemsOnCounter;
 
-    UPROPERTY()
-    float CurrentProcessingTime;
+    float ScanDuration;
+    float CurrentScanTime;
+    int32 CurrentItemIndex;
+    float TotalAmount;
 
-    UPROPERTY()
-    TArray<AProduct*> CurrentProducts;
+    void ProcessNextItem();
+    void FinishCheckout();
+    void UpdateQueuePositions();
+    void ResetCheckout();
 
-    UPROPERTY()
-    int32 CurrentProductIndex;
-
-    void UpdateQueue();
-    void SetupQueuePositions();
-    FTimerHandle ProcessingTimerHandle;
-    UPROPERTY()
-    AAICustomerPawn* CurrentlyProcessingCustomer;
-
-    void UpdateTotalProcessedText();
-    void ProcessNextProduct();
-    void FinishProcessingCustomer();
-    void SpawnProductsOnGrid(const TArray<FProductData>& Products);
+    static const int32 MaxQueueSize = 10;
 };
