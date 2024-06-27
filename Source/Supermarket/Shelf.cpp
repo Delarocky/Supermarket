@@ -129,9 +129,10 @@ bool AShelf::AddProduct(const FVector& RelativeLocation)
 
             if (NewProduct)
             {
-                // Set product data including scale
-                NewProduct->InitializeProduct(FProductData("Example Product", 10.0f, FVector(0.0525f, 0.0525f, 0.0525f)));
                 Products.Add(NewProduct);
+                NewProduct->AttachToComponent(ProductSpawnPoint, FAttachmentTransformRules::KeepWorldTransform);
+                
+                UE_LOG(LogTemp, Display, TEXT("Added product %s at index %d"), *NewProduct->GetName(), Products.Num() - 1);
                 return true;
             }
         }
