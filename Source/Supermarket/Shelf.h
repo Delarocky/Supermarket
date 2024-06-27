@@ -61,6 +61,8 @@ public:
 
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
     USceneComponent* AccessPoint;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Access Point")
+    FVector AccessPointOffset;
 
 protected:
     virtual void BeginPlay() override;

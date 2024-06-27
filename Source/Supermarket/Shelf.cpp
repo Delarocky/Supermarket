@@ -26,6 +26,7 @@ AShelf::AShelf()
 
     AccessPoint = CreateDefaultSubobject<USceneComponent>(TEXT("AccessPoint"));
     AccessPoint->SetupAttachment(RootComponent);
+    AccessPointOffset = FVector(100.0f, 0.0f, 0.0f);
 }
 
 
@@ -33,18 +34,19 @@ AShelf::AShelf()
 
 void AShelf::SetupAccessPoint()
 {
-    if (ShelfMesh)
+    if (ShelfMesh && AccessPoint)
     {
-        FVector ShelfExtent = ShelfMesh->Bounds.BoxExtent;
-        FVector ShelfOrigin = ShelfMesh->Bounds.Origin;
+        FVector ShelfWorldLocation = ShelfMesh->GetComponentLocation();
+        FRotator ShelfWorldRotation = ShelfMesh->GetComponentRotation();
 
         // Position the access point in front of the shelf
-        FVector AccessPointLocation = ShelfOrigin + FVector(ShelfExtent.X + 10.0f, -20.0f, 0.0f);
+        FVector ForwardVector = ShelfWorldRotation.Vector();
+        FVector RightVector = FRotationMatrix(ShelfWorldRotation).GetUnitAxis(EAxis::Y);
 
+        FVector AccessPointLocation = ShelfWorldLocation + ForwardVector * AccessPointOffset.X + RightVector * AccessPointOffset.Y + FVector(0.0f, 0.0f, AccessPointOffset.Z);
         AccessPoint->SetWorldLocation(AccessPointLocation);
     }
 }
-
 FVector AShelf::GetAccessPointLocation() const
 {
     return AccessPoint->GetComponentLocation();

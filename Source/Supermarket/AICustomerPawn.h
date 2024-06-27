@@ -33,12 +33,17 @@ public:
     UShoppingBag* GetShoppingBag() const { return ShoppingBag; }
 
 private:
+    void TurnToFaceShelf();
     UPROPERTY()
     int32 TotalItemsToPickUp;
 
     UPROPERTY()
     AAIController* AIController;
-
+    FRotator TargetRotation;
+    FRotator DeltaRotation;
+    float RotationTime;
+    float ElapsedTime;
+    bool bIsRotating;
     UPROPERTY()
     AShelf* CurrentShelf;
 

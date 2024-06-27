@@ -9,6 +9,7 @@
 #include "AIController.h"
 #include "TimerManager.h"
 #include "Kismet/KismetMathLibrary.h"
+#include "GameFramework/RotatingMovementComponent.h"
 
 AAICustomerPawn::AAICustomerPawn()
 {
@@ -32,6 +33,27 @@ void AAICustomerPawn::BeginPlay()
 void AAICustomerPawn::Tick(float DeltaTime)
 {
     Super::Tick(DeltaTime);
+
+    if (bIsRotating)
+    {
+        ElapsedTime += DeltaTime;
+        float Alpha = ElapsedTime / RotationTime;
+
+        FRotator CurrentRotation = GetActorRotation();
+        CurrentRotation.Pitch = 0.0f;
+        CurrentRotation.Roll = 0.0f;
+
+        FRotator NewRotation = FMath::Lerp(CurrentRotation, TargetRotation, Alpha);
+
+        SetActorRotation(NewRotation);
+
+        if (Alpha >= 1.0f)
+        {
+            bIsRotating = false;
+            SetActorRotation(TargetRotation);
+            TryPickUpProduct();
+        }
+    }
 }
 
 void AAICustomerPawn::DecideNextAction()
@@ -128,6 +150,39 @@ void AAICustomerPawn::MoveToLocation(const FVector& Destination)
         }
     }
 }
+
+void AAICustomerPawn::TurnToFaceShelf()
+{
+    if (!CurrentShelf)
+    {
+        UE_LOG(LogTemp, Warning, TEXT("AI %s: Cannot turn to face shelf, CurrentShelf is null"), *GetName());
+        DecideNextAction();
+        return;
+    }
+
+    FVector AILocation = GetActorLocation();
+    FVector ShelfLocation = CurrentShelf->GetActorLocation();
+    TargetRotation = UKismetMathLibrary::FindLookAtRotation(AILocation, ShelfLocation);
+
+    // Only consider yaw rotation to avoid twitching on X and Y axes
+    TargetRotation.Pitch = 0.0f;
+    TargetRotation.Roll = 0.0f;
+
+    // Calculate the shortest rotation
+    FRotator CurrentRotation = GetActorRotation();
+    CurrentRotation.Pitch = 0.0f;
+    CurrentRotation.Roll = 0.0f;
+
+    DeltaRotation = UKismetMathLibrary::NormalizedDeltaRotator(TargetRotation, CurrentRotation);
+
+    // Calculate the time needed for rotation (assuming 180 degrees per second)
+    RotationTime = FMath::Abs(DeltaRotation.Yaw) / 180.0f;
+    ElapsedTime = 0.0f;
+
+    bIsRotating = true;
+}
+
+
 void AAICustomerPawn::OnMoveCompleted(FAIRequestID RequestID, EPathFollowingResult::Type Result)
 {
     if (!IsValid(this))
@@ -139,7 +194,15 @@ void AAICustomerPawn::OnMoveCompleted(FAIRequestID RequestID, EPathFollowingResu
     {
         if (ShoppingBag->GetProductCount() < TotalItemsToPickUp)
         {
-            TryPickUpProduct();
+            if (CurrentShelf)
+            {
+                TurnToFaceShelf();
+            }
+            else
+            {
+                UE_LOG(LogTemp, Warning, TEXT("AI %s: CurrentShelf is null"), *GetName());
+                DecideNextAction();
+            }
         }
         else if (ShoppingBag->GetProductCount() > 0)
         {
