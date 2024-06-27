@@ -175,6 +175,15 @@ void AAICustomerPawn::TurnToFaceShelf()
 
     DeltaRotation = UKismetMathLibrary::NormalizedDeltaRotator(TargetRotation, CurrentRotation);
 
+    // Check if the AI is already facing the shelf within 1 degree
+    if (FMath::Abs(DeltaRotation.Yaw) <= 2.0f)
+    {
+        // If within 1 degree, don't turn, just pick up the item
+        UE_LOG(LogTemp, Warning, TEXT("AI %s: Already facing the shelf within 1 degree"), *GetName());
+        TryPickUpProduct();
+        return;
+    }
+
     // Calculate the time needed for rotation (assuming 180 degrees per second)
     RotationTime = FMath::Abs(DeltaRotation.Yaw) / 180.0f;
     ElapsedTime = 0.0f;
