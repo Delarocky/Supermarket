@@ -33,8 +33,17 @@ public:
     FVector ProductSpacing;
 
     UFUNCTION(BlueprintCallable, Category = "Shelf")
-    void StartStockingShelf();
+    void RotateShelf(FRotator NewRotation);
 
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Shelf")
+    FRotator ProductSpawnPointRelativeRotation;
+    UFUNCTION(BlueprintCallable, Category = "Shelf")
+    FVector GetAccessPointLocation() const;
+
+    UFUNCTION(BlueprintCallable, Category = "Shelf")
+    void StartStockingShelf();
+    UFUNCTION(BlueprintCallable, Category = "Shelf")
+    void UpdateProductSpawnPointRotation();
     UFUNCTION(BlueprintCallable, Category = "Shelf")
     void StopStockingShelf();
 
@@ -44,12 +53,14 @@ public:
     UFUNCTION(BlueprintCallable, Category = "Shelf")
     AProduct* RemoveRandomProduct();
 
-
     UFUNCTION(BlueprintCallable, Category = "Shelf")
     int32 GetProductCount() const;
 
     UFUNCTION(BlueprintCallable, Category = "Shelf")
     bool IsFullyStocked() const;
+
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
+    USceneComponent* AccessPoint;
 
 protected:
     virtual void BeginPlay() override;
@@ -57,8 +68,7 @@ protected:
 private:
     UPROPERTY()
     TArray<AProduct*> Products;
-
-    void InitializeShelfStructure();
+    void SetupAccessPoint();
     bool AddProduct(const FVector& RelativeLocation);
     AProduct* RemoveProduct(const FVector& RelativeLocation);
 

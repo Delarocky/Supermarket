@@ -3,7 +3,6 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Character.h"
-#include "ShoppingBag.h"
 #include "AIController.h"
 #include "Navigation/PathFollowingComponent.h"
 #include "AICustomerPawn.generated.h"
@@ -11,18 +10,7 @@
 class ACheckout;
 class AShelf;
 class AProduct;
-
-UENUM(BlueprintType)
-enum class ECustomerState : uint8
-{
-    Idle,
-    MovingToShelf,
-    PickingUpProduct,
-    MovingToCheckout,
-    CheckingOut,
-    Roaming,
-    Leaving
-};
+class UShoppingBag;
 
 UCLASS()
 class SUPERMARKET_API AAICustomerPawn : public ACharacter
@@ -44,42 +32,29 @@ public:
     UFUNCTION(BlueprintCallable, Category = "Shopping")
     UShoppingBag* GetShoppingBag() const { return ShoppingBag; }
 
-    void MoveToCheckoutPosition(int32 QueuePosition);
-
 private:
-    UPROPERTY()
-    ECustomerState CurrentState;
-
-    UPROPERTY()
-    AShelf* TargetShelf;
-
-    UPROPERTY()
-    ACheckout* TargetCheckout;
-
     UPROPERTY()
     int32 TotalItemsToPickUp;
 
     UPROPERTY()
     AAIController* AIController;
 
-    FTimerHandle StateTimerHandle;
-    FTimerHandle PickupTimerHandle;
+    UPROPERTY()
+    AShelf* CurrentShelf;
 
-    void UpdateState();
-    void FindAndMoveToShelf();
-    void TryPickUpProduct();
-    void FindAndMoveToCheckout();
-    void ProcessCheckout();
+    FTimerHandle ActionTimerHandle;
+
+    void DecideNextAction();
+    void MoveToRandomShelf();
+    void MoveToCheckout();
     void LeaveStore();
-    void StartRoaming();
-    void MoveToRandomLocation();
-    void DestroySelf();
+    void MoveToLocation(const FVector& Destination);
+    void TryPickUpProduct();
+    void ProcessCheckout();
 
     UFUNCTION()
     void OnMoveCompleted(FAIRequestID RequestID, EPathFollowingResult::Type Result);
-
-    void MoveToActor(AActor* TargetActor);
+    ACheckout* FindOpenCheckout();
     AShelf* FindRandomStockedShelf();
-
-    void SimpleMoveTo(const FVector& Destination);
+    void DestroySelf();
 };

@@ -2,6 +2,9 @@
 #include "Shelf.h"
 #include "Engine/World.h"
 #include "TimerManager.h"
+#include "Kismet/KismetMathLibrary.h"
+#include "NavigationSystem.h"
+#include "AIController.h"
 
 AShelf::AShelf()
 {
@@ -15,41 +18,117 @@ AShelf::AShelf()
     ShelfMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("ShelfMesh"));
     ShelfMesh->SetupAttachment(RootComponent);
 
-    MaxProducts = 15; // 1x3x5 grid
-    ProductSpacing = FVector(20.0f, 20.0f, 20.0f); // Adjust as needed
+    MaxProducts = 25; // 1x3x5 grid
+    ProductSpacing = FVector(20.0f, 20.0f, 2.67071f); // Adjust as needed
+ 
 
     bIsStocking = false;
+
+    AccessPoint = CreateDefaultSubobject<USceneComponent>(TEXT("AccessPoint"));
+    AccessPoint->SetupAttachment(RootComponent);
 }
+
+
+
+
+void AShelf::SetupAccessPoint()
+{
+    if (ShelfMesh)
+    {
+        FVector ShelfExtent = ShelfMesh->Bounds.BoxExtent;
+        FVector ShelfOrigin = ShelfMesh->Bounds.Origin;
+
+        // Position the access point in front of the shelf
+        FVector AccessPointLocation = ShelfOrigin + FVector(ShelfExtent.X + 10.0f, -20.0f, 0.0f);
+
+        AccessPoint->SetWorldLocation(AccessPointLocation);
+    }
+}
+
+FVector AShelf::GetAccessPointLocation() const
+{
+    return AccessPoint->GetComponentLocation();
+}
+
 
 void AShelf::BeginPlay()
 {
     Super::BeginPlay();
-    InitializeShelfStructure();
+    UpdateProductSpawnPointRotation();
+
+    FVector Extent = ShelfMesh->Bounds.BoxExtent;
+    SetupAccessPoint();
 }
 
-void AShelf::InitializeShelfStructure()
+void AShelf::UpdateProductSpawnPointRotation()
 {
-    // This function can be used to set up any additional initialization
+    if (ShelfMesh && ProductSpawnPoint)
+    {
+        // Get the up vector of the shelf mesh
+        FVector ShelfUpVector = ShelfMesh->GetUpVector();
+
+        // Calculate the rotation needed to align the ProductSpawnPoint with the shelf's orientation
+        FRotator NewRotation = UKismetMathLibrary::MakeRotFromZX(ShelfUpVector, ShelfMesh->GetForwardVector());
+
+        // Set the new rotation for the ProductSpawnPoint
+        ProductSpawnPoint->SetWorldRotation(NewRotation);
+
+        // Optionally, log the new rotation for debugging
+        UE_LOG(LogTemp, Log, TEXT("Updated ProductSpawnPoint rotation to: %s"), *NewRotation.ToString());
+    }
+    else
+    {
+        UE_LOG(LogTemp, Warning, TEXT("ShelfMesh or ProductSpawnPoint is null in UpdateProductSpawnPointRotation"));
+    }
 }
+
+
+void AShelf::RotateShelf(FRotator NewRotation)
+{
+    SetActorRotation(NewRotation);
+    UpdateProductSpawnPointRotation();
+
+    // Reposition all existing products
+    for (AProduct* Product : Products)
+    {
+        if (Product)
+        {
+            FVector RelativeLocation = Product->GetActorLocation() - ProductSpawnPoint->GetComponentLocation();
+            RelativeLocation = ProductSpawnPoint->GetComponentRotation().UnrotateVector(RelativeLocation);
+
+            FVector NewLocation = ProductSpawnPoint->GetComponentLocation() +
+                ProductSpawnPoint->GetComponentRotation().RotateVector(RelativeLocation);
+
+            Product->SetActorLocation(NewLocation);
+            Product->SetActorRotation(ProductSpawnPoint->GetComponentRotation());
+        }
+    }
+}
+
 
 bool AShelf::AddProduct(const FVector& RelativeLocation)
 {
     if (Products.Num() < MaxProducts && IsSpotEmpty(RelativeLocation))
     {
-        FVector SpawnLocation = ProductSpawnPoint->GetComponentLocation() + RelativeLocation;
+        FVector SpawnLocation = ProductSpawnPoint->GetComponentLocation() +
+            ProductSpawnPoint->GetComponentRotation().RotateVector(RelativeLocation);
 
         FActorSpawnParameters SpawnParams;
         SpawnParams.Owner = this;
 
         if (DefaultProductClass)
         {
-            AProduct* NewProduct = GetWorld()->SpawnActor<AProduct>(DefaultProductClass, SpawnLocation, ProductSpawnPoint->GetComponentRotation(), SpawnParams);
+            AProduct* NewProduct = GetWorld()->SpawnActor<AProduct>(
+                DefaultProductClass,
+                SpawnLocation,
+                ProductSpawnPoint->GetComponentRotation(),
+                SpawnParams
+            );
 
             if (NewProduct)
             {
                 Products.Add(NewProduct);
                 NewProduct->AttachToComponent(ProductSpawnPoint, FAttachmentTransformRules::KeepWorldTransform);
-                NewProduct->SetActorLocation(SpawnLocation);
                 return true;
             }
         }
@@ -104,28 +183,36 @@ void AShelf::StockNextProduct()
         return;
     }
 
-    bool productAdded = false;
-    for (int32 x = 0; x < 5 && !productAdded; ++x)
+    int32 currentProductCount = Products.Num();
+    if (currentProductCount < MaxProducts)
     {
-        for (int32 y = 0; y < 3 && !productAdded; ++y)
-        {
-            FVector RelativeLocation = FVector(x * ProductSpacing.X, y * ProductSpacing.Y, 0);
-            if (AddProduct(RelativeLocation))
-            {
-                productAdded = true;
-                //UE_LOG(LogTemp, Display, TEXT("Shelf %s: Added product at location %s."), *GetName(), *RelativeLocation.ToString());
-                break;
-            }
-        }
-    }
+        int32 row = currentProductCount / 5;  // Assuming 5 products per row
+        int32 column = currentProductCount % 5;
 
-    if (productAdded && Products.Num() < MaxProducts)
-    {
-        GetWorld()->GetTimerManager().SetTimer(StockingTimerHandle, this, &AShelf::StockNextProduct, 0.3f, false);
+        FVector RelativeLocation = FVector(
+            column * ProductSpacing.X,
+            row * ProductSpacing.Y,
+            ProductSpacing.Z  // Height above the shelf
+        );
+
+        if (AddProduct(RelativeLocation))
+        {
+            UE_LOG(LogTemp, Display, TEXT("Shelf %s: Added product at relative location %s. Total products: %d"),
+                *GetName(), *RelativeLocation.ToString(), Products.Num());
+
+            // Schedule next product spawn
+            GetWorld()->GetTimerManager().SetTimer(StockingTimerHandle, this, &AShelf::StockNextProduct, 0.3f, false);
+        }
+        else
+        {
+            UE_LOG(LogTemp, Warning, TEXT("Shelf %s: Failed to add product at relative location %s"),
+                *GetName(), *RelativeLocation.ToString());
+            bIsStocking = false;
+        }
     }
     else
     {
-        //UE_LOG(LogTemp, Display, TEXT("Shelf %s: Finished stocking. Total products: %d"), *GetName(), Products.Num());
+       // UE_LOG(LogTemp, Display, TEXT("Shelf %s: Finished stocking. Total products: %d"), *GetName(), Products.Num());
         bIsStocking = false;
     }
 }

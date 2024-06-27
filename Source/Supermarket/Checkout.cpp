@@ -9,6 +9,8 @@
 #include "Kismet/GameplayStatics.h"
 #include "Engine/World.h"
 #include "Product.h"
+#include "NavigationSystem.h"
+#include "Navigation/PathFollowingComponent.h"
 
 ACheckout::ACheckout()
 {
@@ -98,7 +100,7 @@ void ACheckout::SetupQueuePositions()
 {
     for (int32 i = 0; i < QueuePositions.Num(); ++i)
     {
-        QueuePositions[i]->SetRelativeLocation(FVector(75.0f * i, 0.0f, 0.0f));
+        QueuePositions[i]->SetRelativeLocation(FVector(-75.0f * i, 0.0f, 0.0f));
     }
 }
 
@@ -217,7 +219,6 @@ void ACheckout::FinishProcessingCustomer()
     }
 }
 
-
 void ACheckout::ProcessNextProduct()
 {
     if (CurrentProductIndex < CurrentProducts.Num())
@@ -250,8 +251,6 @@ void ACheckout::ProcessNextProduct()
     }
 }
 
-
-
 void ACheckout::SpawnProductsOnGrid(const TArray<FProductData>& Products)
 {
     // Clear any existing products
@@ -265,12 +264,13 @@ void ACheckout::SpawnProductsOnGrid(const TArray<FProductData>& Products)
     CurrentProducts.Empty();
 
     // Spawn new products on the grid
+    FVector GridOrigin = ScannerLocation->GetComponentLocation();
     for (int32 i = 0; i < Products.Num() && i < GridSizeX * GridSizeY; ++i)
     {
         int32 Row = i / GridSizeX;
         int32 Col = i % GridSizeX;
 
-        FVector SpawnLocation = GetActorLocation() + ConveyorBelt->GetComponentLocation() + FVector(Col * GridSpacing, Row * GridSpacing, 50.0f);
+        FVector SpawnLocation = GridOrigin + FVector(Col * GridSpacing, Row * GridSpacing, 50.0f);
         FActorSpawnParameters SpawnParams;
         SpawnParams.Owner = this;
         SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
