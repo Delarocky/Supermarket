@@ -90,8 +90,8 @@ void AAICustomerPawn::MoveToRandomShelf()
     }
     else
     {
-        UE_LOG(LogTemp, Warning, TEXT("AI %s: No accessible stocked shelves found. Waiting..."), *GetName());
-        GetWorld()->GetTimerManager().SetTimer(ActionTimerHandle, this, &AAICustomerPawn::DecideNextAction, 2.0f, false);
+       // UE_LOG(LogTemp, Warning, TEXT("AI %s: No accessible stocked shelves found. Waiting..."), *GetName());
+        GetWorld()->GetTimerManager().SetTimer(ActionTimerHandle, this, &AAICustomerPawn::DecideNextAction, 1.0f, false);
     }
 }
 
