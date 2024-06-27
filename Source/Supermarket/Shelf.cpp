@@ -129,8 +129,9 @@ bool AShelf::AddProduct(const FVector& RelativeLocation)
 
             if (NewProduct)
             {
+                // Set product data including scale
+                NewProduct->InitializeProduct(FProductData("Example Product", 10.0f, FVector(0.0525f, 0.0525f, 0.0525f)));
                 Products.Add(NewProduct);
-                NewProduct->AttachToComponent(ProductSpawnPoint, FAttachmentTransformRules::KeepWorldTransform);
                 return true;
             }
         }
@@ -139,27 +140,12 @@ bool AShelf::AddProduct(const FVector& RelativeLocation)
             UE_LOG(LogTemp, Warning, TEXT("DefaultProductClass is not set in AShelf"));
         }
     }
+
+    UE_LOG(LogTemp, Warning, TEXT("Shelf %s: Failed to add product at relative location %s"), *GetName(), *RelativeLocation.ToString());
     return false;
 }
 
-AProduct* AShelf::RemoveProduct(const FVector& RelativeLocation)
-{
-    FVector SpawnPointLocation = ProductSpawnPoint->GetComponentLocation();
-    for (int32 i = 0; i < Products.Num(); ++i)
-    {
-        if (Products[i])
-        {
-            FVector ProductRelativeLocation = Products[i]->GetActorLocation() - SpawnPointLocation;
-            if (ProductRelativeLocation.Equals(RelativeLocation, 1.0f))
-            {
-                AProduct* RemovedProduct = Products[i];
-                Products.RemoveAt(i);
-                return RemovedProduct;
-            }
-        }
-    }
-    return nullptr;
-}
+
 
 void AShelf::StartStockingShelf()
 {
@@ -221,41 +207,53 @@ void AShelf::StockNextProduct()
 
 bool AShelf::IsSpotEmpty(const FVector& RelativeLocation) const
 {
-    FVector SpawnPointLocation = ProductSpawnPoint->GetComponentLocation();
-    for (const AProduct* Product : Products)
-    {
-        if (Product)
-        {
-            FVector ProductRelativeLocation = Product->GetActorLocation() - SpawnPointLocation;
-            if (ProductRelativeLocation.Equals(RelativeLocation, 1.0f))
-            {
-                return false;
-            }
-        }
-    }
-    return true;
+    FVector WorldLocation = ProductSpawnPoint->GetComponentLocation() +
+        ProductSpawnPoint->GetComponentRotation().RotateVector(RelativeLocation);
+
+    FCollisionQueryParams QueryParams;
+    QueryParams.AddIgnoredActor(this);
+
+    FCollisionShape CollisionShape = FCollisionShape::MakeBox(FVector(1.0f, 1.0f, 1.0f)); // Adjust the box size as needed
+
+    bool bIsEmpty = !GetWorld()->OverlapBlockingTestByChannel(
+        WorldLocation,
+        FQuat::Identity,
+        ECC_WorldStatic,
+        CollisionShape,
+        QueryParams
+    );
+
+    UE_LOG(LogTemp, Display, TEXT("IsSpotEmpty: Location %s is %s"), *WorldLocation.ToString(), bIsEmpty ? TEXT("empty") : TEXT("not empty"));
+
+    return bIsEmpty;
 }
 
 AProduct* AShelf::RemoveNextProduct()
 {
     if (Products.Num() > 0)
     {
-        AProduct* RemovedProduct = Products[0];
-        Products.RemoveAt(0);
+        // Remove the last product in the array
+        AProduct* RemovedProduct = Products.Last();
+        Products.RemoveAt(Products.Num() - 1);
 
-        UE_LOG(LogTemp, Display, TEXT("Shelf %s: Removed product %s. Remaining products: %d"),
-            *GetName(), *RemovedProduct->GetName(), Products.Num());
+        if (RemovedProduct)
+        {
+            UE_LOG(LogTemp, Display, TEXT("Shelf %s: Removed product %s. Remaining products: %d"),
+                *GetName(), *RemovedProduct->GetProductName(), Products.Num());
 
-        // Detach the product from the shelf
-        RemovedProduct->DetachFromActor(FDetachmentTransformRules::KeepWorldTransform);
+            // Detach the product from the shelf
+            RemovedProduct->DetachFromActor(FDetachmentTransformRules::KeepWorldTransform);
 
-        return RemovedProduct;
+            // Optionally, hide or destroy the visual representation of the product
+            RemovedProduct->SetActorHiddenInGame(true); // Example: Hide the product visually
+
+            return RemovedProduct;
+        }
     }
 
     UE_LOG(LogTemp, Warning, TEXT("Shelf %s: Attempted to remove product, but shelf is empty."), *GetName());
     return nullptr;
 }
-
 
 
 int32 AShelf::GetProductCount() const

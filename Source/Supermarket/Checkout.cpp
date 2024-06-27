@@ -88,13 +88,28 @@ void ACheckout::ProcessCustomer(AAICustomerPawn* Customer)
         {
             if (Product)
             {
+                // Spawn a new instance of the product at the checkout counter
                 FVector SpawnLocation = ItemSpawnPoint->GetComponentLocation();
                 FRotator SpawnRotation = ItemSpawnPoint->GetComponentRotation();
 
-                // Move the existing product to the spawn location instead of creating a new one
-                Product->SetActorLocation(SpawnLocation);
-                Product->SetActorRotation(SpawnRotation);
-                ItemsOnCounter.Add(Product);
+                AProduct* SpawnedProduct = GetWorld()->SpawnActor<AProduct>(
+                    Product->GetClass(),
+                    SpawnLocation,
+                    SpawnRotation
+                );
+
+                if (SpawnedProduct)
+                {
+                    // Initialize with product data and set scale
+                    SpawnedProduct->InitializeProduct(Product->GetProductData());
+                    SpawnedProduct->SetActorScale3D(Product->GetProductData().Scale); // Set scale explicitly
+
+                    ItemsOnCounter.Add(SpawnedProduct);
+                }
+                else
+                {
+                    UE_LOG(LogTemp, Warning, TEXT("Failed to spawn product at checkout."));
+                }
             }
         }
 

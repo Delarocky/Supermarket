@@ -246,10 +246,14 @@ void AAICustomerPawn::TryPickUpProduct()
         AProduct* PickedProduct = CurrentShelf->RemoveNextProduct();
         if (PickedProduct)
         {
+            // Add the picked product to the shopping bag
             ShoppingBag->AddProduct(PickedProduct);
 
             UE_LOG(LogTemp, Display, TEXT("AI %s: Picked up product %s from shelf %s. Total products: %d/%d"),
                 *GetName(), *PickedProduct->GetProductName(), *CurrentShelf->GetName(), ShoppingBag->GetProductCount(), TotalItemsToPickUp);
+
+            // Destroy the actor after picking up
+            PickedProduct->Destroy();
 
             // Schedule the next product pickup after 1 second
             FTimerHandle NextPickupTimerHandle;

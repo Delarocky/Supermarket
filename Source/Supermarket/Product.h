@@ -19,7 +19,7 @@ struct FProductData
     UPROPERTY(EditAnywhere, BlueprintReadWrite)
     FVector Scale;
 
-    FProductData() : Name(""), Price(0.0f), Scale(FVector(1.0f, 1.0f, 1.0f)) {}
+      FProductData() : Name(""), Price(0.0f), Scale(FVector(1.0f, 1.0f, 1.0f)) {}
     FProductData(const FString& InName, float InPrice, const FVector& InScale)
         : Name(InName), Price(InPrice), Scale(InScale) {}
 };
@@ -35,9 +35,6 @@ public:
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Product")
     UStaticMeshComponent* ProductMesh;
 
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Product")
-    FProductData ProductData;
-
     UFUNCTION(BlueprintCallable, Category = "Product")
     void InitializeProduct(const FProductData& InProductData);
 
@@ -49,9 +46,12 @@ public:
 
     UFUNCTION(BlueprintCallable, Category = "Product")
     FProductData GetProductData() const;
+  
 
 protected:
     virtual void BeginPlay() override;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Product")
+    FProductData ProductData;
 
 #if WITH_EDITOR
     virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;

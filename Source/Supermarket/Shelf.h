@@ -72,7 +72,6 @@ private:
     TArray<AProduct*> Products;
     void SetupAccessPoint();
     bool AddProduct(const FVector& RelativeLocation);
-    AProduct* RemoveProduct(const FVector& RelativeLocation);
 
     FTimerHandle StockingTimerHandle;
     void StockNextProduct();

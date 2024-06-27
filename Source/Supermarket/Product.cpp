@@ -32,7 +32,7 @@ void AProduct::BeginPlay()
 void AProduct::InitializeProduct(const FProductData& InProductData)
 {
     ProductData = InProductData;
-    ProductMesh->SetWorldScale3D(ProductData.Scale);
+    SetActorScale3D(ProductData.Scale); // Ensure scale is set when initialized
 }
 
 FString AProduct::GetProductName() const
