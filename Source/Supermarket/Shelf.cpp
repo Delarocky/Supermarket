@@ -27,6 +27,8 @@ AShelf::AShelf()
     AccessPoint = CreateDefaultSubobject<USceneComponent>(TEXT("AccessPoint"));
     AccessPoint->SetupAttachment(RootComponent);
     AccessPointOffset = FVector(0.0f, 0.0f, 0.0f);
+
+    bStartFullyStocked = false; // Set default value
 }
 
 
@@ -60,6 +62,7 @@ void AShelf::BeginPlay()
 
     FVector Extent = ShelfMesh->Bounds.BoxExtent;
     SetupAccessPoint();
+    InitializeShelf();
 }
 
 void AShelf::UpdateProductSpawnPointRotation()
@@ -107,6 +110,32 @@ void AShelf::RotateShelf(FRotator NewRotation)
     }
 }
 
+void AShelf::InitializeShelf()
+{
+    if (bStartFullyStocked)
+    {
+        // Stock the shelf to its maximum capacity
+        while (Products.Num() < MaxProducts)
+        {
+            int32 currentProductCount = Products.Num();
+            int32 row = currentProductCount / 5;  // Assuming 5 products per row
+            int32 column = currentProductCount % 5;
+
+            FVector RelativeLocation = FVector(
+                column * ProductSpacing.X,
+                row * ProductSpacing.Y,
+                ProductSpacing.Z  // Height above the shelf
+            );
+
+            AddProduct(RelativeLocation);
+        }
+        UE_LOG(LogTemp, Display, TEXT("Shelf %s: Initialized as fully stocked with %d products"), *GetName(), Products.Num());
+    }
+    else
+    {
+        UE_LOG(LogTemp, Display, TEXT("Shelf %s: Initialized without initial stock"), *GetName());
+    }
+}
 
 bool AShelf::AddProduct(const FVector& RelativeLocation)
 {

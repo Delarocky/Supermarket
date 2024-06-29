@@ -17,6 +17,10 @@ class SUPERMARKET_API AShelf : public AActor
 public:
     AShelf();
 
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Shelf")
+    bool bStartFullyStocked;
+
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
     USceneComponent* ProductSpawnPoint;
 
@@ -63,7 +67,6 @@ public:
     USceneComponent* AccessPoint;
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Access Point")
     FVector AccessPointOffset;
-
 protected:
     virtual void BeginPlay() override;
 
@@ -72,6 +75,7 @@ private:
     TArray<AProduct*> Products;
     void SetupAccessPoint();
     bool AddProduct(const FVector& RelativeLocation);
+    void InitializeShelf();
 
     FTimerHandle StockingTimerHandle;
     void StockNextProduct();

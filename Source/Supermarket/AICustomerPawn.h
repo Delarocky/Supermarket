@@ -63,7 +63,8 @@ protected:
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Shopping")
     int32 MaxItems;
 
-    
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Shopping")
+    float RetryDelay = 2.0f;
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Shopping")
     float ShoppingTime;
@@ -71,6 +72,8 @@ protected:
     void SetCurrentShelf(AShelf* Shelf);
 private:
     FTimerHandle ChooseProductTimerHandle;
+    void RetryEnterCheckoutQueue();
+    int32 RetryCount;
     void InitializeAIController();
     void PutCurrentProductInBag();
     void GoToCheckoutWhenDone();
@@ -94,7 +97,6 @@ private:
     void LeaveStore();
     FTimerHandle LeaveStoreTimerHandle;
     FVector CurrentTargetLocation;
-    FTimerHandle CheckReachedProductTimerHandle;
     FTimerHandle PutInBagTimerHandle;
     FTimerHandle ShoppingTimerHandle;
     FTimerHandle CheckoutTimerHandle;

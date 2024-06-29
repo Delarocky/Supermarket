@@ -19,7 +19,7 @@ AAICustomerPawn::AAICustomerPawn()
     AutoPossessAI = EAutoPossessAI::PlacedInWorldOrSpawned;
 
     ShoppingBag = CreateDefaultSubobject<UShoppingBag>(TEXT("ShoppingBag"));
-    MaxItems = 5;
+    MaxItems = FMath::RandRange(2, 12);  // Random number between 2 and 12
     ShoppingTime = 300.0f; // 5 minutes
     CurrentItems = 0;
 }
@@ -187,7 +187,7 @@ void AAICustomerPawn::PutCurrentProductInBag()
         else
         {
             // If we haven't reached max items, choose the next product after a short delay
-            GetWorldTimerManager().SetTimer(ChooseProductTimerHandle, this, &AAICustomerPawn::ChooseProduct, 1.0f, false);
+            GetWorldTimerManager().SetTimer(ChooseProductTimerHandle, this, &AAICustomerPawn::ChooseProduct, 0.5f, false);
         }
     }
     else
@@ -260,7 +260,7 @@ void AAICustomerPawn::PutProductInBag(AProduct* Product)
         else
         {
             // If we haven't reached max items, choose the next product after a short delay
-            GetWorldTimerManager().SetTimer(ChooseProductTimerHandle, this, &AAICustomerPawn::ChooseProduct, 1.0f, false);
+            GetWorldTimerManager().SetTimer(ChooseProductTimerHandle, this, &AAICustomerPawn::ChooseProduct, 0.5f, false);
         }
     }
     else
@@ -276,7 +276,12 @@ void AAICustomerPawn::PutProductInBag(AProduct* Product)
 
 void AAICustomerPawn::GoToCheckoutWhenDone()
 {
+    RetryCount = 0;
+    RetryEnterCheckoutQueue();
+}
 
+void AAICustomerPawn::RetryEnterCheckoutQueue()
+{
     TArray<AActor*> FoundCheckouts;
     UGameplayStatics::GetAllActorsOfClass(GetWorld(), ACheckout::StaticClass(), FoundCheckouts);
 
@@ -289,20 +294,22 @@ void AAICustomerPawn::GoToCheckoutWhenDone()
         if (ChosenCheckout && ChosenCheckout->TryEnterQueue(this))
         {
             CurrentCheckout = ChosenCheckout;
-            UE_LOG(LogTemp, Display, TEXT("AI entered checkout queue"));
+            UE_LOG(LogTemp, Display, TEXT("AI entered checkout queue after %d attempts"), RetryCount + 1);
         }
         else
         {
-            UE_LOG(LogTemp, Warning, TEXT("AI couldn't enter checkout queue, it might be full"));
-            // Maybe try another checkout or wait and retry
+            RetryCount++;
+            UE_LOG(LogTemp, Warning, TEXT("AI couldn't enter checkout queue, retrying in %.1f seconds. Attempt %d"),
+                RetryDelay, RetryCount + 1);
+            GetWorldTimerManager().SetTimer(RetryTimerHandle, this, &AAICustomerPawn::RetryEnterCheckoutQueue, RetryDelay, false);
         }
     }
     else
     {
-        UE_LOG(LogTemp, Warning, TEXT("No checkouts found in the level"));
+        UE_LOG(LogTemp, Warning, TEXT("No checkouts found in the level. Retrying in %.1f seconds."), RetryDelay);
+        GetWorldTimerManager().SetTimer(RetryTimerHandle, this, &AAICustomerPawn::RetryEnterCheckoutQueue, RetryDelay, false);
     }
 }
-
 
 void AAICustomerPawn::DebugShoppingState()
 {
@@ -313,7 +320,8 @@ void AAICustomerPawn::MoveTo(const FVector& Location)
 {
     if (AIController)
     {
-        UAIBlueprintHelperLibrary::SimpleMoveToLocation(AIController, Location);
+        // Use MoveToLocation with a small acceptance radius for precise movement
+        AIController->MoveToLocation(Location, 1.0f, false, true, false, false, nullptr, true);
     }
     else
     {
@@ -321,7 +329,7 @@ void AAICustomerPawn::MoveTo(const FVector& Location)
         InitializeAIController();
         if (AIController)
         {
-            UAIBlueprintHelperLibrary::SimpleMoveToLocation(AIController, Location);
+            AIController->MoveToLocation(Location, 1.0f, false, true, false, false, nullptr, true);
         }
     }
 }
@@ -520,7 +528,7 @@ void AAICustomerPawn::TryPickUpProduct()
             CurrentTargetProduct = PickedProduct;
 
             // Schedule PutCurrentProductInBag to be called after the animation
-            GetWorldTimerManager().SetTimer(PutInBagTimerHandle, this, &AAICustomerPawn::PutCurrentProductInBag, 1.0f, false);
+            GetWorldTimerManager().SetTimer(PutInBagTimerHandle, this, &AAICustomerPawn::PutCurrentProductInBag, 0.5f, false);
         }
         else
         {
