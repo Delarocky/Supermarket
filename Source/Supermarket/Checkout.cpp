@@ -328,6 +328,13 @@ void ACheckout::FinishTransaction()
     {
         AAICustomerPawn* ProcessedCustomer = CustomersInQueue[0];
         CustomerLeft(ProcessedCustomer);
+
+        // Destroy the products in the customer's shopping bag
+        if (ProcessedCustomer && ProcessedCustomer->ShoppingBag)
+        {
+            ProcessedCustomer->ShoppingBag->DestroyProducts();
+        }
+
         ProcessedCustomer->LeaveCheckout();
     }
 

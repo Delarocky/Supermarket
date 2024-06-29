@@ -16,7 +16,8 @@ public:
 
     UFUNCTION(BlueprintCallable, Category = "Shopping")
     void AddProduct(AProduct* Product);
-
+    UFUNCTION(BlueprintCallable, Category = "Shopping")
+    void DestroyProducts();
     UFUNCTION(BlueprintCallable, Category = "Shopping")
     TArray<AProduct*> GetProducts() const;
 

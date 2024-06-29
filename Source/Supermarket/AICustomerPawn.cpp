@@ -157,14 +157,46 @@ void AAICustomerPawn::ChooseProduct()
 
 void AAICustomerPawn::PutCurrentProductInBag()
 {
-    if (CurrentTargetProduct)
+    if (CurrentTargetProduct && PutInBagAnimation && ShoppingBag)
     {
-        PutProductInBag(CurrentTargetProduct);
+        UE_LOG(LogTemp, Display, TEXT("Putting product in bag: %s"), *CurrentTargetProduct->GetProductName());
+        PlayAnimMontage(PutInBagAnimation);
+
+        // Add the product to the shopping bag
+        ShoppingBag->AddProduct(CurrentTargetProduct);
+
+        // Hide the product and disable its collision
+        CurrentTargetProduct->SetActorHiddenInGame(true);
+        CurrentTargetProduct->SetActorEnableCollision(false);
+
+        CurrentItems++;
+        UE_LOG(LogTemp, Display, TEXT("Product added to bag. Current Items: %d"), CurrentItems);
+
+        // Debug print the contents of the shopping bag
+        ShoppingBag->DebugPrintContents();
+
+        // Reset CurrentTargetProduct
         CurrentTargetProduct = nullptr;
+
+        // Check if we've reached MaxItems
+        if (CurrentItems >= MaxItems)
+        {
+            UE_LOG(LogTemp, Display, TEXT("Max items reached, going to checkout"));
+            GoToCheckoutWhenDone();
+        }
+        else
+        {
+            // If we haven't reached max items, choose the next product after a short delay
+            GetWorldTimerManager().SetTimer(ChooseProductTimerHandle, this, &AAICustomerPawn::ChooseProduct, 1.0f, false);
+        }
     }
     else
     {
-        UE_LOG(LogTemp, Warning, TEXT("No current target product to put in bag"));
+        UE_LOG(LogTemp, Error, TEXT("Failed to put product in bag. Product: %s, Animation: %s, ShoppingBag: %s"),
+            CurrentTargetProduct ? TEXT("Valid") : TEXT("Invalid"),
+            PutInBagAnimation ? TEXT("Valid") : TEXT("Invalid"),
+            ShoppingBag ? TEXT("Valid") : TEXT("Invalid"));
+        // If we failed to put the product in the bag, try to choose another product
         ChooseProduct();
     }
 }
@@ -479,15 +511,16 @@ void AAICustomerPawn::TryPickUpProduct()
             UE_LOG(LogTemp, Display, TEXT("Picked up product %s from shelf %s. Total products: %d/%d"),
                 *PickedProduct->GetProductName(), *CurrentShelf->GetName(), CurrentItems + 1, MaxItems);
 
-            // Play grab animation if available
             if (GrabProductAnimation)
             {
                 PlayAnimMontage(GrabProductAnimation);
             }
 
-            // Set up timer to put product in bag after a short delay
-            GetWorldTimerManager().SetTimer(PutInBagTimerHandle, this, &AAICustomerPawn::PutCurrentProductInBag, 1.0f, false);
+            // Set the CurrentTargetProduct
             CurrentTargetProduct = PickedProduct;
+
+            // Schedule PutCurrentProductInBag to be called after the animation
+            GetWorldTimerManager().SetTimer(PutInBagTimerHandle, this, &AAICustomerPawn::PutCurrentProductInBag, 1.0f, false);
         }
         else
         {

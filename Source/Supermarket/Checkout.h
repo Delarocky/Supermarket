@@ -55,7 +55,7 @@ public:
     USceneComponent* ScanPoint;
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Checkout")
-    float ItemMoveSpeed = 200.0f; // Units per second
+    float ItemMoveSpeed = 300.0f; // Units per second
 
 protected:
     virtual void BeginPlay() override;
@@ -112,7 +112,7 @@ private:
     FVector TextOffset = FVector(104,80,40);
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Checkout", meta = (AllowPrivateAccess = "true"))
-    float TimeBetweenScans = 1.0f;
+    float TimeBetweenScans = 0.2f;
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Checkout", meta = (AllowPrivateAccess = "true"))
     bool bDebugMode = true;

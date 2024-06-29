@@ -43,6 +43,18 @@ float UShoppingBag::GetTotalCost() const
     return TotalCost;
 }
 
+void UShoppingBag::DestroyProducts()
+{
+    for (auto& Product : Products)
+    {
+        if (Product)
+        {
+            Product->Destroy();
+        }
+    }
+    Products.Empty();
+}
+
 void UShoppingBag::DebugPrintContents() const
 {
     UE_LOG(LogTemp, Display, TEXT("Shopping Bag Contents:"));
