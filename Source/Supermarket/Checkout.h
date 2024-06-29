@@ -1,14 +1,17 @@
-// Checkout.h
+// ACheckout.h
 #pragma once
 
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
-#include "Components/TextRenderComponent.h"
-#include "Components/SceneComponent.h"
-#include "AICustomerPawn.h"
-#include "ShoppingBag.h"
-#include "Product.h"
 #include "Checkout.generated.h"
+class USceneComponent;
+class AAICustomerPawn;
+class AProduct;
+class USkeletalMeshComponent;
+class UAnimMontage;
+class UStaticMeshComponent;
+class UTextRenderComponent;
+class UAudioComponent;
 
 UCLASS()
 class SUPERMARKET_API ACheckout : public AActor
@@ -18,54 +21,124 @@ class SUPERMARKET_API ACheckout : public AActor
 public:
     ACheckout();
 
-    virtual void Tick(float DeltaTime) override;
-
-    UFUNCTION(BlueprintCallable, Category = "Checkout")
+    UFUNCTION(BlueprintCallable)
     void ProcessCustomer(AAICustomerPawn* Customer);
 
-    UFUNCTION(BlueprintCallable, Category = "Checkout")
-    bool IsQueueFull() const;
+    UFUNCTION(BlueprintCallable)
+    void ScanItem(AProduct* Product);
 
-    UFUNCTION(BlueprintCallable, Category = "Checkout")
-    FVector GetNextQueuePosition() const;
+    UFUNCTION(BlueprintCallable)
+    void FinishTransaction();
+
+    UFUNCTION(BlueprintCallable)
+    void ScanNextItem();
+
+    UFUNCTION(BlueprintCallable)
+    bool TryEnterQueue(AAICustomerPawn* Customer);
+
+    UFUNCTION(BlueprintCallable)
+    void CustomerLeft(AAICustomerPawn* Customer);
+
+    UFUNCTION(BlueprintCallable)
+    bool ProcessPayment(float Amount);
+
+    UFUNCTION(BlueprintCallable)
+    void DisplayTotal(float Amount);
+
+    UFUNCTION(BlueprintCallable)
+    void ResetCheckout();
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Checkout")
+    USceneComponent* GridStartPoint;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Checkout")
+    USceneComponent* ScanPoint;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Checkout")
+    float ItemMoveSpeed = 200.0f; // Units per second
 
 protected:
     virtual void BeginPlay() override;
 
-private:
-    UPROPERTY(VisibleAnywhere, Category = "Components")
-    UStaticMeshComponent* CounterMesh;
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Mesh")
+    USkeletalMeshComponent* CheckoutMesh;
 
-    UPROPERTY(VisibleAnywhere, Category = "Components")
-    UTextRenderComponent* TotalDisplay;
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Display")
+    UStaticMeshComponent* DisplayMonitor;
 
-    UPROPERTY(VisibleAnywhere, Category = "Components")
-    USceneComponent* ItemSpawnPoint;
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Display")
+    UTextRenderComponent* TotalText;
 
-    UPROPERTY(VisibleAnywhere, Category = "Components")
-    USceneComponent* ItemEndPoint;
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Audio")
+    UAudioComponent* PaymentSound;
 
-    UPROPERTY(VisibleAnywhere, Category = "Components")
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Animation")
+    UAnimMontage* ScanItemAnimation;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Animation")
+    UAnimMontage* FinishTransactionAnimation;
+    UPROPERTY(EditAnywhere, Category = "Queue")
+    int32 MaxQueueSize = 10;
+    UPROPERTY(EditAnywhere, Category = "Queue")
     TArray<USceneComponent*> QueuePositions;
+private:
+    UPROPERTY()
+    TArray<AProduct*> ScannedItems;
 
     UPROPERTY()
-    TArray<AAICustomerPawn*> CustomerQueue;
-
-    UPROPERTY()
-    AAICustomerPawn* CurrentCustomer;
+    TArray<AProduct*> ProductsToScan;
 
     UPROPERTY()
     TArray<AProduct*> ItemsOnCounter;
 
-    float ScanDuration;
-    float CurrentScanTime;
-    int32 CurrentItemIndex;
     float TotalAmount;
+    int32 CurrentItemIndex;
+    bool bIsProcessingCustomer;
 
-    void ProcessNextItem();
-    void FinishCheckout();
-    void UpdateQueuePositions();
-    void ResetCheckout();
+    UPROPERTY(EditAnywhere, Category = "Checkout")
+    float ProcessingDistance = 110.0f;
 
-    static const int32 MaxQueueSize = 10;
+
+
+    UPROPERTY()
+    TArray<AAICustomerPawn*> CustomersInQueue;
+
+ 
+
+    UPROPERTY(EditAnywhere, Category = "Display")
+    FVector DisplayOffset = FVector(40,-82,100);
+
+    UPROPERTY(EditAnywhere, Category = "Display")
+    FVector TextOffset = FVector(104,80,40);
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Checkout", meta = (AllowPrivateAccess = "true"))
+    float TimeBetweenScans = 1.0f;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Checkout", meta = (AllowPrivateAccess = "true"))
+    bool bDebugMode = true;
+
+    UPROPERTY(EditAnywhere, Category = "Checkout", meta = (AllowPrivateAccess = "true"))
+    FVector2D GridSize = FVector2D(4, 4);
+
+    UPROPERTY(EditAnywhere, Category = "Checkout", meta = (AllowPrivateAccess = "true"))
+    FVector2D GridSpacing = FVector2D(15.0f, 15.0f);
+
+    UPROPERTY(EditAnywhere, Category = "Checkout", meta = (AllowPrivateAccess = "true"))
+    FVector ItemStandingRotation = FVector(0.0f, 0.0f, 90.0f);
+
+    FTimerHandle ScanItemTimerHandle;
+    FTimerHandle UpdateQueueTimerHandle;
+    FTimerHandle MoveItemTimerHandle;
+
+    void SetupUpdateQueueTimer();
+    void UpdateQueue();
+    void PlaceItemsOnCounter();
+    void MoveNextItemToScanPosition();
+    void RemoveScannedItem();
+    void DebugLogQueueState();
+    void DebugLogScanState();
+    void DebugLog(const FString& Message);
+
+    UFUNCTION()
+    void UpdateItemPosition(AProduct* Item, FVector StartLocation, FVector EndLocation, float ElapsedTime, float Duration);
 };

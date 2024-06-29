@@ -1,16 +1,15 @@
-// AICustomerPawn.h
 #pragma once
 
 #include "CoreMinimal.h"
 #include "GameFramework/Character.h"
-#include "AIController.h"
 #include "Navigation/PathFollowingComponent.h"
 #include "AICustomerPawn.generated.h"
 
-class ACheckout;
-class AShelf;
-class AProduct;
 class UShoppingBag;
+class AProduct;
+class AShelf;
+class ACheckout;
+class AAIController;
 
 UCLASS()
 class SUPERMARKET_API AAICustomerPawn : public ACharacter
@@ -23,43 +22,87 @@ public:
     virtual void Tick(float DeltaTime) override;
     virtual void BeginPlay() override;
 
+    UFUNCTION(BlueprintCallable)
+    void StartShopping();
+
+    UFUNCTION(BlueprintCallable)
+    void ChooseProduct();
+
+    UFUNCTION(BlueprintCallable)
+    void GrabProduct(AProduct* Product);
+
+    UFUNCTION(BlueprintCallable)
+    void PutProductInBag(AProduct* Product);
+
+    UFUNCTION(BlueprintCallable)
+    void GoToCheckout();
+
+    UFUNCTION(BlueprintCallable)
+    void FinishShopping();
+
+    UFUNCTION(BlueprintCallable)
+    void MoveTo(const FVector& Location);
+
+    UFUNCTION(BlueprintCallable)
+    void LeaveCheckout();
+
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Shopping")
     UShoppingBag* ShoppingBag;
+    FTimerHandle CheckReachedShelfTimerHandle;
+    FTimerHandle RetryTimerHandle;
+protected:
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Animation")
+    class UAnimMontage* GrabProductAnimation;
 
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Animation")
+    class UAnimMontage* PutInBagAnimation;
+
+    UPROPERTY()
+    class AAIController* AIController;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Shopping")
+    int32 MaxItems;
+
+    
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Shopping")
+    float ShoppingTime;
     UFUNCTION(BlueprintCallable, Category = "Shopping")
-    void OnCheckoutComplete();
-
-    UFUNCTION(BlueprintCallable, Category = "Shopping")
-    UShoppingBag* GetShoppingBag() const { return ShoppingBag; }
-
+    void SetCurrentShelf(AShelf* Shelf);
 private:
-    void TurnToFaceShelf();
-    UPROPERTY()
-    int32 TotalItemsToPickUp;
-
-    UPROPERTY()
-    AAIController* AIController;
+    FTimerHandle ChooseProductTimerHandle;
+    void InitializeAIController();
+    void PutCurrentProductInBag();
+    void GoToCheckoutWhenDone();
+    void CheckShoppingComplete();
     FRotator TargetRotation;
     FRotator DeltaRotation;
     float RotationTime;
     float ElapsedTime;
     bool bIsRotating;
+    void DebugShoppingState();
+    UFUNCTION()
+    void CheckReachedShelf();
+    void TurnToFaceShelf();
+    void TryPickUpProduct();
+    AShelf* FindRandomStockedShelf();
+    UPROPERTY()
+    AProduct* CurrentTargetProduct;
+    FVector GetRandomLocationInStore();
+    void DestroyAI();
+    UFUNCTION(BlueprintCallable)
+    void LeaveStore();
+    FTimerHandle LeaveStoreTimerHandle;
+    FVector CurrentTargetLocation;
+    FTimerHandle CheckReachedProductTimerHandle;
+    FTimerHandle PutInBagTimerHandle;
+    FTimerHandle ShoppingTimerHandle;
+    FTimerHandle CheckoutTimerHandle;
+    int32 CurrentItems;
     UPROPERTY()
     AShelf* CurrentShelf;
 
-    FTimerHandle ActionTimerHandle;
 
-    void DecideNextAction();
-    void MoveToRandomShelf();
-    void MoveToCheckout();
-    void LeaveStore();
-    void MoveToLocation(const FVector& Destination);
-    void TryPickUpProduct();
-    void ProcessCheckout();
-
-    UFUNCTION()
-    void OnMoveCompleted(FAIRequestID RequestID, EPathFollowingResult::Type Result);
-    ACheckout* FindOpenCheckout();
-    AShelf* FindRandomStockedShelf();
-    void DestroySelf();
+    UPROPERTY()
+    ACheckout* CurrentCheckout;
 };

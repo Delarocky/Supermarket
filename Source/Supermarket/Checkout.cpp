@@ -1,8 +1,14 @@
 // Checkout.cpp
 #include "Checkout.h"
+#include "AICustomerPawn.h"
+#include "Product.h"
+#include "ShoppingBag.h"
+#include "Components/SkeletalMeshComponent.h"
+#include "Components/SceneComponent.h"
+#include "Components/StaticMeshComponent.h"
+#include "Components/TextRenderComponent.h"
+#include "Components/AudioComponent.h"
 #include "Kismet/GameplayStatics.h"
-#include "Kismet/KismetMathLibrary.h"
-#include "Engine/World.h"
 
 ACheckout::ACheckout()
 {
@@ -10,179 +16,434 @@ ACheckout::ACheckout()
 
     RootComponent = CreateDefaultSubobject<USceneComponent>(TEXT("RootComponent"));
 
-    CounterMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("CounterMesh"));
-    CounterMesh->SetupAttachment(RootComponent);
+    CheckoutMesh = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("CheckoutMesh"));
+    CheckoutMesh->SetupAttachment(RootComponent);
 
-    TotalDisplay = CreateDefaultSubobject<UTextRenderComponent>(TEXT("TotalDisplay"));
-    TotalDisplay->SetupAttachment(CounterMesh);
+    DisplayMonitor = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("DisplayMonitor"));
+    DisplayMonitor->SetupAttachment(RootComponent);
 
-    ItemSpawnPoint = CreateDefaultSubobject<USceneComponent>(TEXT("ItemSpawnPoint"));
-    ItemSpawnPoint->SetupAttachment(CounterMesh);
+    TotalText = CreateDefaultSubobject<UTextRenderComponent>(TEXT("TotalText"));
+    TotalText->SetupAttachment(DisplayMonitor);
 
-    ItemEndPoint = CreateDefaultSubobject<USceneComponent>(TEXT("ItemEndPoint"));
-    ItemEndPoint->SetupAttachment(CounterMesh);
+    PaymentSound = CreateDefaultSubobject<UAudioComponent>(TEXT("PaymentSound"));
+    PaymentSound->SetupAttachment(RootComponent);
+
+    GridStartPoint = CreateDefaultSubobject<USceneComponent>(TEXT("GridStartPoint"));
+    GridStartPoint->SetupAttachment(RootComponent);
+
+    ScanPoint = CreateDefaultSubobject<USceneComponent>(TEXT("ScanPoint"));
+    ScanPoint->SetupAttachment(RootComponent);
 
     for (int32 i = 0; i < MaxQueueSize; ++i)
     {
-        FString ComponentName = FString::Printf(TEXT("QueuePosition%d"), i);
-        USceneComponent* QueuePosition = CreateDefaultSubobject<USceneComponent>(*ComponentName);
-        QueuePosition->SetupAttachment(RootComponent);
-        QueuePositions.Add(QueuePosition);
+        FString CompName = FString::Printf(TEXT("QueuePosition_%d"), i);
+        USceneComponent* QueuePos = CreateDefaultSubobject<USceneComponent>(*CompName);
+        QueuePos->SetupAttachment(RootComponent);
+        QueuePos->SetRelativeLocation(FVector(-100.0f * i, 0, 0));
+        QueuePositions.Add(QueuePos);
     }
 
-    ScanDuration = 1.0f;
-    CurrentScanTime = 0.0f;
-    CurrentItemIndex = 0;
     TotalAmount = 0.0f;
+    CurrentItemIndex = 0;
 }
 
 void ACheckout::BeginPlay()
 {
     Super::BeginPlay();
-    TotalDisplay->SetText(FText::FromString(TEXT("Total: $0.00")));
-}
 
-void ACheckout::Tick(float DeltaTime)
-{
-    Super::Tick(DeltaTime);
-
-    if (CurrentCustomer && CurrentItemIndex < ItemsOnCounter.Num())
+    if (DisplayMonitor)
     {
-        CurrentScanTime += DeltaTime;
-        float Alpha = FMath::Clamp(CurrentScanTime / ScanDuration, 0.0f, 1.0f);
-
-        FVector StartLocation = ItemSpawnPoint->GetComponentLocation();
-        FVector EndLocation = ItemEndPoint->GetComponentLocation();
-        FVector NewLocation = FMath::Lerp(StartLocation, EndLocation, Alpha);
-        ItemsOnCounter[CurrentItemIndex]->SetActorLocation(NewLocation);
-
-        if (Alpha >= 1.0f)
-        {
-            TotalAmount += ItemsOnCounter[CurrentItemIndex]->GetPrice();
-            TotalDisplay->SetText(FText::FromString(FString::Printf(TEXT("Total: $%.2f"), TotalAmount)));
-            ItemsOnCounter[CurrentItemIndex]->Destroy();
-            CurrentItemIndex++;
-            CurrentScanTime = 0.0f;
-
-            if (CurrentItemIndex >= ItemsOnCounter.Num())
-            {
-                FinishCheckout();
-            }
-            else
-            {
-                ProcessNextItem();
-            }
-        }
+        DisplayMonitor->SetRelativeLocation(DisplayOffset);
     }
-}
 
-void ACheckout::ProcessCustomer(AAICustomerPawn* Customer)
-{
-    if (!CurrentCustomer)
+    if (TotalText)
     {
-        CurrentCustomer = Customer;
-        UShoppingBag* ShoppingBag = Customer->GetShoppingBag();
-        TArray<AProduct*> Products = ShoppingBag->GetProducts();
-
-        for (AProduct* Product : Products)
-        {
-            if (Product)
-            {
-                // Spawn a new instance of the product at the checkout counter
-                FVector SpawnLocation = ItemSpawnPoint->GetComponentLocation();
-                FRotator SpawnRotation = ItemSpawnPoint->GetComponentRotation();
-
-                AProduct* SpawnedProduct = GetWorld()->SpawnActor<AProduct>(
-                    Product->GetClass(),
-                    SpawnLocation,
-                    SpawnRotation
-                );
-
-                if (SpawnedProduct)
-                {
-                    // Initialize with product data and set scale
-                    SpawnedProduct->InitializeProduct(Product->GetProductData());
-                    SpawnedProduct->SetActorScale3D(Product->GetProductData().Scale); // Set scale explicitly
-
-                    ItemsOnCounter.Add(SpawnedProduct);
-                }
-                else
-                {
-                    UE_LOG(LogTemp, Warning, TEXT("Failed to spawn product at checkout."));
-                }
-            }
-        }
-
-        CurrentItemIndex = 0;
-        TotalAmount = 0.0f;
-        ProcessNextItem();
-    }
-    else if (!CustomerQueue.Contains(Customer))
-    {
-        CustomerQueue.Add(Customer);
-        UpdateQueuePositions();
-    }
-}
-
-void ACheckout::ProcessNextItem()
-{
-    if (CurrentItemIndex < ItemsOnCounter.Num())
-    {
-        CurrentScanTime = 0.0f;
-        ItemsOnCounter[CurrentItemIndex]->SetActorLocation(ItemSpawnPoint->GetComponentLocation());
-    }
-}
-
-void ACheckout::FinishCheckout()
-{
-    if (CurrentCustomer)
-    {
-        UE_LOG(LogTemp, Display, TEXT("Checkout complete for customer %s. Total amount: $%.2f"), *CurrentCustomer->GetName(), TotalAmount);
-        CurrentCustomer->OnCheckoutComplete();
-        CurrentCustomer = nullptr;
+        TotalText->SetRelativeLocation(TextOffset);
+        TotalText->SetText(FText::FromString("Total: $0.00"));
+        TotalText->SetTextRenderColor(FColor::Green);
     }
 
     ResetCheckout();
 }
 
-void ACheckout::ResetCheckout()
+void ACheckout::SetupUpdateQueueTimer()
 {
-    ItemsOnCounter.Empty();
-    CurrentItemIndex = 0;
-    TotalAmount = 0.0f;
-    TotalDisplay->SetText(FText::FromString(TEXT("Total: $0.00")));
+    GetWorld()->GetTimerManager().SetTimer(UpdateQueueTimerHandle, this, &ACheckout::UpdateQueue, 0.5f, true);
+}
 
-    if (CustomerQueue.Num() > 0)
+bool ACheckout::ProcessPayment(float Amount)
+{
+    DisplayTotal(Amount);
+    if (PaymentSound)
     {
-        AAICustomerPawn* NextCustomer = CustomerQueue[0];
-        CustomerQueue.RemoveAt(0);
-        UpdateQueuePositions();
-        ProcessCustomer(NextCustomer);
+        PaymentSound->Play();
+    }
+    return true;
+}
+
+void ACheckout::DisplayTotal(float Amount)
+{
+    if (TotalText)
+    {
+        FString TotalString = FString::Printf(TEXT("Total: $%.2f"), Amount);
+        TotalText->SetText(FText::FromString(TotalString));
+    }
+    DebugLog(FString::Printf(TEXT("Total Amount: $%.2f"), Amount));
+}
+
+bool ACheckout::TryEnterQueue(AAICustomerPawn* Customer)
+{
+    if (CustomersInQueue.Num() < MaxQueueSize)
+    {
+        CustomersInQueue.Add(Customer);
+        UpdateQueue();
+        return true;
+    }
+    return false;
+}
+
+void ACheckout::ProcessCustomer(AAICustomerPawn* Customer)
+{
+    //DebugLog(FString::Printf(TEXT("ProcessCustomer called for customer: %s"), *Customer->GetName()));
+
+    if (bIsProcessingCustomer)
+    {
+        // DebugLog(TEXT("Already processing a customer. Ignoring this call."));
+        return;
+    }
+
+    if (CustomersInQueue.Num() > 0 && QueuePositions.Num() > 0 && CustomersInQueue[0] == Customer)
+    {
+        USceneComponent* FirstQueuePosition = QueuePositions[0];
+
+        if (FirstQueuePosition)
+        {
+            FVector CustomerLocation = Customer->GetActorLocation();
+            FVector QueueFrontLocation = FirstQueuePosition->GetComponentLocation();
+
+            float DistanceToQueueFront = FVector::Dist(CustomerLocation, QueueFrontLocation);
+
+            DebugLog(FString::Printf(TEXT("Customer distance to queue front: %f, Processing distance: %f"),
+                DistanceToQueueFront, ProcessingDistance));
+
+            if (DistanceToQueueFront <= ProcessingDistance)
+            {
+                if (Customer && Customer->ShoppingBag)
+                {
+                    DebugLog(TEXT("Processing customer at front of queue."));
+                    ProductsToScan = Customer->ShoppingBag->GetProducts();
+                    DebugLog(FString::Printf(TEXT("Products in bag: %d"), ProductsToScan.Num()));
+
+                    ItemsOnCounter = ProductsToScan;
+                    PlaceItemsOnCounter();
+
+                    CurrentItemIndex = 0;
+                    TotalAmount = 0.0f;
+                    ScannedItems.Empty();
+                    bIsProcessingCustomer = true;
+                    MoveNextItemToScanPosition();
+                }
+                else
+                {
+                    DebugLog(TEXT("Error: Customer or ShoppingBag is null"));
+                }
+            }
+            else
+            {
+                DebugLog(TEXT("Customer not close enough to queue front to be processed."));
+            }
+        }
+        else
+        {
+            DebugLog(TEXT("Error: First queue position is null"));
+        }
+    }
+    else
+    {
+        DebugLog(TEXT("Warning: Attempted to process a customer who is not at the front of the queue"));
     }
 }
-void ACheckout::UpdateQueuePositions()
+
+void ACheckout::PlaceItemsOnCounter()
 {
-    for (int32 i = 0; i < CustomerQueue.Num(); ++i)
+    FVector GridOrigin = GridStartPoint->GetComponentLocation();
+    FRotator StandingRotation = FRotator::MakeFromEuler(ItemStandingRotation);
+
+    int32 ItemIndex = 0;
+    for (int32 Y = 0; Y < GridSize.Y && ItemIndex < ItemsOnCounter.Num(); Y++)
     {
-        if (i < QueuePositions.Num())
+        for (int32 X = 0; X < GridSize.X && ItemIndex < ItemsOnCounter.Num(); X++)
         {
-            FVector TargetLocation = QueuePositions[i]->GetComponentLocation();
-            CustomerQueue[i]->SetActorLocation(TargetLocation);
+            AProduct* Product = ItemsOnCounter[ItemIndex];
+            if (Product)
+            {
+                FVector ItemLocation = GridOrigin + FVector(X * GridSpacing.X, Y * GridSpacing.Y, 0);
+                Product->SetActorLocation(ItemLocation);
+                Product->SetActorRotation(StandingRotation);
+                Product->SetActorHiddenInGame(false);
+                Product->SetActorEnableCollision(true);
+                ItemIndex++;
+            }
         }
     }
 }
 
-bool ACheckout::IsQueueFull() const
+void ACheckout::MoveNextItemToScanPosition()
 {
-    return CustomerQueue.Num() >= MaxQueueSize;
+    if (ItemsOnCounter.Num() > 0)
+    {
+        AProduct* NextItem = ItemsOnCounter[0];
+        FVector StartLocation = NextItem->GetActorLocation();
+        FVector EndLocation = ScanPoint->GetComponentLocation();
+
+        float Distance = FVector::Dist(StartLocation, EndLocation);
+        float Duration = Distance / ItemMoveSpeed;
+
+        FTimerDelegate TimerDelegate;
+        TimerDelegate.BindUFunction(this, FName("UpdateItemPosition"), NextItem, StartLocation, EndLocation, 0.0f, Duration);
+        GetWorld()->GetTimerManager().SetTimer(MoveItemTimerHandle, TimerDelegate, 0.016f, true);
+    }
+    else
+    {
+        // All items have been scanned
+        ScanNextItem();
+    }
 }
 
-FVector ACheckout::GetNextQueuePosition() const
+void ACheckout::UpdateItemPosition(AProduct* Item, FVector StartLocation, FVector EndLocation, float ElapsedTime, float Duration)
 {
-    int32 QueueIndex = CustomerQueue.Num();
-    if (QueueIndex < QueuePositions.Num())
+    if (Item && ElapsedTime < Duration)
     {
-        return QueuePositions[QueueIndex]->GetComponentLocation();
+        float Alpha = ElapsedTime / Duration;
+        FVector NewLocation = FMath::Lerp(StartLocation, EndLocation, Alpha);
+
+        Item->SetActorLocation(NewLocation);
+
+        FTimerDelegate TimerDelegate;
+        TimerDelegate.BindUFunction(this, FName("UpdateItemPosition"), Item, StartLocation, EndLocation, ElapsedTime + 0.016f, Duration);
+        GetWorld()->GetTimerManager().SetTimer(MoveItemTimerHandle, TimerDelegate, 0.016f, false);
     }
-    return FVector::ZeroVector;
+    else
+    {
+        GetWorld()->GetTimerManager().ClearTimer(MoveItemTimerHandle);
+        ScanNextItem();
+    }
 }
+
+void ACheckout::ScanNextItem()
+{
+    DebugLog(FString::Printf(TEXT("ScanNextItem called. CurrentItemIndex: %d, ProductsToScan: %d"),
+        CurrentItemIndex, ProductsToScan.Num()));
+
+    if (CurrentItemIndex < ProductsToScan.Num())
+    {
+        AProduct* ProductToScan = ProductsToScan[CurrentItemIndex];
+        if (ProductToScan)
+        {
+            DebugLog(FString::Printf(TEXT("Scanning product: %s"), *ProductToScan->GetProductName()));
+            ScanItem(ProductToScan);
+            CurrentItemIndex++;
+
+            RemoveScannedItem();
+
+            // Move the next item after a short delay
+            GetWorld()->GetTimerManager().SetTimer(ScanItemTimerHandle, this, &ACheckout::MoveNextItemToScanPosition, TimeBetweenScans, false);
+        }
+        else
+        {
+            DebugLog(TEXT("Error: Product to scan is null"));
+            CurrentItemIndex++;
+            ScanNextItem();
+        }
+    }
+    else
+    {
+        DebugLog(TEXT("All items scanned. Finishing transaction."));
+        FinishTransaction();
+    }
+}
+
+void ACheckout::ScanItem(AProduct* Product)
+{
+    if (Product && ScanItemAnimation && CheckoutMesh)
+    {
+        CheckoutMesh->PlayAnimation(ScanItemAnimation, false);
+        TotalAmount += Product->GetPrice();
+        ScannedItems.Add(Product);
+        DisplayTotal(TotalAmount);
+
+        DebugLog(FString::Printf(TEXT("Scanned item: %s, Price: %.2f, New Total: %.2f"),
+            *Product->GetProductName(), Product->GetPrice(), TotalAmount));
+    }
+    else
+    {
+        DebugLog(FString::Printf(TEXT("Failed to scan item. Product: %s, Animation: %s, Mesh: %s"),
+            Product ? TEXT("Valid") : TEXT("Invalid"),
+            ScanItemAnimation ? TEXT("Valid") : TEXT("Invalid"),
+            CheckoutMesh ? TEXT("Valid") : TEXT("Invalid")));
+    }
+}
+
+void ACheckout::FinishTransaction()
+{
+    DebugLog(TEXT("FinishTransaction called"));
+
+    if (FinishTransactionAnimation && CheckoutMesh)
+    {
+        CheckoutMesh->PlayAnimation(FinishTransactionAnimation, false);
+    }
+
+    bool PaymentSuccessful = ProcessPayment(TotalAmount);
+    if (PaymentSuccessful)
+    {
+        DebugLog(FString::Printf(TEXT("Payment of $%.2f processed successfully for %d items"), TotalAmount, ScannedItems.Num()));
+    }
+    else
+    {
+        DebugLog(FString::Printf(TEXT("Payment of $%.2f failed for %d items"), TotalAmount, ScannedItems.Num()));
+    }
+
+    if (CustomersInQueue.Num() > 0)
+    {
+        AAICustomerPawn* ProcessedCustomer = CustomersInQueue[0];
+        CustomerLeft(ProcessedCustomer);
+        ProcessedCustomer->LeaveCheckout();
+    }
+
+    ScannedItems.Empty();
+    ProductsToScan.Empty();
+    TotalAmount = 0.0f;
+    CurrentItemIndex = 0;
+    DisplayTotal(0.0f);
+    bIsProcessingCustomer = false;
+
+    DebugLog(TEXT("Transaction finished. Checkout reset for next customer."));
+}
+
+void ACheckout::CustomerLeft(AAICustomerPawn* Customer)
+{
+    CustomersInQueue.Remove(Customer);
+    UpdateQueue();
+}
+
+void ACheckout::UpdateQueue()
+{
+    for (int32 i = 0; i < CustomersInQueue.Num(); ++i)
+    {
+        if (CustomersInQueue[i] && QueuePositions.IsValidIndex(i))
+        {
+            FVector TargetLocation = QueuePositions[i]->GetComponentLocation();
+            CustomersInQueue[i]->MoveTo(TargetLocation);
+        }
+    }
+
+    if (CustomersInQueue.Num() > 0 && QueuePositions.Num() > 0)
+    {
+        AAICustomerPawn* FrontCustomer = CustomersInQueue[0];
+        USceneComponent* FirstQueuePosition = QueuePositions[0];
+
+        if (FrontCustomer && FirstQueuePosition)
+        {
+            FVector CustomerLocation = FrontCustomer->GetActorLocation();
+            FVector QueueFrontLocation = FirstQueuePosition->GetComponentLocation();
+
+            float DistanceToQueueFront = FVector::Dist(CustomerLocation, QueueFrontLocation);
+
+            if (DistanceToQueueFront <= ProcessingDistance)
+            {
+                ProcessCustomer(FrontCustomer);
+            }
+            else
+            {
+                DebugLog(FString::Printf(TEXT("Front customer not close enough to queue front. Distance: %f"), DistanceToQueueFront));
+            }
+        }
+    }
+}
+
+void ACheckout::RemoveScannedItem()
+{
+    if (ItemsOnCounter.Num() > 0)
+    {
+        AProduct* ScannedItem = ItemsOnCounter[0];
+        ItemsOnCounter.RemoveAt(0);
+        ScannedItem->SetActorHiddenInGame(true);
+        ScannedItem->SetActorEnableCollision(false);
+    }
+}
+
+void ACheckout::ResetCheckout()
+{
+    DebugLog(TEXT("Resetting checkout state"));
+
+    for (AAICustomerPawn* Customer : CustomersInQueue)
+    {
+        if (Customer)
+        {
+            Customer->LeaveCheckout();
+        }
+    }
+    CustomersInQueue.Empty();
+
+    ScannedItems.Empty();
+    ProductsToScan.Empty();
+    CurrentItemIndex = 0;
+    TotalAmount = 0.0f;
+    bIsProcessingCustomer = false;
+
+    GetWorldTimerManager().ClearTimer(ScanItemTimerHandle);
+    GetWorldTimerManager().ClearTimer(UpdateQueueTimerHandle);
+    GetWorldTimerManager().ClearTimer(MoveItemTimerHandle);
+
+    for (AProduct* Product : ItemsOnCounter)
+    {
+        if (Product)
+        {
+            Product->SetActorHiddenInGame(true);
+            Product->SetActorEnableCollision(false);
+        }
+    }
+    ItemsOnCounter.Empty();
+
+    DisplayTotal(0.0f);
+
+    if (CheckoutMesh)
+    {
+        CheckoutMesh->Stop();
+    }
+
+    SetupUpdateQueueTimer();
+
+    DebugLog(TEXT("Checkout reset complete"));
+    DebugLogQueueState();
+}
+
+void ACheckout::DebugLogQueueState()
+{
+    DebugLog(TEXT("Current Queue State:"));
+    DebugLog(FString::Printf(TEXT("Queue Size: %d, Max Queue Size: %d"), CustomersInQueue.Num(), MaxQueueSize));
+    for (int32 i = 0; i < CustomersInQueue.Num(); ++i)
+    {
+        DebugLog(FString::Printf(TEXT("Customer %d: %s"), i, *CustomersInQueue[i]->GetName()));
+    }
+}
+
+void ACheckout::DebugLogScanState()
+{
+    DebugLog(TEXT("Current Scan State:"));
+    DebugLog(FString::Printf(TEXT("Total Products to Scan: %d, Current Index: %d"), ProductsToScan.Num(), CurrentItemIndex));
+    DebugLog(FString::Printf(TEXT("Scanned Items: %d, Total Amount: %.2f"), ScannedItems.Num(), TotalAmount));
+    DebugLog(FString::Printf(TEXT("Items on Counter: %d"), ItemsOnCounter.Num()));
+}
+
+void ACheckout::DebugLog(const FString& Message)
+{
+    if (bDebugMode)
+    {
+        UE_LOG(LogTemp, Display, TEXT("[ACheckout Debug] %s"), *Message);
+
+        // You can also add on-screen debug messages here if needed
+        // GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Yellow, Message);
+    }
+}
+

@@ -1,38 +1,44 @@
-// AICustomerPawn.cpp
 #include "AICustomerPawn.h"
-#include "Shelf.h"
 #include "Product.h"
 #include "Checkout.h"
 #include "ShoppingBag.h"
-#include "Kismet/GameplayStatics.h"
-#include "NavigationSystem.h"
 #include "AIController.h"
-#include "TimerManager.h"
+#include "NavigationSystem.h"
+#include "NavigationPath.h"
+#include "AI/NavigationSystemBase.h"
+#include "Kismet/GameplayStatics.h"
 #include "Kismet/KismetMathLibrary.h"
-#include "GameFramework/RotatingMovementComponent.h"
+#include "GameFramework/CharacterMovementComponent.h"
+#include "Shelf.h"
+#include "Blueprint/AIBlueprintHelperLibrary.h"
+#include "TimerManager.h"
 
 AAICustomerPawn::AAICustomerPawn()
 {
     PrimaryActorTick.bCanEverTick = true;
+    AutoPossessAI = EAutoPossessAI::PlacedInWorldOrSpawned;
+
     ShoppingBag = CreateDefaultSubobject<UShoppingBag>(TEXT("ShoppingBag"));
+    MaxItems = 5;
+    ShoppingTime = 300.0f; // 5 minutes
+    CurrentItems = 0;
 }
 
 void AAICustomerPawn::BeginPlay()
 {
     Super::BeginPlay();
-    AIController = Cast<AAIController>(GetController());
-    if (AIController)
-    {
-        AIController->ReceiveMoveCompleted.AddDynamic(this, &AAICustomerPawn::OnMoveCompleted);
-    }
-    TotalItemsToPickUp = FMath::RandRange(3, 10);
-    UE_LOG(LogTemp, Display, TEXT("AI %s: Will pick up a total of %d items."), *GetName(), TotalItemsToPickUp);
-    DecideNextAction();
+    UE_LOG(LogTemp, Display, TEXT("AI BeginPlay called"));
+    InitializeAIController();
 }
+
 
 void AAICustomerPawn::Tick(float DeltaTime)
 {
     Super::Tick(DeltaTime);
+    if (!AIController)
+    {
+        InitializeAIController();
+    }
 
     if (bIsRotating)
     {
@@ -56,115 +62,375 @@ void AAICustomerPawn::Tick(float DeltaTime)
     }
 }
 
-void AAICustomerPawn::DecideNextAction()
-{
-    if (!IsValid(this) || !GetWorld())
-    {
-        return;
-    }
 
-    if (ShoppingBag->GetProductCount() < TotalItemsToPickUp)
+void AAICustomerPawn::SetCurrentShelf(AShelf* Shelf)
+{
+    CurrentShelf = Shelf;
+}
+
+
+void AAICustomerPawn::InitializeAIController()
+{
+    if (!AIController)
     {
-        MoveToRandomShelf();
-    }
-    else
-    {
-        MoveToCheckout();
+        AIController = Cast<AAIController>(GetController());
+        if (AIController)
+        {
+            UE_LOG(LogTemp, Display, TEXT("AIController set successfully"));
+        }
+        else
+        {
+            UE_LOG(LogTemp, Error, TEXT("Failed to set AIController"));
+        }
     }
 }
 
-void AAICustomerPawn::MoveToRandomShelf()
+void AAICustomerPawn::StartShopping()
 {
+    CurrentItems = 0;
+    ChooseProduct();
+    GetWorldTimerManager().SetTimer(ShoppingTimerHandle, this, &AAICustomerPawn::FinishShopping, ShoppingTime, false);
+}
+
+void AAICustomerPawn::FinishShopping()
+{
+    GetWorldTimerManager().ClearTimer(ShoppingTimerHandle);
+    GoToCheckoutWhenDone();
+}
+
+void AAICustomerPawn::ChooseProduct()
+{
+    UE_LOG(LogTemp, Display, TEXT("ChooseProduct called. Current Items: %d, Max Items: %d"), CurrentItems, MaxItems);
+
+    if (CurrentItems >= MaxItems)
+    {
+        UE_LOG(LogTemp, Display, TEXT("Max items reached, going to checkout"));
+        GoToCheckoutWhenDone();
+        return;
+    }
+
+    InitializeAIController();
+    if (!AIController)
+    {
+        UE_LOG(LogTemp, Error, TEXT("AIController is null in ChooseProduct!"));
+        return;
+    }
+
+    // Find a random stocked shelf
     AShelf* TargetShelf = FindRandomStockedShelf();
     if (TargetShelf)
     {
         CurrentShelf = TargetShelf;
         FVector TargetLocation = TargetShelf->GetAccessPointLocation();
-        MoveToLocation(TargetLocation);
-        UE_LOG(LogTemp, Display, TEXT("AI %s: Moving to shelf %s at access point %s"),
-            *GetName(), *TargetShelf->GetName(), *TargetLocation.ToString());
-    }
-    else
-    {
-       // UE_LOG(LogTemp, Warning, TEXT("AI %s: No accessible stocked shelves found. Waiting..."), *GetName());
-        GetWorld()->GetTimerManager().SetTimer(ActionTimerHandle, this, &AAICustomerPawn::DecideNextAction, 1.0f, false);
-    }
-}
 
-void AAICustomerPawn::MoveToCheckout()
-{
-    ACheckout* TargetCheckout = FindOpenCheckout();
-    if (TargetCheckout)
-    {
-        MoveToLocation(TargetCheckout->GetNextQueuePosition());
-        UE_LOG(LogTemp, Display, TEXT("AI %s: Moving to checkout %s"), *GetName(), *TargetCheckout->GetName());
-    }
-    else
-    {
-        UE_LOG(LogTemp, Warning, TEXT("AI %s: No open checkouts found. Waiting..."), *GetName());
-        GetWorld()->GetTimerManager().SetTimer(ActionTimerHandle, this, &AAICustomerPawn::DecideNextAction, 2.0f, false);
-    }
-}
-
-void AAICustomerPawn::LeaveStore()
-{
-    UE_LOG(LogTemp, Display, TEXT("AI %s: Leaving store."), *GetName());
-    UNavigationSystemV1* NavSystem = UNavigationSystemV1::GetNavigationSystem(GetWorld());
-    if (NavSystem)
-    {
-        FNavLocation ExitLocation;
-        if (NavSystem->GetRandomPointInNavigableRadius(FVector::ZeroVector, 10000.0f, ExitLocation))
-        {
-            MoveToLocation(ExitLocation.Location);
-            // Set a timer to destroy the AI after reaching the exit point
-            GetWorld()->GetTimerManager().SetTimer(ActionTimerHandle, this, &AAICustomerPawn::DestroySelf, 10.0f, false);
-        }
-        else
-        {
-            UE_LOG(LogTemp, Warning, TEXT("AI %s: Couldn't find exit point. Destroying immediately."), *GetName());
-            DestroySelf();
-        }
-    }
-    else
-    {
-        UE_LOG(LogTemp, Error, TEXT("AI %s: Navigation system not found. Destroying immediately."), *GetName());
-        DestroySelf();
-    }
-}
-
-void AAICustomerPawn::MoveToLocation(const FVector& Destination)
-{
-    if (AIController)
-    {
+        // Move to the shelf's access point
         UNavigationSystemV1* NavSys = FNavigationSystem::GetCurrent<UNavigationSystemV1>(GetWorld());
         if (NavSys)
         {
             FNavLocation NavLocation;
-            if (NavSys->ProjectPointToNavigation(Destination, NavLocation, FVector(100, 100, 100)))
+            if (NavSys->ProjectPointToNavigation(TargetLocation, NavLocation, FVector(100, 100, 100)))
             {
-                AIController->MoveToLocation(NavLocation.Location, 1.0f, true, true, false, false, nullptr, true);
+                UAIBlueprintHelperLibrary::SimpleMoveToLocation(AIController, NavLocation.Location);
+
+                // Set up a timer to check if we've reached the shelf's access point
+                GetWorldTimerManager().SetTimer(CheckReachedShelfTimerHandle, this, &AAICustomerPawn::CheckReachedShelf, 0.1f, true);
             }
             else
             {
-                UE_LOG(LogTemp, Warning, TEXT("AI %s: Failed to find valid navigation point. Choosing new action."), *GetName());
-                DecideNextAction();
+                UE_LOG(LogTemp, Error, TEXT("Failed to find valid navigation point for shelf access point. Choosing new product."));
+                ChooseProduct();
             }
         }
         else
         {
-            UE_LOG(LogTemp, Error, TEXT("AI %s: Navigation system not found."), *GetName());
-            DecideNextAction();
+            UE_LOG(LogTemp, Error, TEXT("Navigation system not found. Choosing new product."));
+            ChooseProduct();
+        }
+    }
+    else
+    {
+        UE_LOG(LogTemp, Warning, TEXT("No accessible stocked shelves found. Waiting..."));
+        GetWorldTimerManager().SetTimer(RetryTimerHandle, this, &AAICustomerPawn::ChooseProduct, 2.0f, false);
+    }
+}
+
+
+void AAICustomerPawn::PutCurrentProductInBag()
+{
+    if (CurrentTargetProduct)
+    {
+        PutProductInBag(CurrentTargetProduct);
+        CurrentTargetProduct = nullptr;
+    }
+    else
+    {
+        UE_LOG(LogTemp, Warning, TEXT("No current target product to put in bag"));
+        ChooseProduct();
+    }
+}
+
+void AAICustomerPawn::GrabProduct(AProduct* Product)
+{
+    if (Product && GrabProductAnimation)
+    {
+        UE_LOG(LogTemp, Display, TEXT("Grabbing product: %s"), *Product->GetName());
+        PlayAnimMontage(GrabProductAnimation);
+        Product->AttachToComponent(GetMesh(), FAttachmentTransformRules::SnapToTargetNotIncludingScale, FName("index_metacarpal_l"));
+    }
+    else
+    {
+        UE_LOG(LogTemp, Error, TEXT("Failed to grab product. Product: %s, Animation: %s"),
+            Product ? TEXT("Valid") : TEXT("Invalid"),
+            GrabProductAnimation ? TEXT("Valid") : TEXT("Invalid"));
+    }
+}
+
+void AAICustomerPawn::PutProductInBag(AProduct* Product)
+{
+    if (Product && PutInBagAnimation && ShoppingBag)
+    {
+        UE_LOG(LogTemp, Display, TEXT("Putting product in bag: %s"), *Product->GetProductName());
+        PlayAnimMontage(PutInBagAnimation);
+
+        // Remove the product from the shelf
+        if (CurrentShelf)
+        {
+            AProduct* RemovedProduct = CurrentShelf->RemoveNextProduct();
+           /* if (RemovedProduct != Product)
+            {
+                UE_LOG(LogTemp, Warning, TEXT("Removed product does not match the expected product"));
+            }*/
+        }
+        else
+        {
+            UE_LOG(LogTemp, Warning, TEXT("CurrentShelf is null when trying to remove product"));
+        }
+
+        Product->DetachFromActor(FDetachmentTransformRules::KeepWorldTransform);
+        ShoppingBag->AddProduct(Product);
+
+        // Completely remove the product from the level
+        Product->Destroy();
+
+        CurrentItems++;
+        UE_LOG(LogTemp, Display, TEXT("Product added to bag and removed from level. Current Items: %d"), CurrentItems);
+
+        // Check if we've reached MaxItems
+        if (CurrentItems >= MaxItems)
+        {
+            UE_LOG(LogTemp, Display, TEXT("Max items reached, going to checkout"));
+            GoToCheckoutWhenDone();
+        }
+        else
+        {
+            // If we haven't reached max items, choose the next product after a short delay
+            GetWorldTimerManager().SetTimer(ChooseProductTimerHandle, this, &AAICustomerPawn::ChooseProduct, 1.0f, false);
+        }
+    }
+    else
+    {
+        UE_LOG(LogTemp, Error, TEXT("Failed to put product in bag. Product: %s, Animation: %s, ShoppingBag: %s"),
+            Product ? TEXT("Valid") : TEXT("Invalid"),
+            PutInBagAnimation ? TEXT("Valid") : TEXT("Invalid"),
+            ShoppingBag ? TEXT("Valid") : TEXT("Invalid"));
+        // If we failed to put the product in the bag, try to choose another product
+        ChooseProduct();
+    }
+}
+
+void AAICustomerPawn::GoToCheckoutWhenDone()
+{
+
+    TArray<AActor*> FoundCheckouts;
+    UGameplayStatics::GetAllActorsOfClass(GetWorld(), ACheckout::StaticClass(), FoundCheckouts);
+
+    if (FoundCheckouts.Num() > 0)
+    {
+        // Choose a random checkout
+        int32 RandomIndex = FMath::RandRange(0, FoundCheckouts.Num() - 1);
+        ACheckout* ChosenCheckout = Cast<ACheckout>(FoundCheckouts[RandomIndex]);
+
+        if (ChosenCheckout && ChosenCheckout->TryEnterQueue(this))
+        {
+            CurrentCheckout = ChosenCheckout;
+            UE_LOG(LogTemp, Display, TEXT("AI entered checkout queue"));
+        }
+        else
+        {
+            UE_LOG(LogTemp, Warning, TEXT("AI couldn't enter checkout queue, it might be full"));
+            // Maybe try another checkout or wait and retry
+        }
+    }
+    else
+    {
+        UE_LOG(LogTemp, Warning, TEXT("No checkouts found in the level"));
+    }
+}
+
+
+void AAICustomerPawn::DebugShoppingState()
+{
+    UE_LOG(LogTemp, Display, TEXT("AI Shopping State - Current Items: %d, Max Items: %d"), CurrentItems, MaxItems);
+}
+
+void AAICustomerPawn::MoveTo(const FVector& Location)
+{
+    if (AIController)
+    {
+        UAIBlueprintHelperLibrary::SimpleMoveToLocation(AIController, Location);
+    }
+    else
+    {
+        UE_LOG(LogTemp, Warning, TEXT("AIController is null in AAICustomerPawn::MoveTo"));
+        InitializeAIController();
+        if (AIController)
+        {
+            UAIBlueprintHelperLibrary::SimpleMoveToLocation(AIController, Location);
         }
     }
 }
 
+void AAICustomerPawn::LeaveCheckout()
+{
+    if (CurrentCheckout)
+    {
+        CurrentCheckout->CustomerLeft(this);
+        CurrentCheckout = nullptr;
+        UE_LOG(LogTemp, Display, TEXT("AI left checkout"));
+    }
+
+    // Reset shopping state
+    CurrentItems = 0;
+    ShoppingBag->EmptyBag();
+
+    // Leave the store
+    LeaveStore();
+}
+
+
+void AAICustomerPawn::GoToCheckout()
+{
+    InitializeAIController();
+    if (!AIController)
+    {
+        UE_LOG(LogTemp, Error, TEXT("AIController is null in GoToCheckout!"));
+        return;
+    }
+
+    TArray<AActor*> FoundCheckouts;
+    UGameplayStatics::GetAllActorsOfClass(GetWorld(), ACheckout::StaticClass(), FoundCheckouts);
+    if (FoundCheckouts.Num() > 0)
+    {
+        // Choose a random checkout
+        int32 RandomIndex = FMath::RandRange(0, FoundCheckouts.Num() - 1);
+        ACheckout* AvailableCheckout = Cast<ACheckout>(FoundCheckouts[RandomIndex]);
+        if (AvailableCheckout)
+        {
+            UNavigationSystemV1* NavSys = FNavigationSystem::GetCurrent<UNavigationSystemV1>(GetWorld());
+            if (NavSys)
+            {
+                FNavLocation AINavLocation;
+                FNavLocation CheckoutNavLocation;
+                bool bAIOnNavMesh = NavSys->ProjectPointToNavigation(GetActorLocation(), AINavLocation);
+                bool bCheckoutOnNavMesh = NavSys->ProjectPointToNavigation(AvailableCheckout->GetActorLocation(), CheckoutNavLocation);
+
+                if (bAIOnNavMesh && bCheckoutOnNavMesh)
+                {
+                    UE_LOG(LogTemp, Display, TEXT("Attempting to move to checkout"));
+                    UAIBlueprintHelperLibrary::SimpleMoveToLocation(AIController, CheckoutNavLocation.Location);
+                }
+                else
+                {
+                    UE_LOG(LogTemp, Error, TEXT("AI or Checkout not on NavMesh"));
+                }
+            }
+            else
+            {
+                UE_LOG(LogTemp, Error, TEXT("Navigation system is not available"));
+            }
+        }
+    }
+    else
+    {
+        UE_LOG(LogTemp, Warning, TEXT("No checkouts found in the level"));
+    }
+}
+
+void AAICustomerPawn::CheckShoppingComplete()
+{
+    if (CurrentItems >= MaxItems)
+    {
+        GoToCheckoutWhenDone();
+        return;
+    }
+
+    TArray<AActor*> FoundProducts;
+    UGameplayStatics::GetAllActorsOfClass(GetWorld(), AProduct::StaticClass(), FoundProducts);
+
+    bool bAnyValidProductsLeft = false;
+    for (AActor* Product : FoundProducts)
+    {
+        AProduct* CastedProduct = Cast<AProduct>(Product);
+        if (CastedProduct && !CastedProduct->IsHidden() && CastedProduct->GetActorEnableCollision())
+        {
+            bAnyValidProductsLeft = true;
+            break;
+        }
+    }
+
+    if (!bAnyValidProductsLeft)
+    {
+        UE_LOG(LogTemp, Display, TEXT("No more products to pick up. Going to checkout."));
+        GoToCheckoutWhenDone();
+    }
+    else
+    {
+        // If there are still products and we haven't reached MaxItems, choose another product
+        ChooseProduct();
+    }
+}
+
+void AAICustomerPawn::CheckReachedShelf()
+{
+    if (!AIController)
+    {
+        UE_LOG(LogTemp, Error, TEXT("AIController is null in CheckReachedShelf!"));
+        return;
+    }
+
+    UPathFollowingComponent* PathFollowingComp = AIController->GetPathFollowingComponent();
+    if (PathFollowingComp)
+    {
+        // Check if the AI has stopped moving
+        if (PathFollowingComp->GetStatus() == EPathFollowingStatus::Idle)
+        {
+            GetWorldTimerManager().ClearTimer(CheckReachedShelfTimerHandle);
+            UE_LOG(LogTemp, Display, TEXT("AI reached shelf. Turning to face shelf."));
+            TurnToFaceShelf();
+        }
+        else if (GetWorldTimerManager().GetTimerElapsed(CheckReachedShelfTimerHandle) > 15.0f)
+        {
+            // If we've been trying to reach the shelf for more than 15 seconds, try choosing a new one
+            UE_LOG(LogTemp, Warning, TEXT("Failed to reach shelf after 15 seconds, choosing a new one"));
+            GetWorldTimerManager().ClearTimer(CheckReachedShelfTimerHandle);
+            CurrentShelf = nullptr;
+            ChooseProduct();
+        }
+    }
+    else
+    {
+        UE_LOG(LogTemp, Error, TEXT("PathFollowingComponent is null in CheckReachedShelf!"));
+        GetWorldTimerManager().ClearTimer(CheckReachedShelfTimerHandle);
+        ChooseProduct();
+    }
+}
 
 void AAICustomerPawn::TurnToFaceShelf()
 {
     if (!CurrentShelf)
     {
         UE_LOG(LogTemp, Warning, TEXT("AI %s: Cannot turn to face shelf, CurrentShelf is null"), *GetName());
-        DecideNextAction();
+        ChooseProduct();
         return;
     }
 
@@ -183,11 +449,10 @@ void AAICustomerPawn::TurnToFaceShelf()
 
     DeltaRotation = UKismetMathLibrary::NormalizedDeltaRotator(TargetRotation, CurrentRotation);
 
-    // Check if the AI is already facing the shelf within 1 degree
+    // Check if the AI is already facing the shelf within 10 degrees
     if (FMath::Abs(DeltaRotation.Yaw) <= 10.0f)
     {
-        // If within 1 degree, don't turn, just pick up the item
-        //UE_LOG(LogTemp, Warning, TEXT("AI %s: Already facing the shelf within 1 degree"), *GetName());
+        UE_LOG(LogTemp, Display, TEXT("AI %s: Already facing the shelf within 10 degrees"), *GetName());
         TryPickUpProduct();
         return;
     }
@@ -200,45 +465,6 @@ void AAICustomerPawn::TurnToFaceShelf()
 }
 
 
-void AAICustomerPawn::OnMoveCompleted(FAIRequestID RequestID, EPathFollowingResult::Type Result)
-{
-    if (!IsValid(this))
-    {
-        return;
-    }
-
-    if (Result == EPathFollowingResult::Success)
-    {
-        if (ShoppingBag->GetProductCount() < TotalItemsToPickUp)
-        {
-            if (CurrentShelf)
-            {
-                TurnToFaceShelf();
-            }
-            else
-            {
-                UE_LOG(LogTemp, Warning, TEXT("AI %s: CurrentShelf is null"), *GetName());
-                DecideNextAction();
-            }
-        }
-        else if (ShoppingBag->GetProductCount() > 0)
-        {
-            ProcessCheckout();
-        }
-        else
-        {
-            DestroySelf();
-        }
-    }
-    else
-    {
-        UE_LOG(LogTemp, Warning, TEXT("AI %s: Move failed with result: %s"), *GetName(), *UEnum::GetValueAsString(Result));
-        CurrentShelf = nullptr;
-        DecideNextAction();
-    }
-}
-
-
 void AAICustomerPawn::TryPickUpProduct()
 {
     if (CurrentShelf && CurrentShelf->GetProductCount() > 0)
@@ -246,54 +472,31 @@ void AAICustomerPawn::TryPickUpProduct()
         AProduct* PickedProduct = CurrentShelf->RemoveNextProduct();
         if (PickedProduct)
         {
-            // Add the picked product to the shopping bag
-            ShoppingBag->AddProduct(PickedProduct);
+            UE_LOG(LogTemp, Display, TEXT("Picked up product %s from shelf %s. Total products: %d/%d"),
+                *PickedProduct->GetProductName(), *CurrentShelf->GetName(), CurrentItems + 1, MaxItems);
 
-            UE_LOG(LogTemp, Display, TEXT("AI %s: Picked up product %s from shelf %s. Total products: %d/%d"),
-                *GetName(), *PickedProduct->GetProductName(), *CurrentShelf->GetName(), ShoppingBag->GetProductCount(), TotalItemsToPickUp);
+            // Play grab animation if available
+            if (GrabProductAnimation)
+            {
+                PlayAnimMontage(GrabProductAnimation);
+            }
 
-            // Destroy the actor after picking up
-            PickedProduct->Destroy();
-
-            // Schedule the next product pickup after 1 second
-            FTimerHandle NextPickupTimerHandle;
-            GetWorld()->GetTimerManager().SetTimer(NextPickupTimerHandle, this, &AAICustomerPawn::DecideNextAction, 1.0f, false);
+            // Set up timer to put product in bag after a short delay
+            GetWorldTimerManager().SetTimer(PutInBagTimerHandle, this, &AAICustomerPawn::PutCurrentProductInBag, 1.0f, false);
+            CurrentTargetProduct = PickedProduct;
         }
         else
         {
-            UE_LOG(LogTemp, Warning, TEXT("AI %s: Failed to pick up product from shelf %s"), *GetName(), *CurrentShelf->GetName());
-            DecideNextAction();
+            UE_LOG(LogTemp, Warning, TEXT("Failed to pick up product from shelf %s"), *CurrentShelf->GetName());
+            ChooseProduct();
         }
     }
     else
     {
-        UE_LOG(LogTemp, Warning, TEXT("AI %s: No current shelf or shelf is empty"), *GetName());
+        UE_LOG(LogTemp, Warning, TEXT("No current shelf or shelf is empty"));
         CurrentShelf = nullptr;
-        DecideNextAction();
+        ChooseProduct();
     }
-}
-
-void AAICustomerPawn::ProcessCheckout()
-{
-    ACheckout* RandomCheckout = FindOpenCheckout();
-    if (RandomCheckout)
-    {
-        RandomCheckout->ProcessCustomer(this);
-        UE_LOG(LogTemp, Display, TEXT("AI %s: Processing checkout at %s."), *GetName(), *RandomCheckout->GetName());
-    }
-    else
-    {
-        UE_LOG(LogTemp, Warning, TEXT("AI %s: No open checkout found."), *GetName());
-        DecideNextAction();
-    }
-}
-
-void AAICustomerPawn::OnCheckoutComplete()
-{
-    UE_LOG(LogTemp, Display, TEXT("AI %s: Checkout complete. Items in bag: %d. Leaving store."),
-        *GetName(), ShoppingBag->GetProductCount());
-    ShoppingBag->EmptyBag();
-    LeaveStore();
 }
 
 AShelf* AAICustomerPawn::FindRandomStockedShelf()
@@ -332,25 +535,46 @@ AShelf* AAICustomerPawn::FindRandomStockedShelf()
     return nullptr;
 }
 
-ACheckout* AAICustomerPawn::FindOpenCheckout()
+FVector AAICustomerPawn::GetRandomLocationInStore()
 {
-    TArray<AActor*> FoundCheckouts;
-    UGameplayStatics::GetAllActorsOfClass(GetWorld(), ACheckout::StaticClass(), FoundCheckouts);
-
-    for (AActor* CheckoutActor : FoundCheckouts)
+    UNavigationSystemV1* NavSys = FNavigationSystem::GetCurrent<UNavigationSystemV1>(GetWorld());
+    if (NavSys)
     {
-        ACheckout* Checkout = Cast<ACheckout>(CheckoutActor);
-        if (IsValid(Checkout) && !Checkout->IsQueueFull())
+        FNavLocation RandomNavLocation;
+        if (NavSys->GetRandomReachablePointInRadius(GetActorLocation(), 5000.0f, RandomNavLocation))
         {
-            return Checkout;
+            return RandomNavLocation.Location;
         }
     }
 
-    return nullptr;
+    // Fallback: return a random point 5000 units away in a random direction
+    FVector RandomDirection = FMath::VRand();
+    return GetActorLocation() + RandomDirection * 5000.0f;
 }
 
-void AAICustomerPawn::DestroySelf()
+void AAICustomerPawn::LeaveStore()
 {
-    UE_LOG(LogTemp, Display, TEXT("AI %s: Destroying self."), *GetName());
+    UE_LOG(LogTemp, Display, TEXT("AI is leaving the store"));
+
+    FVector RandomLocation = GetRandomLocationInStore();
+
+    if (AIController)
+    {
+        UAIBlueprintHelperLibrary::SimpleMoveToLocation(AIController, RandomLocation);
+
+        // Set a timer to destroy the AI after it reaches the destination
+        float EstimatedTravelTime = FVector::Dist(GetActorLocation(), RandomLocation) / GetCharacterMovement()->MaxWalkSpeed;
+        GetWorldTimerManager().SetTimer(LeaveStoreTimerHandle, this, &AAICustomerPawn::DestroyAI, EstimatedTravelTime, false);
+    }
+    else
+    {
+        UE_LOG(LogTemp, Error, TEXT("AIController is null in LeaveStore!"));
+        DestroyAI(); // Destroy immediately if there's no AIController
+    }
+}
+
+void AAICustomerPawn::DestroyAI()
+{
+    UE_LOG(LogTemp, Display, TEXT("AI has left the store and is being destroyed"));
     Destroy();
 }
