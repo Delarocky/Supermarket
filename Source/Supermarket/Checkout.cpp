@@ -176,7 +176,12 @@ void ACheckout::ProcessCustomer(AAICustomerPawn* Customer)
 void ACheckout::PlaceItemsOnCounter()
 {
     FVector GridOrigin = GridStartPoint->GetComponentLocation();
-    FRotator StandingRotation = FRotator::MakeFromEuler(ItemStandingRotation);
+    FRotator GridRotation = GridStartPoint->GetComponentRotation();
+    FRotator StandingRotation = FRotator::MakeFromEuler(ItemStandingRotation) + GridRotation;
+
+    // Get the right (Y) and forward (X) vectors of the GridStartPoint
+    FVector RightVector = GridStartPoint->GetRightVector();
+    FVector ForwardVector = GridStartPoint->GetForwardVector();
 
     int32 ItemIndex = 0;
     for (int32 Y = 0; Y < GridSize.Y && ItemIndex < ItemsOnCounter.Num(); Y++)
@@ -186,22 +191,27 @@ void ACheckout::PlaceItemsOnCounter()
             AProduct* Product = ItemsOnCounter[ItemIndex];
             if (Product)
             {
-                // Calculate the position on the grid
-                FVector ItemLocation = GridOrigin + FVector(X * GridSpacing.X, Y * GridSpacing.Y, 0);
+                // Calculate the position on the grid aligned with GridStartPoint's negative Y direction
+                FVector ItemLocation = GridOrigin +
+                    RightVector * X * GridSpacing.X +             // Use RightVector for X spacing
+                    ForwardVector * -Y * GridSpacing.Y;           // Use negative ForwardVector for Y spacing
 
-
-                // Set the product's location and rotation
-                Product->SetActorLocation(ItemLocation);
-                Product->SetActorRotation(StandingRotation);
-
-                // Ensure the product is visible and has collision enabled
-                Product->SetActorHiddenInGame(false);
-                Product->SetActorEnableCollision(true);
-
-                // If the product has a mesh component, make sure it's visible
+                // Get the product's mesh bounds
                 UStaticMeshComponent* ProductMesh = Product->FindComponentByClass<UStaticMeshComponent>();
                 if (ProductMesh)
                 {
+                    FVector MeshBounds = ProductMesh->Bounds.BoxExtent;
+
+                    // Adjust the Z position to place the bottom of the product on the grid
+                    ItemLocation.Z += MeshBounds.Z;
+
+                    // Set the product's location and rotation
+                    Product->SetActorLocation(ItemLocation);
+                    Product->SetActorRotation(StandingRotation);
+
+                    // Ensure the product is visible and has collision enabled
+                    Product->SetActorHiddenInGame(false);
+                    Product->SetActorEnableCollision(true);
                     ProductMesh->SetVisibility(true);
                 }
 

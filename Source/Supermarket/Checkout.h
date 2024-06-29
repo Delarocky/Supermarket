@@ -123,7 +123,7 @@ private:
     bool bDebugMode = true;
 
     UPROPERTY(EditAnywhere, Category = "Checkout", meta = (AllowPrivateAccess = "true"))
-    FVector2D GridSize = FVector2D(4, 4);
+    FVector2D GridSize = FVector2D(4, 6);
 
     UPROPERTY(EditAnywhere, Category = "Checkout", meta = (AllowPrivateAccess = "true"))
     FVector2D GridSpacing = FVector2D(15.0f, 15.0f);
