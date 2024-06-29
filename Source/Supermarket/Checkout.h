@@ -20,7 +20,6 @@ class SUPERMARKET_API ACheckout : public AActor
 
 public:
     ACheckout();
-    virtual void Tick(float DeltaTime) override;
     UFUNCTION(BlueprintCallable)
     void ProcessCustomer(AAICustomerPawn* Customer);
 
@@ -86,8 +85,11 @@ private:
     TArray<AProduct*> ScannedItems;
     UPROPERTY(EditAnywhere, Category = "Queue", meta = (ClampMin = "0.1", ClampMax = "10.0"))
     float RotationSpeed = 10.0f;
-
-    void UpdateCustomerRotations(float DeltaTime);
+    TMap<AAICustomerPawn*, FRotator> CustomerTargetRotations;
+    FTimerHandle RotationUpdateTimerHandle;
+    void SetCustomerTargetRotation(AAICustomerPawn* Customer, int32 CustomerIndex);
+    void StartRotationUpdate();
+    void UpdateCustomerRotations();
     UPROPERTY()
     TArray<AProduct*> ProductsToScan;
 

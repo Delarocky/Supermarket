@@ -47,11 +47,7 @@ ACheckout::ACheckout()
     CurrentItemIndex = 0;
 }
 
-void ACheckout::Tick(float DeltaTime)
-{
-    Super::Tick(DeltaTime);
-    UpdateCustomerRotations(DeltaTime);
-}
+
 
 void ACheckout::BeginPlay()
 {
@@ -357,6 +353,7 @@ void ACheckout::FinishTransaction()
 void ACheckout::CustomerLeft(AAICustomerPawn* Customer)
 {
     CustomersInQueue.Remove(Customer);
+    CustomerTargetRotations.Remove(Customer);
     UpdateQueue();
 }
 
@@ -368,8 +365,14 @@ void ACheckout::UpdateQueue()
         {
             FVector TargetLocation = QueuePositions[i]->GetComponentLocation();
             CustomersInQueue[i]->MoveTo(TargetLocation);
+
+            // Calculate and set the target rotation for each customer
+            SetCustomerTargetRotation(CustomersInQueue[i], i);
         }
     }
+
+    // Trigger the rotation update for all customers
+    StartRotationUpdate();
 
     if (CustomersInQueue.Num() > 0 && QueuePositions.Num() > 0)
     {
@@ -396,44 +399,31 @@ void ACheckout::UpdateQueue()
 }
 
 
-void ACheckout::UpdateCustomerRotations(float DeltaTime)
+void ACheckout::SetCustomerTargetRotation(AAICustomerPawn* Customer, int32 CustomerIndex)
 {
-    if (CustomersInQueue.Num() == 0 || !CheckoutMesh)
-    {
+    if (!Customer || !CheckoutMesh)
         return;
-    }
 
-    // Rotate the customer at the front of the queue to face the checkout
-    if (CustomersInQueue.IsValidIndex(0))
+    FRotator TargetRotation;
+
+    if (CustomerIndex == 0)
     {
-        AAICustomerPawn* FrontCustomer = CustomersInQueue[0];
-        if (FrontCustomer)
-        {
-            FVector DirectionToCheckout = CheckoutMesh->GetComponentLocation() - FrontCustomer->GetActorLocation();
-            DirectionToCheckout.Z = 0; // Ignore height difference
-            FRotator TargetRotation = DirectionToCheckout.Rotation();
-
-            FRotator NewRotation = FMath::RInterpTo(FrontCustomer->GetActorRotation(), TargetRotation, DeltaTime, RotationSpeed);
-            FrontCustomer->SetActorRotation(NewRotation);
-        }
+        // Front customer faces the checkout
+        FVector DirectionToCheckout = CheckoutMesh->GetComponentLocation() - Customer->GetActorLocation();
+        DirectionToCheckout.Z = 0; // Ignore height difference
+        TargetRotation = DirectionToCheckout.Rotation();
     }
-
-    // Rotate other customers to face the customer in front of them
-    for (int32 i = 1; i < CustomersInQueue.Num(); ++i)
+    else if (CustomersInQueue.IsValidIndex(CustomerIndex - 1))
     {
-        AAICustomerPawn* CurrentCustomer = CustomersInQueue[i];
-        AAICustomerPawn* CustomerInFront = CustomersInQueue[i - 1];
-
-        if (CurrentCustomer && CustomerInFront)
-        {
-            FVector DirectionToFront = CustomerInFront->GetActorLocation() - CurrentCustomer->GetActorLocation();
-            DirectionToFront.Z = 0; // Ignore height difference
-            FRotator TargetRotation = DirectionToFront.Rotation();
-
-            FRotator NewRotation = FMath::RInterpTo(CurrentCustomer->GetActorRotation(), TargetRotation, DeltaTime, RotationSpeed);
-            CurrentCustomer->SetActorRotation(NewRotation);
-        }
+        // Other customers face the customer in front
+        AAICustomerPawn* CustomerInFront = CustomersInQueue[CustomerIndex - 1];
+        FVector DirectionToFront = CustomerInFront->GetActorLocation() - Customer->GetActorLocation();
+        DirectionToFront.Z = 0; // Ignore height difference
+        TargetRotation = DirectionToFront.Rotation();
     }
+
+    // Store the target rotation for this customer
+    CustomerTargetRotations.Add(Customer, TargetRotation);
 }
 
 
@@ -459,6 +449,45 @@ void ACheckout::RemoveScannedItem()
     }
 }
 
+void ACheckout::UpdateCustomerRotations()
+{
+    bool AllCustomersRotated = true;
+
+    for (auto& Pair : CustomerTargetRotations)
+    {
+        AAICustomerPawn* Customer = Pair.Key;
+        FRotator TargetRotation = Pair.Value;
+
+        if (Customer)
+        {
+            FRotator CurrentRotation = Customer->GetActorRotation();
+            FRotator NewRotation = FMath::RInterpTo(CurrentRotation, TargetRotation, GetWorld()->GetDeltaSeconds(), RotationSpeed);
+            Customer->SetActorRotation(NewRotation);
+
+            // Check if this customer has reached its target rotation
+            if (!NewRotation.Equals(TargetRotation, 1.0f))
+            {
+                AllCustomersRotated = false;
+            }
+        }
+    }
+
+    // If all customers have reached their target rotations, stop the update timer
+    if (AllCustomersRotated)
+    {
+        GetWorld()->GetTimerManager().ClearTimer(RotationUpdateTimerHandle);
+    }
+}
+
+void ACheckout::StartRotationUpdate()
+{
+    // Clear any existing rotation update timer
+    GetWorld()->GetTimerManager().ClearTimer(RotationUpdateTimerHandle);
+
+    // Start a new timer to update rotations smoothly
+    GetWorld()->GetTimerManager().SetTimer(RotationUpdateTimerHandle, this, &ACheckout::UpdateCustomerRotations, 0.016f, true);
+}
+
 void ACheckout::ResetCheckout()
 {
     DebugLog(TEXT("Resetting checkout state"));
@@ -471,7 +500,9 @@ void ACheckout::ResetCheckout()
         }
     }
     CustomersInQueue.Empty();
-
+    // Clear the rotation data
+    CustomerTargetRotations.Empty();
+    GetWorld()->GetTimerManager().ClearTimer(RotationUpdateTimerHandle);
     ScannedItems.Empty();
     ProductsToScan.Empty();
     CurrentItemIndex = 0;
