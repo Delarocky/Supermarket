@@ -26,7 +26,7 @@ AShelf::AShelf()
 
     AccessPoint = CreateDefaultSubobject<USceneComponent>(TEXT("AccessPoint"));
     AccessPoint->SetupAttachment(RootComponent);
-    AccessPointOffset = FVector(100.0f, 0.0f, 0.0f);
+    AccessPointOffset = FVector(0.0f, 0.0f, 0.0f);
 }
 
 
