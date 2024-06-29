@@ -11,6 +11,7 @@ void UShoppingBag::AddProduct(AProduct* Product)
     if (Product)
     {
         Products.Add(Product);
+        UE_LOG(LogTemp, Display, TEXT("Added product to bag: %s"), *Product->GetProductName());
     }
 }
 
@@ -40,4 +41,20 @@ float UShoppingBag::GetTotalCost() const
         }
     }
     return TotalCost;
+}
+
+void UShoppingBag::DebugPrintContents() const
+{
+    UE_LOG(LogTemp, Display, TEXT("Shopping Bag Contents:"));
+    for (const auto& Product : Products)
+    {
+        if (Product)
+        {
+            UE_LOG(LogTemp, Display, TEXT("- %s (Price: %.2f)"), *Product->GetProductName(), Product->GetPrice());
+        }
+        else
+        {
+            UE_LOG(LogTemp, Warning, TEXT("- Null product in bag"));
+        }
+    }
 }

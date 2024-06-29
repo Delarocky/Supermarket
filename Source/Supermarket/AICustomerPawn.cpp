@@ -196,10 +196,10 @@ void AAICustomerPawn::PutProductInBag(AProduct* Product)
         if (CurrentShelf)
         {
             AProduct* RemovedProduct = CurrentShelf->RemoveNextProduct();
-           /* if (RemovedProduct != Product)
+            if (RemovedProduct != Product)
             {
                 UE_LOG(LogTemp, Warning, TEXT("Removed product does not match the expected product"));
-            }*/
+            }
         }
         else
         {
@@ -209,11 +209,15 @@ void AAICustomerPawn::PutProductInBag(AProduct* Product)
         Product->DetachFromActor(FDetachmentTransformRules::KeepWorldTransform);
         ShoppingBag->AddProduct(Product);
 
-        // Completely remove the product from the level
-        Product->Destroy();
+        // Do not destroy the product, just hide it
+        Product->SetActorHiddenInGame(true);
+        Product->SetActorEnableCollision(false);
 
         CurrentItems++;
-        UE_LOG(LogTemp, Display, TEXT("Product added to bag and removed from level. Current Items: %d"), CurrentItems);
+        UE_LOG(LogTemp, Display, TEXT("Product added to bag. Current Items: %d"), CurrentItems);
+
+        // Debug print the contents of the shopping bag
+        ShoppingBag->DebugPrintContents();
 
         // Check if we've reached MaxItems
         if (CurrentItems >= MaxItems)

@@ -104,11 +104,9 @@ bool ACheckout::TryEnterQueue(AAICustomerPawn* Customer)
 
 void ACheckout::ProcessCustomer(AAICustomerPawn* Customer)
 {
-    //DebugLog(FString::Printf(TEXT("ProcessCustomer called for customer: %s"), *Customer->GetName()));
-
     if (bIsProcessingCustomer)
     {
-        // DebugLog(TEXT("Already processing a customer. Ignoring this call."));
+        //UE_LOG(LogTemp, Warning, TEXT("Already processing a customer. Ignoring this call."));
         return;
     }
 
@@ -123,18 +121,27 @@ void ACheckout::ProcessCustomer(AAICustomerPawn* Customer)
 
             float DistanceToQueueFront = FVector::Dist(CustomerLocation, QueueFrontLocation);
 
-            DebugLog(FString::Printf(TEXT("Customer distance to queue front: %f, Processing distance: %f"),
-                DistanceToQueueFront, ProcessingDistance));
+            UE_LOG(LogTemp, Display, TEXT("Customer distance to queue front: %f, Processing distance: %f"),
+                DistanceToQueueFront, ProcessingDistance);
 
             if (DistanceToQueueFront <= ProcessingDistance)
             {
                 if (Customer && Customer->ShoppingBag)
                 {
-                    DebugLog(TEXT("Processing customer at front of queue."));
-                    ProductsToScan = Customer->ShoppingBag->GetProducts();
-                    DebugLog(FString::Printf(TEXT("Products in bag: %d"), ProductsToScan.Num()));
+                    UE_LOG(LogTemp, Display, TEXT("Processing customer at front of queue."));
 
+                    // Debug print the contents of the shopping bag
+                    Customer->ShoppingBag->DebugPrintContents();
+
+                    ProductsToScan = Customer->ShoppingBag->GetProducts();
+                    UE_LOG(LogTemp, Display, TEXT("Products in bag: %d"), ProductsToScan.Num());
+
+                    // Clear previous items and copy new items
+                    ItemsOnCounter.Empty();
                     ItemsOnCounter = ProductsToScan;
+
+                    UE_LOG(LogTemp, Display, TEXT("Items on counter: %d"), ItemsOnCounter.Num());
+
                     PlaceItemsOnCounter();
 
                     CurrentItemIndex = 0;
@@ -145,22 +152,22 @@ void ACheckout::ProcessCustomer(AAICustomerPawn* Customer)
                 }
                 else
                 {
-                    DebugLog(TEXT("Error: Customer or ShoppingBag is null"));
+                    UE_LOG(LogTemp, Error, TEXT("Error: Customer or ShoppingBag is null"));
                 }
             }
             else
             {
-                DebugLog(TEXT("Customer not close enough to queue front to be processed."));
+                UE_LOG(LogTemp, Warning, TEXT("Customer not close enough to queue front to be processed."));
             }
         }
         else
         {
-            DebugLog(TEXT("Error: First queue position is null"));
+            UE_LOG(LogTemp, Error, TEXT("Error: First queue position is null"));
         }
     }
     else
     {
-        DebugLog(TEXT("Warning: Attempted to process a customer who is not at the front of the queue"));
+        UE_LOG(LogTemp, Warning, TEXT("Attempted to process a customer who is not at the front of the queue"));
     }
 }
 
@@ -177,11 +184,25 @@ void ACheckout::PlaceItemsOnCounter()
             AProduct* Product = ItemsOnCounter[ItemIndex];
             if (Product)
             {
+                // Calculate the position on the grid
                 FVector ItemLocation = GridOrigin + FVector(X * GridSpacing.X, Y * GridSpacing.Y, 0);
+
+
+                // Set the product's location and rotation
                 Product->SetActorLocation(ItemLocation);
                 Product->SetActorRotation(StandingRotation);
+
+                // Ensure the product is visible and has collision enabled
                 Product->SetActorHiddenInGame(false);
                 Product->SetActorEnableCollision(true);
+
+                // If the product has a mesh component, make sure it's visible
+                UStaticMeshComponent* ProductMesh = Product->FindComponentByClass<UStaticMeshComponent>();
+                if (ProductMesh)
+                {
+                    ProductMesh->SetVisibility(true);
+                }
+
                 ItemIndex++;
             }
         }
@@ -367,8 +388,19 @@ void ACheckout::RemoveScannedItem()
     {
         AProduct* ScannedItem = ItemsOnCounter[0];
         ItemsOnCounter.RemoveAt(0);
-        ScannedItem->SetActorHiddenInGame(true);
-        ScannedItem->SetActorEnableCollision(false);
+
+        if (ScannedItem)
+        {
+            ScannedItem->SetActorHiddenInGame(true);
+            ScannedItem->SetActorEnableCollision(false);
+
+            // If the product has a mesh component, make sure it's hidden
+            UStaticMeshComponent* ProductMesh = ScannedItem->FindComponentByClass<UStaticMeshComponent>();
+            if (ProductMesh)
+            {
+                ProductMesh->SetVisibility(false);
+            }
+        }
     }
 }
 

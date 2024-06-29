@@ -29,6 +29,8 @@ public:
     UFUNCTION(BlueprintCallable, Category = "Shopping")
     float GetTotalCost() const;
 
+    UFUNCTION(BlueprintCallable, Category = "Shopping")
+    void DebugPrintContents() const;
 private:
     UPROPERTY()
     TArray<AProduct*> Products;

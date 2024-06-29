@@ -96,7 +96,7 @@ private:
     bool bIsProcessingCustomer;
 
     UPROPERTY(EditAnywhere, Category = "Checkout")
-    float ProcessingDistance = 110.0f;
+    float ProcessingDistance = 100.0f;
 
 
 
