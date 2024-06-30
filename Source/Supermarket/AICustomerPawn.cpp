@@ -339,7 +339,7 @@ void AAICustomerPawn::LowerArm()
     bRaiseArm = false;
 
     // Wait for 1 second, then put the product in the bag
-    GetWorldTimerManager().SetTimer(PutInBagTimerHandle, this, &AAICustomerPawn::PutCurrentProductInBag, 1.0f, false);
+    GetWorldTimerManager().SetTimer(PutInBagTimerHandle, this, &AAICustomerPawn::PutCurrentProductInBag, 0.5f, false);
 }
 
 void AAICustomerPawn::PutProductInBag(AProduct* Product)
@@ -385,7 +385,7 @@ void AAICustomerPawn::PutProductInBag(AProduct* Product)
         else
         {
             // If we haven't reached max items, choose the next product after a short delay
-            GetWorldTimerManager().SetTimer(ChooseProductTimerHandle, this, &AAICustomerPawn::ChooseProduct, 0.5f, false);
+            GetWorldTimerManager().SetTimer(ChooseProductTimerHandle, this, &AAICustomerPawn::ChooseProduct, 0.2f, false);
         }
     }
     else
@@ -647,7 +647,7 @@ void AAICustomerPawn::TryPickUpProduct()
 
         // Wait for 1 second, then pick up the product
         FTimerHandle PickUpTimerHandle;
-        GetWorldTimerManager().SetTimer(PickUpTimerHandle, this, &AAICustomerPawn::PickUpProduct, 1.0f, false);
+        GetWorldTimerManager().SetTimer(PickUpTimerHandle, this, &AAICustomerPawn::PickUpProduct, 0.5f, false);
     }
     else
     {
