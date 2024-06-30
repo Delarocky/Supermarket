@@ -1,20 +1,27 @@
 // ProductBox.cpp
 #include "ProductBox.h"
+#include "Camera/CameraComponent.h"
 
 AProductBox::AProductBox()
 {
-    PrimaryActorTick.bCanEverTick = false;
+    PrimaryActorTick.bCanEverTick = true;
 
     BoxMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("BoxMesh"));
     RootComponent = BoxMesh;
 
+    ProductSpawnPoint = CreateDefaultSubobject<USceneComponent>(TEXT("ProductSpawnPoint"));
+    ProductSpawnPoint->SetupAttachment(RootComponent);
+
     MaxProducts = 20;
     ProductSpacing = FVector(10.0f, 10.0f, 10.0f);
+    bIsAttachedToCamera = false;
+    CameraOffset = FVector(50.0f, 0.0f, -50.0f);
 }
 
 void AProductBox::BeginPlay()
 {
     Super::BeginPlay();
+    FillBox();
 }
 
 void AProductBox::FillBox()
@@ -25,17 +32,15 @@ void AProductBox::FillBox()
         return;
     }
 
-    int32 InitialProductCount = Products.Num();
-
     while (Products.Num() < MaxProducts)
     {
         FActorSpawnParameters SpawnParams;
         SpawnParams.Owner = this;
-        AProduct* NewProduct = GetWorld()->SpawnActor<AProduct>(ProductClass, GetActorLocation(), GetActorRotation(), SpawnParams);
+        AProduct* NewProduct = GetWorld()->SpawnActor<AProduct>(ProductClass, ProductSpawnPoint->GetComponentLocation(), ProductSpawnPoint->GetComponentRotation(), SpawnParams);
         if (NewProduct)
         {
             Products.Add(NewProduct);
-            NewProduct->AttachToComponent(BoxMesh, FAttachmentTransformRules::KeepRelativeTransform);
+            NewProduct->AttachToComponent(ProductSpawnPoint, FAttachmentTransformRules::KeepRelativeTransform);
         }
         else
         {
@@ -44,14 +49,7 @@ void AProductBox::FillBox()
         }
     }
 
-    if (Products.Num() > InitialProductCount)
-    {
-        ArrangeProducts();
-    }
-    else
-    {
-        UE_LOG(LogTemp, Warning, TEXT("No new products were added to the ProductBox"));
-    }
+    ArrangeProducts();
 }
 
 AProduct* AProductBox::RemoveProduct()
@@ -61,6 +59,7 @@ AProduct* AProductBox::RemoveProduct()
         AProduct* RemovedProduct = Products.Last();
         Products.RemoveAt(Products.Num() - 1);
         RemovedProduct->DetachFromActor(FDetachmentTransformRules::KeepWorldTransform);
+        ArrangeProducts();
         return RemovedProduct;
     }
     return nullptr;
@@ -68,29 +67,52 @@ AProduct* AProductBox::RemoveProduct()
 
 void AProductBox::ArrangeProducts()
 {
-    FVector BoxExtent = BoxMesh->Bounds.BoxExtent;
-    FVector StartLocation = -BoxExtent + ProductSpacing;
-
-    // Ensure we don't divide by zero
-    int32 ProductsPerRow = (ProductSpacing.X > 0) ? FMath::FloorToInt(BoxExtent.X * 2 / ProductSpacing.X) : 1;
-    int32 ProductsPerColumn = (ProductSpacing.Y > 0) ? FMath::FloorToInt(BoxExtent.Y * 2 / ProductSpacing.Y) : 1;
-
-    // Ensure we have at least one product per row/column
-    ProductsPerRow = FMath::Max(1, ProductsPerRow);
-    ProductsPerColumn = FMath::Max(1, ProductsPerColumn);
+    int32 ProductsPerRow = 3;
+    int32 ProductsPerColumn = 3;
+    int32 ProductsPerLayer = ProductsPerRow * ProductsPerColumn;
 
     for (int32 i = 0; i < Products.Num(); ++i)
     {
-        int32 Row = i / ProductsPerRow;
-        int32 Column = i % ProductsPerRow;
-        int32 Layer = Row / ProductsPerColumn;
+        int32 Layer = i / ProductsPerLayer;
+        int32 IndexInLayer = i % ProductsPerLayer;
+        int32 Row = IndexInLayer / ProductsPerRow;
+        int32 Column = IndexInLayer % ProductsPerRow;
 
-        FVector RelativeLocation = StartLocation + FVector(
+        FVector RelativeLocation = FVector(
             Column * ProductSpacing.X,
-            (Row % ProductsPerColumn) * ProductSpacing.Y,
+            Row * ProductSpacing.Y,
             Layer * ProductSpacing.Z
         );
 
         Products[i]->SetActorRelativeLocation(RelativeLocation);
+    }
+}
+
+void AProductBox::AttachToCamera(UCameraComponent* Camera)
+{
+    if (Camera)
+    {
+        AttachedCamera = Camera;
+        AttachToComponent(Camera, FAttachmentTransformRules::KeepRelativeTransform);
+        SetActorRelativeLocation(CameraOffset);
+        bIsAttachedToCamera = true;
+    }
+}
+
+void AProductBox::DetachFromCamera()
+{
+    DetachFromActor(FDetachmentTransformRules::KeepWorldTransform);
+    bIsAttachedToCamera = false;
+    AttachedCamera = nullptr;
+}
+
+// Add to Tick function if not already present
+void AProductBox::Tick(float DeltaTime)
+{
+    Super::Tick(DeltaTime);
+
+    if (bIsAttachedToCamera && AttachedCamera)
+    {
+        SetActorRelativeLocation(CameraOffset);
     }
 }

@@ -13,9 +13,13 @@ class SUPERMARKET_API AProductBox : public AActor
 
 public:
     AProductBox();
+    virtual void Tick(float DeltaTime) override;
 
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Product Box")
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Product Box")
     UStaticMeshComponent* BoxMesh;
+
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Product Box")
+    USceneComponent* ProductSpawnPoint;
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Product Box")
     TSubclassOf<AProduct> ProductClass;
@@ -35,6 +39,18 @@ public:
     UFUNCTION(BlueprintCallable, Category = "Product Box")
     int32 GetProductCount() const { return Products.Num(); }
 
+    UFUNCTION(BlueprintCallable, Category = "Product Box")
+    void AttachToCamera(UCameraComponent* Camera);
+
+    UFUNCTION(BlueprintCallable, Category = "Product Box")
+    void DetachFromCamera();
+
+    UFUNCTION(BlueprintCallable, Category = "Product Box")
+    bool IsAttachedToCamera() const { return bIsAttachedToCamera; }
+
+    UFUNCTION(BlueprintCallable, Category = "Product Box")
+    TSubclassOf<AProduct> GetProductClass() const { return ProductClass; }
+
 protected:
     virtual void BeginPlay() override;
 
@@ -43,4 +59,11 @@ private:
     TArray<AProduct*> Products;
 
     void ArrangeProducts();
+
+    bool bIsAttachedToCamera;
+
+    UPROPERTY()
+    UCameraComponent* AttachedCamera;
+
+    FVector CameraOffset;
 };

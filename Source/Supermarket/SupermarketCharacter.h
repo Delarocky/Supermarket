@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "GameFramework/Character.h"
 #include "Logging/LogMacros.h"
+#include "ProductBox.h"
 #include "Shelf.h"
 #include "SupermarketCharacter.generated.h"
 
@@ -60,6 +61,9 @@ public:
     /** Look Input Action */
     UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, meta = (AllowPrivateAccess = "true"))
     class UInputAction* LookAction;
+    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, meta = (AllowPrivateAccess = "true"))
+    class UInputAction* DropAction;
+
 
     /** Bool for AnimBP to switch to another animation set */
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Weapon)
@@ -83,8 +87,7 @@ protected:
     /** Called for interaction input */
     void OnInteract();
 
-    /** Called when interaction stops */
-    void OnStopInteract();
+
 
 protected:
     // APawn interface
@@ -101,7 +104,12 @@ private:
     UPROPERTY()
     AShelf* CurrentTargetShelf;
 
+    UPROPERTY()
+    AProductBox* HeldProductBox;
+    void PopulateShelves();
     bool bIsInteracting;
-    void InteractWithShelf();
-    void StopInteractWithShelf();
+    void InteractWithObject();
+    void InteractWithShelf(AShelf* Shelf);
+    void DropProductBox();
+    void PickUpProductBox(AProductBox* ProductBox);
 };

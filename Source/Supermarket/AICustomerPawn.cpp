@@ -673,7 +673,7 @@ AShelf* AAICustomerPawn::FindRandomStockedShelf()
     for (AActor* Actor : FoundShelves)
     {
         AShelf* Shelf = Cast<AShelf>(Actor);
-        if (IsValid(Shelf) && Shelf->GetProductCount() > 0)
+        if (IsValid(Shelf) && Shelf->GetProductCount() > 0 && Shelf->GetCurrentProductClass() != nullptr)
         {
             FVector ShelfLocation = Shelf->GetActorLocation();
             FNavLocation NavLocation;

@@ -17,7 +17,8 @@ class SUPERMARKET_API AShelf : public AActor
 public:
     AShelf();
 
-
+    UFUNCTION(BlueprintCallable, Category = "Shelf")
+    int32 GetRemainingCapacity() const;
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Shelf")
     bool bStartFullyStocked;
 
@@ -30,8 +31,8 @@ public:
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Shelf")
     int32 MaxProducts;
 
-    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Shelf")
-    TSubclassOf<AProduct> DefaultProductClass;
+    UPROPERTY()
+    TSubclassOf<AProduct> CurrentProductClass;
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Shelf")
     FVector ProductSpacing;
@@ -45,7 +46,9 @@ public:
     FVector GetAccessPointLocation() const;
 
     UFUNCTION(BlueprintCallable, Category = "Shelf")
-    void StartStockingShelf();
+    void StartStockingShelf(TSubclassOf<AProduct> ProductToStock);
+    UFUNCTION(BlueprintCallable, Category = "Shelf")
+    TSubclassOf<AProduct> GetCurrentProductClass() const { return CurrentProductClass; }
     UFUNCTION(BlueprintCallable, Category = "Shelf")
     void UpdateProductSpawnPointRotation();
     UFUNCTION(BlueprintCallable, Category = "Shelf")

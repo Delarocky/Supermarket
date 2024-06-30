@@ -29,6 +29,7 @@ AShelf::AShelf()
     AccessPointOffset = FVector(0.0f, 0.0f, 0.0f);
 
     bStartFullyStocked = false; // Set default value
+    CurrentProductClass = nullptr;
 }
 
 
@@ -139,7 +140,7 @@ void AShelf::InitializeShelf()
 
 bool AShelf::AddProduct(const FVector& RelativeLocation)
 {
-    if (Products.Num() < MaxProducts && IsSpotEmpty(RelativeLocation))
+    if (Products.Num() < MaxProducts && CurrentProductClass)
     {
         FVector SpawnLocation = ProductSpawnPoint->GetComponentLocation() +
             ProductSpawnPoint->GetComponentRotation().RotateVector(RelativeLocation);
@@ -147,58 +148,31 @@ bool AShelf::AddProduct(const FVector& RelativeLocation)
         FActorSpawnParameters SpawnParams;
         SpawnParams.Owner = this;
 
-        if (DefaultProductClass)
+        AProduct* NewProduct = GetWorld()->SpawnActor<AProduct>(
+            CurrentProductClass,
+            SpawnLocation,
+            ProductSpawnPoint->GetComponentRotation(),
+            SpawnParams
+        );
+
+        if (NewProduct)
         {
-            // Spawn the product
-            AProduct* NewProduct = GetWorld()->SpawnActor<AProduct>(
-                DefaultProductClass,
-                SpawnLocation,
-                ProductSpawnPoint->GetComponentRotation(),
-                SpawnParams
-            );
-
-            if (NewProduct)
-            {
-                // Get the product's mesh
-                UStaticMeshComponent* ProductMesh = NewProduct->FindComponentByClass<UStaticMeshComponent>();
-                if (ProductMesh)
-                {
-                    // Calculate the offset to align the bottom of the product with the spawn point
-                    FVector MeshBounds = ProductMesh->Bounds.BoxExtent;
-                    FVector BottomOffset = FVector(0, 0, MeshBounds.Z);
-
-                    // Adjust the spawn location to align the bottom of the product with the spawn point
-                    FVector AdjustedLocation = SpawnLocation + ProductSpawnPoint->GetComponentRotation().RotateVector(BottomOffset);
-                    NewProduct->SetActorLocation(AdjustedLocation);
-
-                    // Set the rotation to match the ProductSpawnPoint
-                    NewProduct->SetActorRotation(ProductSpawnPoint->GetComponentRotation());
-                }
-
-                Products.Add(NewProduct);
-                NewProduct->AttachToComponent(ProductSpawnPoint, FAttachmentTransformRules::KeepWorldTransform);
-
-                UE_LOG(LogTemp, Display, TEXT("Added product %s at index %d"), *NewProduct->GetName(), Products.Num() - 1);
-                return true;
-            }
-        }
-        else
-        {
-            UE_LOG(LogTemp, Warning, TEXT("DefaultProductClass is not set in AShelf"));
+            Products.Add(NewProduct);
+            NewProduct->AttachToComponent(ProductSpawnPoint, FAttachmentTransformRules::KeepWorldTransform);
+            return true;
         }
     }
 
-    UE_LOG(LogTemp, Warning, TEXT("Shelf %s: Failed to add product at relative location %s"), *GetName(), *RelativeLocation.ToString());
     return false;
 }
 
 
 
-void AShelf::StartStockingShelf()
+void AShelf::StartStockingShelf(TSubclassOf<AProduct> ProductToStock)
 {
-    //UE_LOG(LogTemp, Display, TEXT("Shelf %s: Starting to stock shelf."), *GetName());
-    if (!bIsStocking)
+    if (!bIsStocking && ProductToStock)
     {
+        CurrentProductClass = ProductToStock;
         bIsStocking = true;
         StockNextProduct();
     }
@@ -206,14 +180,13 @@ void AShelf::StartStockingShelf()
 
 void AShelf::StopStockingShelf()
 {
-    //UE_LOG(LogTemp, Display, TEXT("Shelf %s: Stopping stocking process."), *GetName());
     bIsStocking = false;
     GetWorld()->GetTimerManager().ClearTimer(StockingTimerHandle);
 }
 
 void AShelf::StockNextProduct()
 {
-    if (!bIsStocking)
+    if (!bIsStocking || !CurrentProductClass)
     {
         return;
     }
@@ -221,33 +194,26 @@ void AShelf::StockNextProduct()
     int32 currentProductCount = Products.Num();
     if (currentProductCount < MaxProducts)
     {
-        int32 row = currentProductCount / 5;  // Assuming 5 products per row
+        int32 row = currentProductCount / 5;
         int32 column = currentProductCount % 5;
 
         FVector RelativeLocation = FVector(
             column * ProductSpacing.X,
             row * ProductSpacing.Y,
-            ProductSpacing.Z  // Height above the shelf
+            ProductSpacing.Z
         );
 
         if (AddProduct(RelativeLocation))
         {
-            UE_LOG(LogTemp, Display, TEXT("Shelf %s: Added product at relative location %s. Total products: %d"),
-                *GetName(), *RelativeLocation.ToString(), Products.Num());
-
-            // Schedule next product spawn
             GetWorld()->GetTimerManager().SetTimer(StockingTimerHandle, this, &AShelf::StockNextProduct, 0.3f, false);
         }
         else
         {
-            UE_LOG(LogTemp, Warning, TEXT("Shelf %s: Failed to add product at relative location %s"),
-                *GetName(), *RelativeLocation.ToString());
             bIsStocking = false;
         }
     }
     else
     {
-       // UE_LOG(LogTemp, Display, TEXT("Shelf %s: Finished stocking. Total products: %d"), *GetName(), Products.Num());
         bIsStocking = false;
     }
 }
@@ -279,26 +245,11 @@ AProduct* AShelf::RemoveNextProduct()
 {
     if (Products.Num() > 0)
     {
-        // Remove the last product in the array
         AProduct* RemovedProduct = Products.Last();
         Products.RemoveAt(Products.Num() - 1);
-
-        if (RemovedProduct)
-        {
-            UE_LOG(LogTemp, Display, TEXT("Shelf %s: Removed product %s. Remaining products: %d"),
-                *GetName(), *RemovedProduct->GetProductName(), Products.Num());
-
-            // Detach the product from the shelf
-            RemovedProduct->DetachFromActor(FDetachmentTransformRules::KeepWorldTransform);
-
-            // Optionally, hide or destroy the visual representation of the product
-            RemovedProduct->SetActorHiddenInGame(true); // Example: Hide the product visually
-
-            return RemovedProduct;
-        }
+        RemovedProduct->DetachFromActor(FDetachmentTransformRules::KeepWorldTransform);
+        return RemovedProduct;
     }
-
-    UE_LOG(LogTemp, Warning, TEXT("Shelf %s: Attempted to remove product, but shelf is empty."), *GetName());
     return nullptr;
 }
 
@@ -312,4 +263,9 @@ int32 AShelf::GetProductCount() const
 bool AShelf::IsFullyStocked() const
 {
     return Products.Num() >= MaxProducts;
+}
+
+int32 AShelf::GetRemainingCapacity() const
+{
+    return FMath::Max(0, MaxProducts - GetProductCount());
 }
