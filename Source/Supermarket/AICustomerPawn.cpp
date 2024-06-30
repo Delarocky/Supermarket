@@ -208,22 +208,89 @@ void AAICustomerPawn::PickUpProduct()
         UE_LOG(LogTemp, Display, TEXT("Picked up product %s from shelf %s. Total products: %d/%d"),
             *PickedProduct->GetProductName(), *CurrentShelf->GetName(), CurrentItems + 1, MaxItems);
 
-        // Move the product to the right hand socket
-        FName RightHandSocketName = FName("middle_03_r"); // Make sure this matches your skeleton's socket name
-        PickedProduct->AttachToComponent(GetMesh(), FAttachmentTransformRules::SnapToTargetNotIncludingScale, RightHandSocketName);
+        // Store the product's current transform
+        FTransform OriginalTransform = PickedProduct->GetActorTransform();
+
+        // Detach the product from any parent
+        PickedProduct->DetachFromActor(FDetachmentTransformRules::KeepWorldTransform);
+
+        // Set the product's transform to maintain its position, rotation, and scale
+        PickedProduct->SetActorTransform(OriginalTransform);
+
+        // Ensure the product is visible and has collision enabled
+        PickedProduct->SetActorHiddenInGame(false);
+        PickedProduct->SetActorEnableCollision(true);
+
+        // If the product has a mesh component, make sure it's visible
+        UStaticMeshComponent* ProductMesh = PickedProduct->FindComponentByClass<UStaticMeshComponent>();
+        if (ProductMesh)
+        {
+            ProductMesh->SetVisibility(true);
+        }
 
         // Set the CurrentTargetProduct
         CurrentTargetProduct = PickedProduct;
 
-        // Lower the arm after 1 second
-        FTimerHandle LowerArmTimerHandle;
-        GetWorldTimerManager().SetTimer(LowerArmTimerHandle, this, &AAICustomerPawn::LowerArm, 1.0f, false);
+        UE_LOG(LogTemp, Display, TEXT("Starting product interpolation for %s"), *PickedProduct->GetProductName());
+
+        // Start interpolation to the hand socket
+        StartProductInterpolation();
     }
     else
     {
         UE_LOG(LogTemp, Warning, TEXT("Failed to pick up product from shelf %s"), *CurrentShelf->GetName());
         LowerArm();
         ChooseProduct();
+    }
+}
+
+void AAICustomerPawn::StartProductInterpolation()
+{
+    if (CurrentTargetProduct)
+    {
+        // Get the location of the hand socket
+        FName RightHandSocketName = FName("middle_03_rSocket");
+        FVector TargetLocation = GetMesh()->GetSocketLocation(RightHandSocketName);
+
+        // Start the interpolation timer
+        GetWorldTimerManager().SetTimer(ProductInterpolationTimerHandle, this, &AAICustomerPawn::InterpolateProduct, 0.01f, true);
+    }
+    else
+    {
+        UE_LOG(LogTemp, Warning, TEXT("No product to interpolate"));
+        LowerArm();
+    }
+}
+
+void AAICustomerPawn::InterpolateProduct()
+{
+    if (CurrentTargetProduct)
+    {
+        FName RightHandSocketName = FName("middle_03_r");
+        FVector TargetLocation = GetMesh()->GetSocketLocation(RightHandSocketName);
+        FRotator SocketRotation = GetMesh()->GetSocketRotation(RightHandSocketName);
+
+        FVector NewLocation = FMath::VInterpTo(CurrentTargetProduct->GetActorLocation(), TargetLocation, GetWorld()->GetDeltaSeconds(), 10.0f);
+        FRotator NewRotation = FMath::RInterpTo(CurrentTargetProduct->GetActorRotation(), SocketRotation, GetWorld()->GetDeltaSeconds(), 10.0f);
+
+        CurrentTargetProduct->SetActorLocationAndRotation(NewLocation, NewRotation);
+
+        // Check if the product is close enough to the target location
+        if (FVector::Dist(NewLocation, TargetLocation) < 1.0f)
+        {
+            GetWorldTimerManager().ClearTimer(ProductInterpolationTimerHandle);
+
+            // Attach the product to the hand socket
+            CurrentTargetProduct->AttachToComponent(GetMesh(), FAttachmentTransformRules::SnapToTargetNotIncludingScale, RightHandSocketName);
+
+            // Lower the arm after 1 second
+            GetWorldTimerManager().SetTimer(LowerArmTimerHandle, this, &AAICustomerPawn::LowerArm, 1.0f, false);
+        }
+    }
+    else
+    {
+        GetWorldTimerManager().ClearTimer(ProductInterpolationTimerHandle);
+        LowerArm();
     }
 }
 

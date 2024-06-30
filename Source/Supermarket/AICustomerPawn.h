@@ -86,6 +86,10 @@ private:
     AShelf* FindRandomStockedShelf();
     UPROPERTY()
     AProduct* CurrentTargetProduct;
+    void StartProductInterpolation();
+    void InterpolateProduct();
+    FTimerHandle ProductInterpolationTimerHandle;
+    FTimerHandle LowerArmTimerHandle;
     FVector GetRandomLocationInStore();
     void DestroyAI();
     UFUNCTION(BlueprintCallable)
