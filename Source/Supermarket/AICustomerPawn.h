@@ -72,6 +72,7 @@ private:
     void InitializeAIController();
     void PutCurrentProductInBag();
     void GoToCheckoutWhenDone();
+    void DetachAllItems();
     void CheckShoppingComplete();
     FRotator TargetRotation;
     FRotator DeltaRotation;

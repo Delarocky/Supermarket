@@ -10,6 +10,7 @@
 #include "Kismet/KismetMathLibrary.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Shelf.h"
+#include "Components/StaticMeshComponent.h"
 #include "Blueprint/AIBlueprintHelperLibrary.h"
 #include "TimerManager.h"
 
@@ -200,6 +201,45 @@ void AAICustomerPawn::PutCurrentProductInBag()
     }
 }
 
+void AAICustomerPawn::DetachAllItems()
+{
+    if (ShoppingBag)
+    {
+        TArray<AProduct*> Products = ShoppingBag->GetProducts();
+        for (AProduct* Product : Products)
+        {
+            if (Product)
+            {
+                // Detach the product from any component it might be attached to
+                Product->DetachFromActor(FDetachmentTransformRules::KeepWorldTransform);
+
+                // Hide the product
+                Product->SetActorHiddenInGame(true);
+                Product->SetActorEnableCollision(false);
+
+                UE_LOG(LogTemp, Display, TEXT("Detached and hidden product: %s"), *Product->GetProductName());
+            }
+        }
+    }
+    else
+    {
+        UE_LOG(LogTemp, Warning, TEXT("Shopping bag is null when trying to detach items"));
+    }
+
+    // Clear the current target product
+    if (CurrentTargetProduct)
+    {
+        CurrentTargetProduct->DetachFromActor(FDetachmentTransformRules::KeepWorldTransform);
+        CurrentTargetProduct->SetActorHiddenInGame(true);
+        CurrentTargetProduct->SetActorEnableCollision(false);
+        UE_LOG(LogTemp, Display, TEXT("Detached and hidden current target product: %s"), *CurrentTargetProduct->GetProductName());
+        CurrentTargetProduct = nullptr;
+    }
+
+    // Lower the arm if it's raised
+    bRaiseArm = false;
+}
+
 void AAICustomerPawn::PickUpProduct()
 {
     AProduct* PickedProduct = CurrentShelf->RemoveNextProduct();
@@ -360,6 +400,11 @@ void AAICustomerPawn::PutProductInBag(AProduct* Product)
 
 void AAICustomerPawn::GoToCheckoutWhenDone()
 {
+    UE_LOG(LogTemp, Display, TEXT("AI is heading to checkout. Detaching all items."));
+
+    // Detach all items from the character
+    DetachAllItems();
+
     RetryCount = 0;
     RetryEnterCheckoutQueue();
 }
