@@ -16,7 +16,8 @@ class SUPERMARKET_API AShelf : public AActor
 
 public:
     AShelf();
-
+    UFUNCTION(BlueprintCallable, Category = "Shelf")
+    void ContinueStocking();
     UFUNCTION(BlueprintCallable, Category = "Shelf")
     int32 GetRemainingCapacity() const;
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Shelf")
@@ -79,7 +80,7 @@ private:
     void SetupAccessPoint();
     bool AddProduct(const FVector& RelativeLocation);
     void InitializeShelf();
-
+    FTimerHandle ContinuousStockingTimerHandle;
     FTimerHandle StockingTimerHandle;
     void StockNextProduct();
 

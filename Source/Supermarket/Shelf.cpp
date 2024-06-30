@@ -174,14 +174,15 @@ void AShelf::StartStockingShelf(TSubclassOf<AProduct> ProductToStock)
     {
         CurrentProductClass = ProductToStock;
         bIsStocking = true;
-        StockNextProduct();
+        ContinueStocking();
     }
 }
+
 
 void AShelf::StopStockingShelf()
 {
     bIsStocking = false;
-    GetWorld()->GetTimerManager().ClearTimer(StockingTimerHandle);
+    GetWorld()->GetTimerManager().ClearTimer(ContinuousStockingTimerHandle);
 }
 
 void AShelf::StockNextProduct()
@@ -268,4 +269,38 @@ bool AShelf::IsFullyStocked() const
 int32 AShelf::GetRemainingCapacity() const
 {
     return FMath::Max(0, MaxProducts - GetProductCount());
+}
+
+void AShelf::ContinueStocking()
+{
+    if (!bIsStocking || !CurrentProductClass)
+    {
+        return;
+    }
+
+    int32 currentProductCount = Products.Num();
+    if (currentProductCount < MaxProducts)
+    {
+        int32 row = currentProductCount / 5;
+        int32 column = currentProductCount % 5;
+
+        FVector RelativeLocation = FVector(
+            column * ProductSpacing.X,
+            row * ProductSpacing.Y,
+            ProductSpacing.Z
+        );
+
+        if (AddProduct(RelativeLocation))
+        {
+            GetWorld()->GetTimerManager().SetTimer(ContinuousStockingTimerHandle, this, &AShelf::ContinueStocking, 0.3f, false);
+        }
+        else
+        {
+            bIsStocking = false;
+        }
+    }
+    else
+    {
+        bIsStocking = false;
+    }
 }

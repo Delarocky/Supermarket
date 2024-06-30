@@ -32,8 +32,7 @@ class ASupermarketCharacter : public ACharacter
     class UInputAction* InteractAction;
 
     /** Stop Interact Input Action */
-    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, meta = (AllowPrivateAccess = "true"))
-    class UInputAction* StopInteractAction;
+
 
     /** Pawn mesh: 1st person view (arms; seen only by self) */
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Mesh, meta = (AllowPrivateAccess = "true"))
@@ -76,7 +75,11 @@ public:
     /** Getter for the bool */
     UFUNCTION(BlueprintCallable, Category = Weapon)
     bool GetHasRifle();
+    UFUNCTION(BlueprintCallable, Category = "Interaction")
+    void StartStocking();
 
+    UFUNCTION(BlueprintCallable, Category = "Interaction")
+    void StopStocking();
 protected:
     /** Called for movement input */
     void Move(const FInputActionValue& Value);
@@ -87,6 +90,8 @@ protected:
     /** Called for interaction input */
     void OnInteract();
 
+    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, meta = (AllowPrivateAccess = "true"))
+    class UInputAction* StockAction;
 
 
 protected:
@@ -103,12 +108,15 @@ public:
 private:
     UPROPERTY()
     AShelf* CurrentTargetShelf;
+    bool bIsStocking;
 
+    void CheckShelfInView();
+
+    FTimerHandle StockingTimerHandle;
     UPROPERTY()
     AProductBox* HeldProductBox;
     void PopulateShelves();
     bool bIsInteracting;
-    void InteractWithObject();
     void InteractWithShelf(AShelf* Shelf);
     void DropProductBox();
     void PickUpProductBox(AProductBox* ProductBox);

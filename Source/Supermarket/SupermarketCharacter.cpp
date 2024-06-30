@@ -46,10 +46,7 @@ void ASupermarketCharacter::Tick(float DeltaTime)
 {
     Super::Tick(DeltaTime);
 
-    if (bIsInteracting)
-    {
-        InteractWithObject();
-    }
+ 
 }
 
 void ASupermarketCharacter::BeginPlay()
@@ -84,12 +81,84 @@ void ASupermarketCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInp
         // Looking
         EnhancedInputComponent->BindAction(LookAction, ETriggerEvent::Triggered, this, &ASupermarketCharacter::Look);
         EnhancedInputComponent->BindAction(InteractAction, ETriggerEvent::Started, this, &ASupermarketCharacter::OnInteract);
-        EnhancedInputComponent->BindAction(StopInteractAction, ETriggerEvent::Completed, this, &ASupermarketCharacter::PopulateShelves);
         EnhancedInputComponent->BindAction(DropAction, ETriggerEvent::Triggered, this, &ASupermarketCharacter::DropProductBox);
+        EnhancedInputComponent->BindAction(StockAction, ETriggerEvent::Started, this, &ASupermarketCharacter::StartStocking);
+        EnhancedInputComponent->BindAction(StockAction, ETriggerEvent::Completed, this, &ASupermarketCharacter::StopStocking);
     }
     else
     {
         UE_LOG(LogTemplateCharacter, Error, TEXT("'%s' Failed to find an Enhanced Input Component! This template is built to use the Enhanced Input system. If you intend to use the legacy system, then you will need to update this C++ file."), *GetNameSafe(this));
+    }
+}
+
+void ASupermarketCharacter::StartStocking()
+{
+    if (HeldProductBox)  // Only start stocking if holding a product box
+    {
+        bIsStocking = true;
+        GetWorldTimerManager().SetTimer(StockingTimerHandle, this, &ASupermarketCharacter::CheckShelfInView, 0.1f, true);
+    }
+}
+
+void ASupermarketCharacter::StopStocking()
+{
+    bIsStocking = false;
+    GetWorldTimerManager().ClearTimer(StockingTimerHandle);
+    if (CurrentTargetShelf)
+    {
+        CurrentTargetShelf->StopStockingShelf();
+        CurrentTargetShelf = nullptr;
+    }
+}
+
+void ASupermarketCharacter::CheckShelfInView()
+{
+    if (!bIsStocking)
+    {
+        return;
+    }
+
+    FVector Start = FirstPersonCameraComponent->GetComponentLocation();
+    FVector End = Start + FirstPersonCameraComponent->GetForwardVector() * 300.0f;
+
+    FHitResult HitResult;
+    FCollisionQueryParams QueryParams;
+    QueryParams.AddIgnoredActor(this);
+
+    if (GetWorld()->LineTraceSingleByChannel(HitResult, Start, End, ECC_Visibility, QueryParams))
+    {
+        AShelf* HitShelf = Cast<AShelf>(HitResult.GetActor());
+        if (HitShelf)
+        {
+            if (HitShelf != CurrentTargetShelf)
+            {
+                if (CurrentTargetShelf)
+                {
+                    CurrentTargetShelf->StopStockingShelf();
+                }
+                CurrentTargetShelf = HitShelf;
+                if (HeldProductBox)
+                {
+                    CurrentTargetShelf->StartStockingShelf(HeldProductBox->GetProductClass());
+                }
+            }
+        }
+        else
+        {
+            if (CurrentTargetShelf)
+            {
+                CurrentTargetShelf->StopStockingShelf();
+                CurrentTargetShelf = nullptr;
+            }
+        }
+    }
+    else
+    {
+        if (CurrentTargetShelf)
+        {
+            CurrentTargetShelf->StopStockingShelf();
+            CurrentTargetShelf = nullptr;
+        }
     }
 }
 
@@ -191,30 +260,7 @@ void ASupermarketCharacter::DropProductBox()
     }
 }
 
-void ASupermarketCharacter::InteractWithObject()
-{
-    FVector Start = FirstPersonCameraComponent->GetComponentLocation();
-    FVector End = Start + FirstPersonCameraComponent->GetForwardVector() * 300.0f;
 
-    FHitResult HitResult;
-    FCollisionQueryParams QueryParams;
-    QueryParams.AddIgnoredActor(this);
-
-    if (GetWorld()->LineTraceSingleByChannel(HitResult, Start, End, ECC_Visibility, QueryParams))
-    {
-        if (AProductBox* ProductBox = Cast<AProductBox>(HitResult.GetActor()))
-        {
-            if (!HeldProductBox)
-            {
-                PickUpProductBox(ProductBox);
-            }
-        }
-        else if (AShelf* Shelf = Cast<AShelf>(HitResult.GetActor()))
-        {
-            InteractWithShelf(Shelf);
-        }
-    }
-}
 
 void ASupermarketCharacter::InteractWithShelf(AShelf* Shelf)
 {
@@ -265,67 +311,5 @@ void ASupermarketCharacter::InteractWithShelf(AShelf* Shelf)
                 HeldProductBox = nullptr;
             }
         }
-    }
-}
-
-void ASupermarketCharacter::PopulateShelves()
-{
-    if (!HeldProductBox)
-    {
-        UE_LOG(LogTemp, Warning, TEXT("No product box held to populate shelves"));
-        return;
-    }
-
-    FVector Start = FirstPersonCameraComponent->GetComponentLocation();
-    FVector End = Start + FirstPersonCameraComponent->GetForwardVector() * 300.0f;
-
-    FHitResult HitResult;
-    FCollisionQueryParams QueryParams;
-    QueryParams.AddIgnoredActor(this);
-
-    if (GetWorld()->LineTraceSingleByChannel(HitResult, Start, End, ECC_Visibility, QueryParams))
-    {
-        AShelf* TargetShelf = Cast<AShelf>(HitResult.GetActor());
-        if (TargetShelf)
-        {
-            int32 ProductsToStock = FMath::Min(HeldProductBox->GetProductCount(), TargetShelf->GetRemainingCapacity());
-
-            if (ProductsToStock > 0)
-            {
-                TSubclassOf<AProduct> ProductClass = HeldProductBox->GetProductClass();
-                TargetShelf->StartStockingShelf(ProductClass);
-
-                for (int32 i = 0; i < ProductsToStock; ++i)
-                {
-                    AProduct* RemovedProduct = HeldProductBox->RemoveProduct();
-                    if (RemovedProduct)
-                    {
-                        RemovedProduct->Destroy(); // Destroy the product as it's now represented on the shelf
-                    }
-                }
-
-                UE_LOG(LogTemp, Display, TEXT("Stocked %d products on the shelf"), ProductsToStock);
-
-                // If the box is empty after stocking, destroy it
-                if (HeldProductBox->GetProductCount() == 0)
-                {
-                    DropProductBox();
-                    HeldProductBox->Destroy();
-                    HeldProductBox = nullptr;
-                }
-            }
-            else
-            {
-                UE_LOG(LogTemp, Warning, TEXT("No space on the shelf or box is empty"));
-            }
-        }
-        else
-        {
-            UE_LOG(LogTemp, Warning, TEXT("No shelf found to populate"));
-        }
-    }
-    else
-    {
-        UE_LOG(LogTemp, Warning, TEXT("No object found in front of the character"));
     }
 }
