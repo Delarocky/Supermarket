@@ -157,10 +157,10 @@ void AAICustomerPawn::ChooseProduct()
 
 void AAICustomerPawn::PutCurrentProductInBag()
 {
-    if (CurrentTargetProduct && PutInBagAnimation && ShoppingBag)
+    if (CurrentTargetProduct && ShoppingBag)
     {
         UE_LOG(LogTemp, Display, TEXT("Putting product in bag: %s"), *CurrentTargetProduct->GetProductName());
-        PlayAnimMontage(PutInBagAnimation);
+ 
 
         // Add the product to the shopping bag
         ShoppingBag->AddProduct(CurrentTargetProduct);
@@ -192,37 +192,55 @@ void AAICustomerPawn::PutCurrentProductInBag()
     }
     else
     {
-        UE_LOG(LogTemp, Error, TEXT("Failed to put product in bag. Product: %s, Animation: %s, ShoppingBag: %s"),
+        UE_LOG(LogTemp, Error, TEXT("Failed to put product in bag. Product: %s, ShoppingBag: %s"),
             CurrentTargetProduct ? TEXT("Valid") : TEXT("Invalid"),
-            PutInBagAnimation ? TEXT("Valid") : TEXT("Invalid"),
             ShoppingBag ? TEXT("Valid") : TEXT("Invalid"));
         // If we failed to put the product in the bag, try to choose another product
         ChooseProduct();
     }
 }
 
-void AAICustomerPawn::GrabProduct(AProduct* Product)
+void AAICustomerPawn::PickUpProduct()
 {
-    if (Product && GrabProductAnimation)
+    AProduct* PickedProduct = CurrentShelf->RemoveNextProduct();
+    if (PickedProduct)
     {
-        UE_LOG(LogTemp, Display, TEXT("Grabbing product: %s"), *Product->GetName());
-        PlayAnimMontage(GrabProductAnimation);
-        Product->AttachToComponent(GetMesh(), FAttachmentTransformRules::SnapToTargetNotIncludingScale, FName("index_metacarpal_l"));
+        UE_LOG(LogTemp, Display, TEXT("Picked up product %s from shelf %s. Total products: %d/%d"),
+            *PickedProduct->GetProductName(), *CurrentShelf->GetName(), CurrentItems + 1, MaxItems);
+
+        // Move the product to the right hand socket
+        FName RightHandSocketName = FName("middle_03_r"); // Make sure this matches your skeleton's socket name
+        PickedProduct->AttachToComponent(GetMesh(), FAttachmentTransformRules::SnapToTargetNotIncludingScale, RightHandSocketName);
+
+        // Set the CurrentTargetProduct
+        CurrentTargetProduct = PickedProduct;
+
+        // Lower the arm after 1 second
+        FTimerHandle LowerArmTimerHandle;
+        GetWorldTimerManager().SetTimer(LowerArmTimerHandle, this, &AAICustomerPawn::LowerArm, 1.0f, false);
     }
     else
     {
-        UE_LOG(LogTemp, Error, TEXT("Failed to grab product. Product: %s, Animation: %s"),
-            Product ? TEXT("Valid") : TEXT("Invalid"),
-            GrabProductAnimation ? TEXT("Valid") : TEXT("Invalid"));
+        UE_LOG(LogTemp, Warning, TEXT("Failed to pick up product from shelf %s"), *CurrentShelf->GetName());
+        LowerArm();
+        ChooseProduct();
     }
+}
+
+void AAICustomerPawn::LowerArm()
+{
+    bRaiseArm = false;
+
+    // Wait for 1 second, then put the product in the bag
+    GetWorldTimerManager().SetTimer(PutInBagTimerHandle, this, &AAICustomerPawn::PutCurrentProductInBag, 1.0f, false);
 }
 
 void AAICustomerPawn::PutProductInBag(AProduct* Product)
 {
-    if (Product && PutInBagAnimation && ShoppingBag)
+    if (Product && ShoppingBag)
     {
         UE_LOG(LogTemp, Display, TEXT("Putting product in bag: %s"), *Product->GetProductName());
-        PlayAnimMontage(PutInBagAnimation);
+
 
         // Remove the product from the shelf
         if (CurrentShelf)
@@ -265,9 +283,8 @@ void AAICustomerPawn::PutProductInBag(AProduct* Product)
     }
     else
     {
-        UE_LOG(LogTemp, Error, TEXT("Failed to put product in bag. Product: %s, Animation: %s, ShoppingBag: %s"),
+        UE_LOG(LogTemp, Error, TEXT("Failed to put product in bag. Product: %s, ShoppingBag: %s"),
             Product ? TEXT("Valid") : TEXT("Invalid"),
-            PutInBagAnimation ? TEXT("Valid") : TEXT("Invalid"),
             ShoppingBag ? TEXT("Valid") : TEXT("Invalid"));
         // If we failed to put the product in the bag, try to choose another product
         ChooseProduct();
@@ -513,28 +530,12 @@ void AAICustomerPawn::TryPickUpProduct()
 {
     if (CurrentShelf && CurrentShelf->GetProductCount() > 0)
     {
-        AProduct* PickedProduct = CurrentShelf->RemoveNextProduct();
-        if (PickedProduct)
-        {
-            UE_LOG(LogTemp, Display, TEXT("Picked up product %s from shelf %s. Total products: %d/%d"),
-                *PickedProduct->GetProductName(), *CurrentShelf->GetName(), CurrentItems + 1, MaxItems);
+        // Raise the arm
+        bRaiseArm = true;
 
-            if (GrabProductAnimation)
-            {
-                PlayAnimMontage(GrabProductAnimation);
-            }
-
-            // Set the CurrentTargetProduct
-            CurrentTargetProduct = PickedProduct;
-
-            // Schedule PutCurrentProductInBag to be called after the animation
-            GetWorldTimerManager().SetTimer(PutInBagTimerHandle, this, &AAICustomerPawn::PutCurrentProductInBag, 0.5f, false);
-        }
-        else
-        {
-            UE_LOG(LogTemp, Warning, TEXT("Failed to pick up product from shelf %s"), *CurrentShelf->GetName());
-            ChooseProduct();
-        }
+        // Wait for 1 second, then pick up the product
+        FTimerHandle PickUpTimerHandle;
+        GetWorldTimerManager().SetTimer(PickUpTimerHandle, this, &AAICustomerPawn::PickUpProduct, 1.0f, false);
     }
     else
     {

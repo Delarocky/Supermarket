@@ -29,9 +29,6 @@ public:
     void ChooseProduct();
 
     UFUNCTION(BlueprintCallable)
-    void GrabProduct(AProduct* Product);
-
-    UFUNCTION(BlueprintCallable)
     void PutProductInBag(AProduct* Product);
 
     UFUNCTION(BlueprintCallable)
@@ -53,12 +50,6 @@ public:
     FTimerHandle CheckReachedShelfTimerHandle;
     FTimerHandle RetryTimerHandle;
 protected:
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Animation")
-    class UAnimMontage* GrabProductAnimation;
-
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Animation")
-    class UAnimMontage* PutInBagAnimation;
-
     UPROPERTY()
     class AAIController* AIController;
 
@@ -74,6 +65,8 @@ protected:
     void SetCurrentShelf(AShelf* Shelf);
 private:
     FTimerHandle ChooseProductTimerHandle;
+    void PickUpProduct();
+    void LowerArm();
     void RetryEnterCheckoutQueue();
     int32 RetryCount;
     void InitializeAIController();
