@@ -324,7 +324,7 @@ void AAICustomerPawn::InterpolateProduct()
             CurrentTargetProduct->AttachToComponent(GetMesh(), FAttachmentTransformRules::SnapToTargetNotIncludingScale, RightHandSocketName);
 
             // Lower the arm after 1 second
-            GetWorldTimerManager().SetTimer(LowerArmTimerHandle, this, &AAICustomerPawn::LowerArm, 1.0f, false);
+            GetWorldTimerManager().SetTimer(LowerArmTimerHandle, this, &AAICustomerPawn::LowerArm, 0.1f, false);
         }
     }
     else
