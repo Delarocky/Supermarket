@@ -45,6 +45,8 @@ public:
 
     UFUNCTION(BlueprintCallable)
     void LeaveCheckout();
+    UPROPERTY(BlueprintReadWrite, Category = "Shopping")
+    bool bRaiseArm;
 
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Shopping")
     UShoppingBag* ShoppingBag;

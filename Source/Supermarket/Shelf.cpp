@@ -149,6 +149,7 @@ bool AShelf::AddProduct(const FVector& RelativeLocation)
 
         if (DefaultProductClass)
         {
+            // Spawn the product
             AProduct* NewProduct = GetWorld()->SpawnActor<AProduct>(
                 DefaultProductClass,
                 SpawnLocation,
@@ -158,9 +159,25 @@ bool AShelf::AddProduct(const FVector& RelativeLocation)
 
             if (NewProduct)
             {
+                // Get the product's mesh
+                UStaticMeshComponent* ProductMesh = NewProduct->FindComponentByClass<UStaticMeshComponent>();
+                if (ProductMesh)
+                {
+                    // Calculate the offset to align the bottom of the product with the spawn point
+                    FVector MeshBounds = ProductMesh->Bounds.BoxExtent;
+                    FVector BottomOffset = FVector(0, 0, MeshBounds.Z);
+
+                    // Adjust the spawn location to align the bottom of the product with the spawn point
+                    FVector AdjustedLocation = SpawnLocation + ProductSpawnPoint->GetComponentRotation().RotateVector(BottomOffset);
+                    NewProduct->SetActorLocation(AdjustedLocation);
+
+                    // Set the rotation to match the ProductSpawnPoint
+                    NewProduct->SetActorRotation(ProductSpawnPoint->GetComponentRotation());
+                }
+
                 Products.Add(NewProduct);
                 NewProduct->AttachToComponent(ProductSpawnPoint, FAttachmentTransformRules::KeepWorldTransform);
-                
+
                 UE_LOG(LogTemp, Display, TEXT("Added product %s at index %d"), *NewProduct->GetName(), Products.Num() - 1);
                 return true;
             }
