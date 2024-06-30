@@ -226,15 +226,30 @@ void ACheckout::MoveNextItemToScanPosition()
     if (ItemsOnCounter.Num() > 0)
     {
         AProduct* NextItem = ItemsOnCounter[0];
-        FVector StartLocation = NextItem->GetActorLocation();
-        FVector EndLocation = ScanPoint->GetComponentLocation();
+        if (NextItem)
+        {
+            FVector StartLocation = NextItem->GetActorLocation();
+            FVector EndLocation = ScanPoint->GetComponentLocation();
 
-        float Distance = FVector::Dist(StartLocation, EndLocation);
-        float Duration = Distance / ItemMoveSpeed;
+            // Get the product's mesh
+            UStaticMeshComponent* ProductMesh = NextItem->FindComponentByClass<UStaticMeshComponent>();
+            if (ProductMesh)
+            {
+                // Calculate the offset from the actor's origin to the bottom of the mesh
+                FVector MeshBounds = ProductMesh->Bounds.BoxExtent;
+                FVector BottomOffset = FVector(0, 0, +MeshBounds.Z);
 
-        FTimerDelegate TimerDelegate;
-        TimerDelegate.BindUFunction(this, FName("UpdateItemPosition"), NextItem, StartLocation, EndLocation, 0.0f, Duration);
-        GetWorld()->GetTimerManager().SetTimer(MoveItemTimerHandle, TimerDelegate, 0.016f, true);
+                // Adjust the end location to align the bottom of the product with the scan point
+                EndLocation += BottomOffset;
+            }
+
+            float Distance = FVector::Dist(StartLocation, EndLocation);
+            float Duration = Distance / ItemMoveSpeed;
+
+            FTimerDelegate TimerDelegate;
+            TimerDelegate.BindUFunction(this, FName("UpdateItemPosition"), NextItem, StartLocation, EndLocation, 0.0f, Duration);
+            GetWorld()->GetTimerManager().SetTimer(MoveItemTimerHandle, TimerDelegate, 0.016f, true);
+        }
     }
     else
     {
