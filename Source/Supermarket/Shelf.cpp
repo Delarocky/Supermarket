@@ -160,7 +160,7 @@ void AShelf::InitializeShelf()
 
 bool AShelf::AddProduct(const FVector& RelativeLocation)
 {
-    if (Products.Num() < MaxProducts && CurrentProductClass)
+    if (Products.Num() < MaxProducts && CurrentProductClass && ProductBox && !ProductBox->IsEmpty())
     {
         FVector SpawnLocation = ProductSpawnPoint->GetComponentLocation() +
             ProductSpawnPoint->GetComponentRotation().RotateVector(RelativeLocation);
@@ -192,13 +192,26 @@ bool AShelf::AddProduct(const FVector& RelativeLocation)
 
             Products.Add(NewProduct);
             NewProduct->AttachToComponent(ProductSpawnPoint, FAttachmentTransformRules::KeepWorldTransform);
+
+            // Remove a product from the ProductBox and destroy it
+            AProduct* RemovedProduct = ProductBox->RemoveProduct();
+            if (RemovedProduct)
+            {
+                RemovedProduct->Destroy();
+            }
+
+            if (ProductBox->IsEmpty())
+            {
+                // Stop stocking if the ProductBox is now empty
+                StopStockingShelf();
+            }
+
             return true;
         }
     }
 
     return false;
 }
-
 
 
 void AShelf::StartStockingShelf(TSubclassOf<AProduct> ProductToStock)

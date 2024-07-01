@@ -7,6 +7,7 @@
 #include "Logging/LogMacros.h"
 #include "ProductBox.h"
 #include "Shelf.h"
+#include "Blueprint/UserWidget.h"  // Add this include
 #include "SupermarketCharacter.generated.h"
 
 class UInputComponent;
@@ -22,6 +23,19 @@ UCLASS(config = Game)
 class ASupermarketCharacter : public ACharacter
 {
     GENERATED_BODY()
+
+    /** Tablet Input Action */
+    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, meta = (AllowPrivateAccess = "true"))
+    class UInputAction* TabletAction;
+
+    /** Tablet Mesh */
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Mesh, meta = (AllowPrivateAccess = "true"))
+    UStaticMeshComponent* TabletMesh;
+
+    /** Tablet Widget */
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = UI, meta = (AllowPrivateAccess = "true"))
+    class UUserWidget* TabletWidget;
+
 
     /** MappingContext */
     UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, meta = (AllowPrivateAccess = "true"))
@@ -41,6 +55,10 @@ class ASupermarketCharacter : public ACharacter
     /** First person camera */
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Camera, meta = (AllowPrivateAccess = "true"))
     UCameraComponent* FirstPersonCameraComponent;
+
+    /** Tablet view camera */
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Camera, meta = (AllowPrivateAccess = "true"))
+    UCameraComponent* TabletCameraComponent;
 
     /** Jump Input Action */
     UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, meta = (AllowPrivateAccess = "true"))
@@ -62,6 +80,15 @@ public:
     class UInputAction* LookAction;
     UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, meta = (AllowPrivateAccess = "true"))
     class UInputAction* DropAction;
+    void Look(const FInputActionValue& Value);
+
+    /** Tablet mode bool */
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Tablet)
+    bool bIsTabletMode;
+
+    /** Toggle Tablet mode */
+    UFUNCTION(BlueprintCallable, Category = Tablet)
+    void ToggleTabletMode();
 
 
     /** Bool for AnimBP to switch to another animation set */
@@ -83,9 +110,8 @@ public:
 protected:
     /** Called for movement input */
     void Move(const FInputActionValue& Value);
+    void SetCameraRotationEnabled(bool bEnable);
 
-    /** Called for looking input */
-    void Look(const FInputActionValue& Value);
 
     /** Called for interaction input */
     void OnInteract();
@@ -99,25 +125,57 @@ protected:
     virtual void SetupPlayerInputComponent(UInputComponent* InputComponent) override;
     // End of APawn interface
     virtual void Tick(float DeltaTime) override;
+    /** Called for tablet input */
+    void OnTabletAction();
+
+    /** Set up tablet mode */
+    void SetupTabletMode(bool bEnable);
+
+    /** Tablet camera settings */
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Tablet)
+    FRotator TabletCameraRotation;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Tablet)
+    float TabletCameraFOV;
+    /** Start camera transition */
+    void StartCameraTransition(bool bToTabletView);
 public:
     /** Returns Mesh1P subobject **/
     USkeletalMeshComponent* GetMesh1P() const { return Mesh1P; }
     /** Returns FirstPersonCameraComponent subobject **/
     UCameraComponent* GetFirstPersonCameraComponent() const { return FirstPersonCameraComponent; }
-
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Camera")
+    float CameraTransitionTime;
 private:
+    /** Timer handle for camera transition */
+    FTimerHandle CameraTransitionTimerHandle;
     UPROPERTY()
     AShelf* CurrentTargetShelf;
     bool bIsStocking;
-
+    FRotator OriginalControllerRotation;
     void CheckShelfInView();
-
+    bool bCameraRotationEnabled;
     FTimerHandle StockingTimerHandle;
     UPROPERTY()
     AProductBox* HeldProductBox;
-    void PopulateShelves();
     bool bIsInteracting;
     void InteractWithShelf(AShelf* Shelf);
     void DropProductBox();
     void PickUpProductBox(AProductBox* ProductBox);
+    FRotator OriginalCameraRotation;
+    float OriginalCameraFOV;
+    /** Switch between first person and tablet cameras */
+    void SwitchCamera(bool bUseTabletCamera);
+    /** Update camera transition */
+    void UpdateCameraTransition();
+    /** Camera transition properties */
+    float CameraTransitionDuration;
+    float CameraTransitionElapsedTime;
+    bool bIsCameraTransitioning;
+    FVector StartCameraLocation;
+    FRotator StartCameraRotation;
+    float StartCameraFOV;
+    FVector TargetCameraLocation;
+    FRotator TargetCameraRotation;
+    float TargetCameraFOV;
 };

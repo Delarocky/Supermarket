@@ -7,7 +7,10 @@
 #include "Components/StaticMeshComponent.h"
 #include "Components/SceneComponent.h"
 #include "Product.h"
+#include "ProductBox.h"
 #include "Shelf.generated.h"
+
+
 
 UCLASS()
 class SUPERMARKET_API AShelf : public AActor
@@ -37,7 +40,8 @@ public:
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Shelf")
     int32 MaxProducts;
-
+    UFUNCTION(BlueprintCallable, Category = "Shelf")
+    void SetProductBox(AProductBox* InProductBox) { ProductBox = InProductBox; }
     UPROPERTY()
     TSubclassOf<AProduct> CurrentProductClass;
 
@@ -91,6 +95,8 @@ protected:
 private:
     UPROPERTY()
     TArray<AProduct*> Products;
+    UPROPERTY()
+    AProductBox* ProductBox;
     void SetupAccessPoint();
     bool AddProduct(const FVector& RelativeLocation);
     void InitializeShelf();

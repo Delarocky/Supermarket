@@ -13,7 +13,7 @@ AProductBox::AProductBox()
     ProductSpawnPoint->SetupAttachment(RootComponent);
 
     MaxProducts = 20;
-    ProductSpacing = FVector(10.0f, 10.0f, 10.0f);
+    ProductSpacing = FVector(20.0f, 20.0f, 20.0f);
     bIsAttachedToCamera = false;
     CameraOffset = FVector(50.0f, 0.0f, -50.0f);
 }
@@ -59,11 +59,11 @@ AProduct* AProductBox::RemoveProduct()
         AProduct* RemovedProduct = Products.Last();
         Products.RemoveAt(Products.Num() - 1);
         RemovedProduct->DetachFromActor(FDetachmentTransformRules::KeepWorldTransform);
-        ArrangeProducts();
         return RemovedProduct;
     }
     return nullptr;
 }
+
 
 void AProductBox::ArrangeProducts()
 {

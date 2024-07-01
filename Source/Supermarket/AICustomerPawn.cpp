@@ -341,7 +341,7 @@ void AAICustomerPawn::DetermineShelfPosition()
 
         // Define thresholds for different animations
         float LowThreshold = -AIHeight * 0.4f;  // 30% of AI's height below eye level
-        float HighThreshold = AIHeight * 0.1f;  // 30% of AI's height above eye level
+        float HighThreshold = AIHeight * 0.01f;  // 30% of AI's height above eye level
 
         if (HeightDifference < LowThreshold)
         {
@@ -732,13 +732,43 @@ void AAICustomerPawn::TryPickUpProduct()
 {
     if (CurrentShelf && CurrentShelf->GetProductCount() > 0)
     {
-        // Determine the shelf position and set appropriate animation flags
-        DetermineShelfPosition();
+        // Get all access point locations for the current shelf
+        TArray<FVector> AccessPoints = CurrentShelf->GetAllAccessPointLocations();
 
+        // Check if the AI is close enough to any of the access points
+        bool bIsCloseEnough = false;
+        float MinDistance = 100.0f; // Minimum distance to pick up an item, adjust as needed
 
-        // Wait for 1 second, then pick up the product
-        FTimerHandle PickUpTimerHandle;
-        GetWorldTimerManager().SetTimer(PickUpTimerHandle, this, &AAICustomerPawn::PickUpProduct, 0.5f, false);
+        FVector AILocation = GetActorLocation();
+        for (const FVector& AccessPoint : AccessPoints)
+        {
+            float Distance = FVector::Dist(AILocation, AccessPoint);
+            if (Distance <= MinDistance)
+            {
+                bIsCloseEnough = true;
+                break;
+            }
+        }
+
+        if (bIsCloseEnough)
+        {
+            // Determine the shelf position and set appropriate animation flags
+            DetermineShelfPosition();
+
+            // Wait for 1 second, then pick up the product
+            FTimerHandle PickUpTimerHandle;
+            GetWorldTimerManager().SetTimer(PickUpTimerHandle, this, &AAICustomerPawn::PickUpProduct, 0.5f, false);
+        }
+        else
+        {
+            UE_LOG(LogTemp, Warning, TEXT("AI is not close enough to an access point to pick up a product"));
+            // Move the AI to the nearest access point
+            FVector NearestAccessPoint = FindMostAccessiblePoint(AccessPoints);
+            MoveTo(NearestAccessPoint);
+
+            // Set a timer to retry picking up the product after moving
+            GetWorldTimerManager().SetTimer(RetryPickUpTimerHandle, this, &AAICustomerPawn::TryPickUpProduct, 1.0f, false);
+        }
     }
     else
     {

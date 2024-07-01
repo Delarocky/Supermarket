@@ -40,6 +40,9 @@ public:
     int32 GetProductCount() const { return Products.Num(); }
 
     UFUNCTION(BlueprintCallable, Category = "Product Box")
+    bool IsEmpty() const { return Products.Num() == 0; }
+
+    UFUNCTION(BlueprintCallable, Category = "Product Box")
     void AttachToCamera(UCameraComponent* Camera);
 
     UFUNCTION(BlueprintCallable, Category = "Product Box")

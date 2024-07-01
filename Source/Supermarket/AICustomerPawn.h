@@ -122,4 +122,5 @@ private:
 
     UPROPERTY()
     ACheckout* CurrentCheckout;
+    FTimerHandle RetryPickUpTimerHandle;
 };
