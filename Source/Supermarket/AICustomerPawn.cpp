@@ -11,6 +11,7 @@
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Shelf.h"
 #include "Components/StaticMeshComponent.h"
+#include "Components/CapsuleComponent.h"
 #include "Blueprint/AIBlueprintHelperLibrary.h"
 #include "TimerManager.h"
 
@@ -272,8 +273,8 @@ void AAICustomerPawn::PickUpProduct()
         CurrentTargetProduct = PickedProduct;
 
         UE_LOG(LogTemp, Display, TEXT("Starting product interpolation for %s"), *PickedProduct->GetProductName());
-
-        // Start interpolation to the hand socket
+        ResetGrabAnimationFlags();
+       
         StartProductInterpolation();
     }
     else
@@ -283,6 +284,55 @@ void AAICustomerPawn::PickUpProduct()
         ChooseProduct();
     }
 }
+
+void AAICustomerPawn::DetermineShelfPosition()
+{
+    if (!CurrentShelf)
+    {
+        UE_LOG(LogTemp, Warning, TEXT("No current shelf set"));
+        return;
+    }
+
+    // Reset all animation flags
+    ResetGrabAnimationFlags();
+
+    FVector AILocation = GetActorLocation();
+    FVector ShelfLocation = CurrentShelf->GetActorLocation();
+
+    // Calculate the height difference
+    float HeightDifference = ShelfLocation.Z - AILocation.Z;
+
+    // Get the AI's height (assuming the capsule half-height is approximately the character's half-height)
+    float AIHeight = GetCapsuleComponent()->GetScaledCapsuleHalfHeight() * 2.0f;
+
+    // Define thresholds for different animations
+    float LowThreshold = AIHeight * 0.3f;  // 30% of AI's height
+    float HighThreshold = AIHeight * 0.7f; // 70% of AI's height
+
+    if (HeightDifference < -LowThreshold)
+    {
+        bKneelDown = true;
+        UE_LOG(LogTemp, Display, TEXT("Shelf is low, kneeling down"));
+    }
+    else if (HeightDifference > HighThreshold)
+    {
+        bReachUp = true;
+        UE_LOG(LogTemp, Display, TEXT("Shelf is high, reaching up"));
+    }
+    else
+    {
+        bNormalGrab = true;
+        UE_LOG(LogTemp, Display, TEXT("Shelf is at waist level, normal grab"));
+    }
+}
+
+void AAICustomerPawn::ResetGrabAnimationFlags()
+{
+    bKneelDown = false;
+    bReachUp = false;
+    bNormalGrab = false;
+}
+
 
 void AAICustomerPawn::StartProductInterpolation()
 {
@@ -642,12 +692,15 @@ void AAICustomerPawn::TryPickUpProduct()
 {
     if (CurrentShelf && CurrentShelf->GetProductCount() > 0)
     {
-        // Raise the arm
+        // Determine the shelf position and set appropriate animation flags
+        DetermineShelfPosition();
+
+        // Raise the arm (this flag is used for the existing animation)
         bRaiseArm = true;
 
         // Wait for 1 second, then pick up the product
         FTimerHandle PickUpTimerHandle;
-        GetWorldTimerManager().SetTimer(PickUpTimerHandle, this, &AAICustomerPawn::PickUpProduct, 0.5f, false);
+        GetWorldTimerManager().SetTimer(PickUpTimerHandle, this, &AAICustomerPawn::PickUpProduct, 1.0f, false);
     }
     else
     {

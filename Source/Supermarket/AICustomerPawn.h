@@ -45,6 +45,15 @@ public:
     UPROPERTY(BlueprintReadWrite, Category = "Shopping")
     bool bRaiseArm;
 
+    UPROPERTY(BlueprintReadWrite, Category = "Shopping")
+    bool bKneelDown;
+
+    UPROPERTY(BlueprintReadWrite, Category = "Shopping")
+    bool bReachUp;
+
+    UPROPERTY(BlueprintReadWrite, Category = "Shopping")
+    bool bNormalGrab;
+
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Shopping")
     UShoppingBag* ShoppingBag;
     FTimerHandle CheckReachedShelfTimerHandle;
@@ -52,6 +61,9 @@ public:
 protected:
     UPROPERTY()
     class AAIController* AIController;
+
+    void DetermineShelfPosition();
+    void ResetGrabAnimationFlags();
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Shopping")
     int32 MaxItems;
