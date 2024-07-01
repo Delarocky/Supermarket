@@ -33,6 +33,35 @@ void AAICustomerPawn::BeginPlay()
     InitializeAIController();
 }
 
+FVector AAICustomerPawn::FindMostAccessiblePoint(const TArray<FVector>& Points)
+{
+    UNavigationSystemV1* NavSys = FNavigationSystem::GetCurrent<UNavigationSystemV1>(GetWorld());
+    if (!NavSys)
+    {
+        UE_LOG(LogTemp, Error, TEXT("Navigation system not found in FindMostAccessiblePoint"));
+        return Points[0]; // Return the first point if nav system is not available
+    }
+
+    FVector AILocation = GetActorLocation();
+    FVector BestPoint = Points[0];
+    float BestDistance = TNumericLimits<float>::Max();
+
+    for (const FVector& Point : Points)
+    {
+        FNavLocation NavLocation;
+        if (NavSys->ProjectPointToNavigation(Point, NavLocation, FVector(100, 100, 100)))
+        {
+            float Distance = FVector::Dist(AILocation, NavLocation.Location);
+            if (Distance < BestDistance)
+            {
+                BestDistance = Distance;
+                BestPoint = NavLocation.Location;
+            }
+        }
+    }
+
+    return BestPoint;
+}
 
 void AAICustomerPawn::Tick(float DeltaTime)
 {
@@ -123,9 +152,10 @@ void AAICustomerPawn::ChooseProduct()
     if (TargetShelf)
     {
         CurrentShelf = TargetShelf;
-        FVector TargetLocation = TargetShelf->GetAccessPointLocation();
+        TArray<FVector> AccessPoints = TargetShelf->GetAllAccessPointLocations();
+        FVector TargetLocation = FindMostAccessiblePoint(AccessPoints);
 
-        // Move to the shelf's access point
+        // Move to the chosen access point
         UNavigationSystemV1* NavSys = FNavigationSystem::GetCurrent<UNavigationSystemV1>(GetWorld());
         if (NavSys)
         {
@@ -297,32 +327,42 @@ void AAICustomerPawn::DetermineShelfPosition()
     ResetGrabAnimationFlags();
 
     FVector AILocation = GetActorLocation();
-    FVector ShelfLocation = CurrentShelf->GetActorLocation();
+    FVector AIEyeLocation = AILocation + FVector(0, 0, GetDefaultHalfHeight()); // Assume eye level is at the top of the capsule
 
-    // Calculate the height difference
-    float HeightDifference = ShelfLocation.Z - AILocation.Z;
-
-    // Get the AI's height (assuming the capsule half-height is approximately the character's half-height)
-    float AIHeight = GetCapsuleComponent()->GetScaledCapsuleHalfHeight() * 2.0f;
-
-    // Define thresholds for different animations
-    float LowThreshold = AIHeight * 0.3f;  // 30% of AI's height
-    float HighThreshold = AIHeight * 0.7f; // 70% of AI's height
-
-    if (HeightDifference < -LowThreshold)
+    // Get the product's location instead of the shelf's location
+    FVector ProductLocation;
+    if (CurrentShelf->GetNextProductLocation(ProductLocation))
     {
-        bKneelDown = true;
-        UE_LOG(LogTemp, Display, TEXT("Shelf is low, kneeling down"));
-    }
-    else if (HeightDifference > HighThreshold)
-    {
-        bReachUp = true;
-        UE_LOG(LogTemp, Display, TEXT("Shelf is high, reaching up"));
+        // Calculate the height difference between the AI's eye level and the product
+        float HeightDifference = ProductLocation.Z - AIEyeLocation.Z;
+
+        // Get the AI's height
+        float AIHeight = GetCapsuleComponent()->GetScaledCapsuleHalfHeight() * 2.0f;
+
+        // Define thresholds for different animations
+        float LowThreshold = -AIHeight * 0.4f;  // 30% of AI's height below eye level
+        float HighThreshold = AIHeight * 0.1f;  // 30% of AI's height above eye level
+
+        if (HeightDifference < LowThreshold)
+        {
+            bKneelDown = true;
+            UE_LOG(LogTemp, Display, TEXT("Product is low, kneeling down. Height difference: %f"), HeightDifference);
+        }
+        else if (HeightDifference > HighThreshold)
+        {
+            bReachUp = true;
+            UE_LOG(LogTemp, Display, TEXT("Product is high, reaching up. Height difference: %f"), HeightDifference);
+        }
+        else
+        {
+            bRaiseArm = true;
+            UE_LOG(LogTemp, Display, TEXT("Product is at waist level, normal grab. Height difference: %f"), HeightDifference);
+        }
     }
     else
     {
-        bRaiseArm = true;
-        UE_LOG(LogTemp, Display, TEXT("Shelf is at waist level, normal grab"));
+        UE_LOG(LogTemp, Warning, TEXT("Unable to get next product location from shelf"));
+        bRaiseArm = true; // Default to normal grab if we can't determine product location
     }
 }
 
@@ -726,9 +766,20 @@ AShelf* AAICustomerPawn::FindRandomStockedShelf()
         AShelf* Shelf = Cast<AShelf>(Actor);
         if (IsValid(Shelf) && Shelf->GetProductCount() > 0 && Shelf->GetCurrentProductClass() != nullptr)
         {
-            FVector ShelfLocation = Shelf->GetAccessPointLocation(); // Use the access point instead of the shelf's location
-            FNavLocation NavLocation;
-            if (NavSys->ProjectPointToNavigation(ShelfLocation, NavLocation, FVector(100, 100, 100)))
+            TArray<FVector> AccessPoints = Shelf->GetAllAccessPointLocations();
+            bool bIsAccessible = false;
+
+            for (const FVector& AccessPoint : AccessPoints)
+            {
+                FNavLocation NavLocation;
+                if (NavSys->ProjectPointToNavigation(AccessPoint, NavLocation, FVector(100, 100, 100)))
+                {
+                    bIsAccessible = true;
+                    break;
+                }
+            }
+
+            if (bIsAccessible)
             {
                 AccessibleStockedShelves.Add(Shelf);
             }

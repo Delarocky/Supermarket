@@ -26,7 +26,10 @@ AShelf::AShelf()
 
     AccessPoint = CreateDefaultSubobject<USceneComponent>(TEXT("AccessPoint"));
     AccessPoint->SetupAttachment(RootComponent);
-    AccessPointOffset = FVector(0.0f, 0.0f, 0.0f);
+    AccessPoint2 = CreateDefaultSubobject<USceneComponent>(TEXT("AccessPoint2"));
+    AccessPoint2->SetupAttachment(RootComponent);
+    AccessPoint3 = CreateDefaultSubobject<USceneComponent>(TEXT("AccessPoint3"));
+    AccessPoint3->SetupAttachment(RootComponent);
 
     bStartFullyStocked = false; // Set default value
     CurrentProductClass = nullptr;
@@ -37,24 +40,41 @@ AShelf::AShelf()
 
 void AShelf::SetupAccessPoint()
 {
-    if (ShelfMesh && AccessPoint)
+    if (ShelfMesh && AccessPoint && AccessPoint2 && AccessPoint3)
     {
         FVector ShelfWorldLocation = ShelfMesh->GetComponentLocation();
         FRotator ShelfWorldRotation = ShelfMesh->GetComponentRotation();
 
-        // Position the access point in front of the shelf
         FVector ForwardVector = ShelfWorldRotation.Vector();
         FVector RightVector = FRotationMatrix(ShelfWorldRotation).GetUnitAxis(EAxis::Y);
 
+        // Setup AccessPoint
         FVector AccessPointLocation = ShelfWorldLocation + ForwardVector * AccessPointOffset.X + RightVector * AccessPointOffset.Y + FVector(0.0f, 0.0f, AccessPointOffset.Z);
         AccessPoint->SetWorldLocation(AccessPointLocation);
+
+        // Setup AccessPoint2
+        FVector AccessPoint2Location = ShelfWorldLocation + ForwardVector * AccessPoint2Offset.X + RightVector * AccessPoint2Offset.Y + FVector(0.0f, 0.0f, AccessPoint2Offset.Z);
+        AccessPoint2->SetWorldLocation(AccessPoint2Location);
+
+        // Setup AccessPoint3
+        FVector AccessPoint3Location = ShelfWorldLocation + ForwardVector * AccessPoint3Offset.X + RightVector * AccessPoint3Offset.Y + FVector(0.0f, 0.0f, AccessPoint3Offset.Z);
+        AccessPoint3->SetWorldLocation(AccessPoint3Location);
     }
 }
+
 FVector AShelf::GetAccessPointLocation() const
 {
     return AccessPoint->GetComponentLocation();
 }
 
+TArray<FVector> AShelf::GetAllAccessPointLocations() const
+{
+    TArray<FVector> Locations;
+    Locations.Add(AccessPoint->GetComponentLocation());
+    Locations.Add(AccessPoint2->GetComponentLocation());
+    Locations.Add(AccessPoint3->GetComponentLocation());
+    return Locations;
+}
 
 void AShelf::BeginPlay()
 {
@@ -303,4 +323,14 @@ void AShelf::ContinueStocking()
     {
         bIsStocking = false;
     }
+}
+
+bool AShelf::GetNextProductLocation(FVector& OutLocation) const
+{
+    if (Products.Num() > 0)
+    {
+        OutLocation = Products.Last()->GetActorLocation();
+        return true;
+    }
+    return false;
 }

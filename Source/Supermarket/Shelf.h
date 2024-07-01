@@ -16,6 +16,12 @@ class SUPERMARKET_API AShelf : public AActor
 
 public:
     AShelf();
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
+    USceneComponent* AccessPoint2;
+    UFUNCTION(BlueprintCallable, Category = "Shelf")
+    TArray<FVector> GetAllAccessPointLocations() const;
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
+    USceneComponent* AccessPoint3;
     UFUNCTION(BlueprintCallable, Category = "Shelf")
     void ContinueStocking();
     UFUNCTION(BlueprintCallable, Category = "Shelf")
@@ -71,6 +77,14 @@ public:
     USceneComponent* AccessPoint;
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Access Point")
     FVector AccessPointOffset;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Access Point")
+    FVector AccessPoint2Offset;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Access Point")
+    FVector AccessPoint3Offset;
+
+    UFUNCTION(BlueprintCallable, Category = "Shelf")
+    bool GetNextProductLocation(FVector& OutLocation) const;
 protected:
     virtual void BeginPlay() override;
 
