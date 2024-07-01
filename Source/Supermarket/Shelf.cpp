@@ -177,6 +177,19 @@ bool AShelf::AddProduct(const FVector& RelativeLocation)
 
         if (NewProduct)
         {
+            // Get the product's mesh
+            UStaticMeshComponent* ProductMesh = NewProduct->FindComponentByClass<UStaticMeshComponent>();
+            if (ProductMesh)
+            {
+                // Calculate the offset from the actor's origin to the bottom of the mesh
+                FVector MeshBounds = ProductMesh->Bounds.BoxExtent;
+                FVector BottomOffset = FVector(0, 0, MeshBounds.Z);
+
+                // Adjust the spawn location to align the bottom of the product with the ProductSpawnPoint
+                FVector AdjustedLocation = SpawnLocation + BottomOffset;
+                NewProduct->SetActorLocation(AdjustedLocation);
+            }
+
             Products.Add(NewProduct);
             NewProduct->AttachToComponent(ProductSpawnPoint, FAttachmentTransformRules::KeepWorldTransform);
             return true;
