@@ -214,23 +214,44 @@ void ASupermarketCharacter::StartCameraTransition(bool bToTabletView)
         CameraTransitionElapsedTime = 0.0f;
         CameraTransitionDuration = CameraTransitionTime;
 
-        // Store the start rotation and FOV
-        StartCameraRotation = FirstPersonCameraComponent->GetRelativeRotation();
-        StartCameraFOV = FirstPersonCameraComponent->FieldOfView;
+        // Get the current view rotation
+        APlayerController* PC = Cast<APlayerController>(GetController());
+        FRotator CurrentViewRotation = PC ? PC->GetControlRotation() : GetActorRotation();
 
-        // Set target rotation and FOV
-        TargetCameraRotation = bToTabletView ? TabletCameraComponent->GetRelativeRotation() : FRotator::ZeroRotator;
-        TargetCameraFOV = bToTabletView ? TabletCameraComponent->FieldOfView : 90.0f; // Assuming 90 is the default FOV
+        if (bToTabletView)
+        {
+            // Store the initial rotation when entering tablet mode
+            InitialRotation = CurrentViewRotation;
+
+            // Store the start rotation (current view) and target rotation
+            StartCameraRotation = CurrentViewRotation;
+            TargetCameraRotation = TabletCameraComponent->GetRelativeRotation() + GetActorRotation();
+
+            // Set the TabletCameraComponent to start at the current view rotation
+            TabletCameraComponent->SetWorldRotation(StartCameraRotation);
+        }
+        else
+        {
+            // When transitioning back, start from the current tablet rotation and target the initial rotation
+            StartCameraRotation = TabletCameraComponent->GetComponentRotation();
+            TargetCameraRotation = InitialRotation;
+        }
 
         // Log for debugging
-        UE_LOG(LogTemp, Log, TEXT("Starting camera transition. Start Rotation: %s, Target Rotation: %s"),
-            *StartCameraRotation.ToString(), *TargetCameraRotation.ToString());
+        UE_LOG(LogTemp, Log, TEXT("Starting camera transition. To Tablet: %s, Start Rotation: %s, Target Rotation: %s"),
+            bToTabletView ? TEXT("True") : TEXT("False"),
+            *StartCameraRotation.ToString(),
+            *TargetCameraRotation.ToString());
+
+        // Activate the appropriate camera immediately
+        FirstPersonCameraComponent->SetActive(!bToTabletView);
+        TabletCameraComponent->SetActive(bToTabletView);
     }
 }
 
 void ASupermarketCharacter::UpdateCameraTransition()
 {
-    if (FirstPersonCameraComponent)
+    if (FirstPersonCameraComponent && TabletCameraComponent)
     {
         CameraTransitionElapsedTime += GetWorld()->GetDeltaSeconds();
         float Alpha = FMath::Clamp(CameraTransitionElapsedTime / CameraTransitionDuration, 0.0f, 1.0f);
@@ -238,11 +259,19 @@ void ASupermarketCharacter::UpdateCameraTransition()
         // Use a smooth step function for easing
         float SmoothedAlpha = FMath::SmoothStep(0.0f, 1.0f, Alpha);
 
+        // Interpolate the rotation
         FRotator NewRotation = FMath::Lerp(StartCameraRotation, TargetCameraRotation, SmoothedAlpha);
-        float NewFOV = FMath::Lerp(StartCameraFOV, TargetCameraFOV, SmoothedAlpha);
 
-        FirstPersonCameraComponent->SetRelativeRotation(NewRotation);
-        FirstPersonCameraComponent->SetFieldOfView(NewFOV);
+        // Apply the interpolated rotation to the active camera
+        UCameraComponent* ActiveCamera = bIsTabletMode ? TabletCameraComponent : FirstPersonCameraComponent;
+        ActiveCamera->SetWorldRotation(NewRotation);
+
+        // Update the player's control rotation
+        APlayerController* PC = Cast<APlayerController>(GetController());
+        if (PC)
+        {
+            PC->SetControlRotation(NewRotation);
+        }
 
         // Log for debugging
         UE_LOG(LogTemp, Log, TEXT("Updating camera transition. Alpha: %f, New Rotation: %s"),
@@ -252,12 +281,21 @@ void ASupermarketCharacter::UpdateCameraTransition()
         {
             bIsCameraTransitioning = false;
 
+            // Ensure final rotation is set
+            ActiveCamera->SetWorldRotation(TargetCameraRotation);
+            if (PC)
+            {
+                PC->SetControlRotation(TargetCameraRotation);
+            }
+
             // Log for debugging
-            UE_LOG(LogTemp, Log, TEXT("Camera transition complete. Final Rotation: %s"),
-                *FirstPersonCameraComponent->GetRelativeRotation().ToString());
+            UE_LOG(LogTemp, Log, TEXT("Camera transition complete. Tablet mode: %s, Final Rotation: %s"),
+                bIsTabletMode ? TEXT("True") : TEXT("False"), *TargetCameraRotation.ToString());
         }
     }
 }
+
+
 
 void ASupermarketCharacter::SwitchCamera(bool bUseTabletCamera)
 {

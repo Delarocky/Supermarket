@@ -168,6 +168,8 @@ private:
     void SwitchCamera(bool bUseTabletCamera);
     /** Update camera transition */
     void UpdateCameraTransition();
+    UPROPERTY()
+    FRotator InitialRotation;
     /** Camera transition properties */
     float CameraTransitionDuration;
     float CameraTransitionElapsedTime;
