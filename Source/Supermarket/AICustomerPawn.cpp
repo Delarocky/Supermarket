@@ -238,7 +238,7 @@ void AAICustomerPawn::DetachAllItems()
     }
 
     // Lower the arm if it's raised
-    bRaiseArm = false;
+   // bRaiseArm = false;
 }
 
 void AAICustomerPawn::PickUpProduct()
@@ -273,7 +273,7 @@ void AAICustomerPawn::PickUpProduct()
         CurrentTargetProduct = PickedProduct;
 
         UE_LOG(LogTemp, Display, TEXT("Starting product interpolation for %s"), *PickedProduct->GetProductName());
-        ResetGrabAnimationFlags();
+        
        
         StartProductInterpolation();
     }
@@ -321,7 +321,7 @@ void AAICustomerPawn::DetermineShelfPosition()
     }
     else
     {
-        bNormalGrab = true;
+        bRaiseArm = true;
         UE_LOG(LogTemp, Display, TEXT("Shelf is at waist level, normal grab"));
     }
 }
@@ -330,7 +330,7 @@ void AAICustomerPawn::ResetGrabAnimationFlags()
 {
     bKneelDown = false;
     bReachUp = false;
-    bNormalGrab = false;
+    bRaiseArm = false;
 }
 
 
@@ -348,7 +348,7 @@ void AAICustomerPawn::StartProductInterpolation()
     else
     {
         UE_LOG(LogTemp, Warning, TEXT("No product to interpolate"));
-        LowerArm();
+        
     }
 }
 
@@ -380,16 +380,16 @@ void AAICustomerPawn::InterpolateProduct()
     else
     {
         GetWorldTimerManager().ClearTimer(ProductInterpolationTimerHandle);
+        ResetGrabAnimationFlags();
         LowerArm();
     }
 }
 
 void AAICustomerPawn::LowerArm()
 {
-    bRaiseArm = false;
-
+    ResetGrabAnimationFlags();
     // Wait for 1 second, then put the product in the bag
-    GetWorldTimerManager().SetTimer(PutInBagTimerHandle, this, &AAICustomerPawn::PutCurrentProductInBag, 0.5f, false);
+    GetWorldTimerManager().SetTimer(PutInBagTimerHandle, this, &AAICustomerPawn::PutCurrentProductInBag, 0.55f, false);
 }
 
 void AAICustomerPawn::PutProductInBag(AProduct* Product)
@@ -695,12 +695,10 @@ void AAICustomerPawn::TryPickUpProduct()
         // Determine the shelf position and set appropriate animation flags
         DetermineShelfPosition();
 
-        // Raise the arm (this flag is used for the existing animation)
-        bRaiseArm = true;
 
         // Wait for 1 second, then pick up the product
         FTimerHandle PickUpTimerHandle;
-        GetWorldTimerManager().SetTimer(PickUpTimerHandle, this, &AAICustomerPawn::PickUpProduct, 1.0f, false);
+        GetWorldTimerManager().SetTimer(PickUpTimerHandle, this, &AAICustomerPawn::PickUpProduct, 0.5f, false);
     }
     else
     {
@@ -728,7 +726,7 @@ AShelf* AAICustomerPawn::FindRandomStockedShelf()
         AShelf* Shelf = Cast<AShelf>(Actor);
         if (IsValid(Shelf) && Shelf->GetProductCount() > 0 && Shelf->GetCurrentProductClass() != nullptr)
         {
-            FVector ShelfLocation = Shelf->GetActorLocation();
+            FVector ShelfLocation = Shelf->GetAccessPointLocation(); // Use the access point instead of the shelf's location
             FNavLocation NavLocation;
             if (NavSys->ProjectPointToNavigation(ShelfLocation, NavLocation, FVector(100, 100, 100)))
             {
