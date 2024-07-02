@@ -59,8 +59,8 @@ ASupermarketCharacter::ASupermarketCharacter()
     TabletMesh->SetVisibility(false);
 
     // Set default values for tablet transform
-    TabletOffset = FVector(0.0f, 0.0f, 0.0f);
-    TabletRotation = FRotator(270.0f, 0.0f, 0.0f);
+    TabletOffset = FVector(-10.0f, 6.0f, 0.0f);
+    TabletRotation = FRotator(270.0f, 80.0f, 0.0f);
     TabletScreenOffset = FVector(0, 0, 5);
     TabletScreenRotation = FRotator(90.0f, 0.0f, 0.0f);
 

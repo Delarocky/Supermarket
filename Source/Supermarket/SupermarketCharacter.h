@@ -30,6 +30,8 @@ class ASupermarketCharacter : public ACharacter
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Tablet, meta = (AllowPrivateAccess = "true"))
     UWidgetComponent* TabletScreenWidget;
 
+    
+
     /** Tablet Widget Class */
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Tablet, meta = (AllowPrivateAccess = "true"))
     TSubclassOf<UUserWidget> TabletWidgetClass;
@@ -129,7 +131,8 @@ protected:
     void Move(const FInputActionValue& Value);
     void SetCameraRotationEnabled(bool bEnable);
 
-
+    UPROPERTY(BlueprintReadWrite, Category = "Tablet")
+    bool bTabletView;
     /** Called for interaction input */
     void OnInteract();
 

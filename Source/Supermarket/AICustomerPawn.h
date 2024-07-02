@@ -61,10 +61,11 @@ public:
     UShoppingBag* ShoppingBag;
     FTimerHandle CheckReachedShelfTimerHandle;
     FTimerHandle RetryTimerHandle;
+    
 protected:
+
     UPROPERTY()
     class AAIController* AIController;
-
     void DetermineShelfPosition();
     void ResetGrabAnimationFlags();
 
@@ -78,6 +79,7 @@ protected:
     float ShoppingTime;
     UFUNCTION(BlueprintCallable, Category = "Shopping")
     void SetCurrentShelf(AShelf* Shelf);
+
 private:
     FTimerHandle ChooseProductTimerHandle;
     void PickUpProduct();
@@ -123,4 +125,8 @@ private:
     UPROPERTY()
     ACheckout* CurrentCheckout;
     FTimerHandle RetryPickUpTimerHandle;
+    void CheckReachedAccessPoint();
+    int32 FailedNavigationAttempts;
+    static const int32 MaxFailedNavigationAttempts = 3;
+    void ResetFailedNavigationAttempts() { FailedNavigationAttempts = 0; }
 };
