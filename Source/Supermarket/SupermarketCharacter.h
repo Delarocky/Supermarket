@@ -132,7 +132,7 @@ protected:
     void SetCameraRotationEnabled(bool bEnable);
 
     UPROPERTY(BlueprintReadWrite, Category = "Tablet")
-    bool bTabletView;
+    bool bTabletViewage;
     /** Called for interaction input */
     void OnInteract();
 
@@ -178,7 +178,7 @@ public:
     UFUNCTION(BlueprintCallable, Category = "Tablet")
     void UpdateTabletTransform();
     /** Returns Mesh1P subobject **/
-    USkeletalMeshComponent* GetMesh1P() const { return Mesh1P; }
+   
     /** Returns FirstPersonCameraComponent subobject **/
     UCameraComponent* GetFirstPersonCameraComponent() const { return FirstPersonCameraComponent; }
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Camera")
