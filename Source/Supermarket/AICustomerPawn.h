@@ -68,7 +68,7 @@ protected:
     void DetermineShelfPosition();
     void ResetGrabAnimationFlags();
 
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Shopping")
+ 
     int32 MaxItems;
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Shopping")

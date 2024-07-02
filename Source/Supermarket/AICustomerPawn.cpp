@@ -737,7 +737,7 @@ void AAICustomerPawn::TryPickUpProduct()
 
         // Check if the AI is close enough to any of the access points
         bool bIsCloseEnough = false;
-        float MinDistance = 100.0f; // Minimum distance to pick up an item, adjust as needed
+        float MinDistance = 300.0f; // Minimum distance to pick up an item, adjust as needed
 
         FVector AILocation = GetActorLocation();
         for (const FVector& AccessPoint : AccessPoints)
