@@ -15,6 +15,8 @@ class USkeletalMeshComponent;
 class UCameraComponent;
 class UInputAction;
 class UInputMappingContext;
+class UWidgetComponent;
+class UUserWidget;
 struct FInputActionValue;
 
 DECLARE_LOG_CATEGORY_EXTERN(LogTemplateCharacter, Log, All);
@@ -23,6 +25,14 @@ UCLASS(config = Game)
 class ASupermarketCharacter : public ACharacter
 {
     GENERATED_BODY()
+
+    /** Tablet Screen Widget Component */
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Tablet, meta = (AllowPrivateAccess = "true"))
+    UWidgetComponent* TabletScreenWidget;
+
+    /** Tablet Widget Class */
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Tablet, meta = (AllowPrivateAccess = "true"))
+    TSubclassOf<UUserWidget> TabletWidgetClass;
 
     /** Tablet Input Action */
     UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, meta = (AllowPrivateAccess = "true"))
@@ -107,6 +117,13 @@ public:
 
     UFUNCTION(BlueprintCallable, Category = "Interaction")
     void StopStocking();
+    UFUNCTION(BlueprintCallable, Category = "Tablet")
+    void SetTabletScreenContent(TSubclassOf<UUserWidget> NewWidgetClass);
+
+    /** Get the current tablet widget */
+    UFUNCTION(BlueprintCallable, Category = "Tablet")
+    UUserWidget* GetTabletScreenWidget() const;
+
 protected:
     /** Called for movement input */
     void Move(const FInputActionValue& Value);
@@ -119,6 +136,21 @@ protected:
     UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, meta = (AllowPrivateAccess = "true"))
     class UInputAction* StockAction;
 
+    /** Tablet Offset from Hand */
+  
+    FVector TabletOffset;
+
+    /** Tablet Rotation */
+   
+    FRotator TabletRotation;
+
+    /** Tablet Screen Offset */
+   
+    FVector TabletScreenOffset;
+
+    /** Tablet Screen Rotation */
+ 
+    FRotator TabletScreenRotation;
 
 protected:
     // APawn interface
@@ -140,6 +172,8 @@ protected:
     /** Start camera transition */
     void StartCameraTransition(bool bToTabletView);
 public:
+    UFUNCTION(BlueprintCallable, Category = "Tablet")
+    void UpdateTabletTransform();
     /** Returns Mesh1P subobject **/
     USkeletalMeshComponent* GetMesh1P() const { return Mesh1P; }
     /** Returns FirstPersonCameraComponent subobject **/
@@ -180,4 +214,5 @@ private:
     FVector TargetCameraLocation;
     FRotator TargetCameraRotation;
     float TargetCameraFOV;
+    void SetupTabletScreen();
 };

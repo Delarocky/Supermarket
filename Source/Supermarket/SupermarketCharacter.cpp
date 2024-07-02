@@ -14,6 +14,8 @@
 #include "Shelf.h"
 #include "Blueprint/UserWidget.h"
 #include "Kismet/GameplayStatics.h"
+#include "Components/WidgetComponent.h"
+#include "Blueprint/UserWidget.h"
 #include "GameFramework/CharacterMovementComponent.h"
 
 DEFINE_LOG_CATEGORY(LogTemplateCharacter);
@@ -56,6 +58,21 @@ ASupermarketCharacter::ASupermarketCharacter()
     TabletMesh->SetupAttachment(GetMesh(), "hand_r"); // Attach to right hand
     TabletMesh->SetVisibility(false);
 
+    // Set default values for tablet transform
+    TabletOffset = FVector(0.0f, 0.0f, 0.0f);
+    TabletRotation = FRotator(270.0f, 0.0f, 0.0f);
+    TabletScreenOffset = FVector(0, 0, 5);
+    TabletScreenRotation = FRotator(90.0f, 0.0f, 0.0f);
+
+    TabletScreenWidget = CreateDefaultSubobject<UWidgetComponent>(TEXT("TabletScreenWidget"));
+    TabletScreenWidget->SetupAttachment(TabletMesh);
+    TabletScreenWidget->SetRelativeLocation(FVector(0.0f, 0.0f, 5.0f)); // Adjust as needed
+    TabletScreenWidget->SetRelativeRotation(FRotator(0.0f, 0.0f, 180.0f)); // Face the widget towards the player
+    TabletScreenWidget->SetDrawSize(FVector2D(150.0f, 230.0f)); // Set the size of the widget
+    TabletScreenWidget->SetVisibility(false); // Start with the widget hidden
+
+
+
     // Initialize tablet mode variables
     bIsTabletMode = false;
     TabletCameraRotation = FRotator(-60.f, 0.f, 0.f); // Look down at 60 degree angle
@@ -89,11 +106,12 @@ void ASupermarketCharacter::BeginPlay()
 
     OriginalCameraRotation = FirstPersonCameraComponent->GetRelativeRotation();
     OriginalCameraFOV = FirstPersonCameraComponent->FieldOfView;
-
+    SetupTabletScreen();
     if (Controller)
     {
         OriginalControllerRotation = Controller->GetControlRotation();
     }
+    UpdateTabletTransform();
     //Add Input Mapping Context
     if (APlayerController* PlayerController = Cast<APlayerController>(Controller))
     {
@@ -143,6 +161,7 @@ void ASupermarketCharacter::ToggleTabletMode()
     SetupTabletMode(bIsTabletMode);
 }
 
+
 void ASupermarketCharacter::SetupTabletMode(bool bEnable)
 {
     bIsTabletMode = bEnable;
@@ -155,11 +174,9 @@ void ASupermarketCharacter::SetupTabletMode(bool bEnable)
         {
             TabletMesh->SetVisibility(true);
         }
-
-        // Show tablet UI
-        if (TabletWidget && TabletWidget->IsValidLowLevel())
+        if (TabletScreenWidget)
         {
-            TabletWidget->AddToViewport();
+            TabletScreenWidget->SetVisibility(true);
         }
 
         // Disable character movement
@@ -183,11 +200,9 @@ void ASupermarketCharacter::SetupTabletMode(bool bEnable)
         {
             TabletMesh->SetVisibility(false);
         }
-
-        // Hide tablet UI
-        if (TabletWidget && TabletWidget->IsValidLowLevel())
+        if (TabletScreenWidget)
         {
-            TabletWidget->RemoveFromParent();
+            TabletScreenWidget->SetVisibility(false);
         }
 
         // Enable character movement
@@ -195,6 +210,8 @@ void ASupermarketCharacter::SetupTabletMode(bool bEnable)
         {
             GetCharacterMovement()->SetMovementMode(MOVE_Walking);
         }
+
+        UpdateTabletTransform();
 
         // Hide mouse cursor and reset input mode
         APlayerController* PC = Cast<APlayerController>(GetController());
@@ -570,5 +587,43 @@ void ASupermarketCharacter::InteractWithShelf(AShelf* Shelf)
                 HeldProductBox = nullptr;
             }
         }
+    }
+}
+
+void ASupermarketCharacter::SetupTabletScreen()
+{
+    if (TabletWidgetClass && TabletScreenWidget)
+    {
+        TabletScreenWidget->SetWidgetClass(TabletWidgetClass);
+        TabletScreenWidget->SetVisibility(false);
+    }
+}
+
+void ASupermarketCharacter::SetTabletScreenContent(TSubclassOf<UUserWidget> NewWidgetClass)
+{
+    if (NewWidgetClass && TabletScreenWidget)
+    {
+        TabletScreenWidget->SetWidgetClass(NewWidgetClass);
+        TabletScreenWidget->SetVisibility(true);
+    }
+}
+
+UUserWidget* ASupermarketCharacter::GetTabletScreenWidget() const
+{
+    return TabletScreenWidget ? TabletScreenWidget->GetUserWidgetObject() : nullptr;
+}
+
+void ASupermarketCharacter::UpdateTabletTransform()
+{
+    if (TabletMesh)
+    {
+        TabletMesh->SetRelativeLocation(TabletOffset);
+        TabletMesh->SetRelativeRotation(TabletRotation);
+    }
+
+    if (TabletScreenWidget)
+    {
+        TabletScreenWidget->SetRelativeLocation(TabletScreenOffset);
+        TabletScreenWidget->SetRelativeRotation(TabletScreenRotation);
     }
 }
