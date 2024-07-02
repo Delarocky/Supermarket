@@ -152,7 +152,7 @@ void ASupermarketCharacter::ToggleTabletMode()
 {
     bIsTabletMode = !bIsTabletMode;
     SetupTabletMode(bIsTabletMode);
-    bTabletViewage = !bTabletViewage;
+
 }
 
 
@@ -164,8 +164,15 @@ void ASupermarketCharacter::SetupTabletMode(bool bEnable)
     if (bEnable)
     {
         // Enable tablet mode
-        if (TabletMesh)
+        if (TabletMesh && TabletCameraComponent)
         {
+            // Attach the tablet to the tablet camera
+            TabletMesh->AttachToComponent(TabletCameraComponent, FAttachmentTransformRules::KeepRelativeTransform);
+
+            // Set the relative location and rotation of the tablet
+            TabletMesh->SetRelativeLocation(FVector(13.0f, 0.0f, 0.0f)); // Adjust these values as needed
+            TabletMesh->SetRelativeRotation(FRotator(-90.0f, 180.0f, 0.0f)); // Adjust these values as needed
+
             TabletMesh->SetVisibility(true);
         }
         if (TabletScreenWidget)
@@ -192,6 +199,12 @@ void ASupermarketCharacter::SetupTabletMode(bool bEnable)
         // Disable tablet mode
         if (TabletMesh)
         {
+            // Detach the tablet from the camera
+            TabletMesh->DetachFromComponent(FDetachmentTransformRules::KeepWorldTransform);
+
+            // Reattach to the original socket or component if necessary
+            // TabletMesh->AttachToComponent(GetMesh(), FAttachmentTransformRules::SnapToTargetNotIncludingScale, "hand_r");
+
             TabletMesh->SetVisibility(false);
         }
         if (TabletScreenWidget)
@@ -205,8 +218,6 @@ void ASupermarketCharacter::SetupTabletMode(bool bEnable)
             GetCharacterMovement()->SetMovementMode(MOVE_Walking);
         }
 
-        UpdateTabletTransform();
-
         // Hide mouse cursor and reset input mode
         APlayerController* PC = Cast<APlayerController>(GetController());
         if (PC)
@@ -215,6 +226,9 @@ void ASupermarketCharacter::SetupTabletMode(bool bEnable)
             PC->SetInputMode(FInputModeGameOnly());
         }
     }
+
+    // Switch between first person and tablet cameras
+    SwitchCamera(bEnable);
 }
 
 void ASupermarketCharacter::StartCameraTransition(bool bToTabletView)
@@ -589,6 +603,18 @@ void ASupermarketCharacter::SetupTabletScreen()
     if (TabletWidgetClass && TabletScreenWidget)
     {
         TabletScreenWidget->SetWidgetClass(TabletWidgetClass);
+
+        // Set a high resolution for the widget
+        TabletScreenWidget->SetDrawAtDesiredSize(false);
+        TabletScreenWidget->SetDrawSize(FVector2D(1920, 1080)); // Full HD resolution
+
+        // Set the widget to a smaller physical size
+        TabletScreenWidget->SetRelativeScale3D(FVector(0.002500,0.073200,0.203000)); // Adjust this value as needed
+
+        // Ensure the widget is set to be transparent
+        TabletScreenWidget->SetBackgroundColor(FLinearColor::Transparent);
+
+        // Initially hide the widget
         TabletScreenWidget->SetVisibility(false);
     }
 }
