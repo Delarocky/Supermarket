@@ -37,7 +37,8 @@ public:
 
     UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Components")
     UStaticMeshComponent* ShelfMesh;
-
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Shelf")
+    TSubclassOf<AProduct> ProductClass;
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Shelf")
     int32 MaxProducts;
     UFUNCTION(BlueprintCallable, Category = "Shelf")
@@ -59,7 +60,7 @@ public:
     UFUNCTION(BlueprintCallable, Category = "Shelf")
     void StartStockingShelf(TSubclassOf<AProduct> ProductToStock);
     UFUNCTION(BlueprintCallable, Category = "Shelf")
-    TSubclassOf<AProduct> GetCurrentProductClass() const { return CurrentProductClass; }
+    TSubclassOf<AProduct> GetCurrentProductClass() const { return ProductClass; }
     UFUNCTION(BlueprintCallable, Category = "Shelf")
     void UpdateProductSpawnPointRotation();
     UFUNCTION(BlueprintCallable, Category = "Shelf")

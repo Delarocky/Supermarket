@@ -133,7 +133,7 @@ void AShelf::RotateShelf(FRotator NewRotation)
 
 void AShelf::InitializeShelf()
 {
-    if (bStartFullyStocked)
+    if (bStartFullyStocked && ProductClass)
     {
         // Stock the shelf to its maximum capacity
         while (Products.Num() < MaxProducts)
@@ -160,54 +160,50 @@ void AShelf::InitializeShelf()
 
 bool AShelf::AddProduct(const FVector& RelativeLocation)
 {
-    if (Products.Num() < MaxProducts && CurrentProductClass && ProductBox && !ProductBox->IsEmpty())
+    if (Products.Num() < MaxProducts && ProductClass && ProductBox)
     {
+        // Check if the ProductBox has the correct product type
+        if (ProductBox->GetProductClass() != ProductClass)
+        {
+            UE_LOG(LogTemp, Warning, TEXT("Product in box does not match shelf's product type"));
+            return false;
+        }
+
+        // Remove a product from the ProductBox
+        AProduct* NewProduct = ProductBox->RemoveProduct();
+        if (!NewProduct)
+        {
+            UE_LOG(LogTemp, Warning, TEXT("Failed to remove product from ProductBox"));
+            return false;
+        }
+
         FVector SpawnLocation = ProductSpawnPoint->GetComponentLocation() +
             ProductSpawnPoint->GetComponentRotation().RotateVector(RelativeLocation);
 
-        FActorSpawnParameters SpawnParams;
-        SpawnParams.Owner = this;
+        // Set the new location for the product
+        NewProduct->SetActorLocation(SpawnLocation);
+        NewProduct->SetActorRotation(ProductSpawnPoint->GetComponentRotation());
 
-        AProduct* NewProduct = GetWorld()->SpawnActor<AProduct>(
-            CurrentProductClass,
-            SpawnLocation,
-            ProductSpawnPoint->GetComponentRotation(),
-            SpawnParams
-        );
-
-        if (NewProduct)
+        // Adjust the product's position based on its mesh
+        UStaticMeshComponent* ProductMesh = NewProduct->FindComponentByClass<UStaticMeshComponent>();
+        if (ProductMesh)
         {
-            // Get the product's mesh
-            UStaticMeshComponent* ProductMesh = NewProduct->FindComponentByClass<UStaticMeshComponent>();
-            if (ProductMesh)
-            {
-                // Calculate the offset from the actor's origin to the bottom of the mesh
-                FVector MeshBounds = ProductMesh->Bounds.BoxExtent;
-                FVector BottomOffset = FVector(0, 0, MeshBounds.Z);
-
-                // Adjust the spawn location to align the bottom of the product with the ProductSpawnPoint
-                FVector AdjustedLocation = SpawnLocation + BottomOffset;
-                NewProduct->SetActorLocation(AdjustedLocation);
-            }
-
-            Products.Add(NewProduct);
-            NewProduct->AttachToComponent(ProductSpawnPoint, FAttachmentTransformRules::KeepWorldTransform);
-
-            // Remove a product from the ProductBox and destroy it
-            AProduct* RemovedProduct = ProductBox->RemoveProduct();
-            if (RemovedProduct)
-            {
-                RemovedProduct->Destroy();
-            }
-
-            if (ProductBox->IsEmpty())
-            {
-                // Stop stocking if the ProductBox is now empty
-                StopStockingShelf();
-            }
-
-            return true;
+            FVector MeshBounds = ProductMesh->Bounds.BoxExtent;
+            FVector BottomOffset = FVector(0, 0, MeshBounds.Z);
+            FVector AdjustedLocation = SpawnLocation + BottomOffset;
+            NewProduct->SetActorLocation(AdjustedLocation);
         }
+
+        Products.Add(NewProduct);
+        NewProduct->AttachToComponent(ProductSpawnPoint, FAttachmentTransformRules::KeepWorldTransform);
+
+        // Make the product visible and enable collision
+        NewProduct->SetActorHiddenInGame(false);
+        NewProduct->SetActorEnableCollision(true);
+
+        UE_LOG(LogTemp, Display, TEXT("Added product to shelf. Total products: %d"), Products.Num());
+
+        return true;
     }
 
     return false;
@@ -218,9 +214,26 @@ void AShelf::StartStockingShelf(TSubclassOf<AProduct> ProductToStock)
 {
     if (!bIsStocking && ProductToStock)
     {
-        CurrentProductClass = ProductToStock;
-        bIsStocking = true;
-        ContinueStocking();
+        if (!ProductClass || Products.Num() == 0)
+        {
+            // If the shelf is empty or has no product class set, allow stocking with the new product
+            ProductClass = ProductToStock;
+            bIsStocking = true;
+            ContinueStocking();
+            UE_LOG(LogTemp, Display, TEXT("Started stocking shelf with new product type: %s"), *ProductClass->GetName());
+        }
+        else if (ProductClass == ProductToStock)
+        {
+            // If the product type matches the current shelf product, allow stocking
+            bIsStocking = true;
+            ContinueStocking();
+            UE_LOG(LogTemp, Display, TEXT("Continuing to stock shelf with existing product type: %s"), *ProductClass->GetName());
+        }
+        else
+        {
+            // If trying to stock a different product type on a non-empty shelf, prevent it
+            UE_LOG(LogTemp, Warning, TEXT("Cannot stock different product type. Shelf is dedicated to %s"), *ProductClass->GetName());
+        }
     }
 }
 
@@ -319,8 +332,10 @@ int32 AShelf::GetRemainingCapacity() const
 
 void AShelf::ContinueStocking()
 {
-    if (!bIsStocking || !CurrentProductClass)
+    if (!bIsStocking || !ProductClass || !ProductBox)
     {
+        UE_LOG(LogTemp, Warning, TEXT("Cannot continue stocking. IsStocking: %d, ProductClass: %s, ProductBox: %s"),
+            bIsStocking, ProductClass ? *ProductClass->GetName() : TEXT("None"), ProductBox ? TEXT("Valid") : TEXT("Invalid"));
         return;
     }
 
@@ -338,15 +353,20 @@ void AShelf::ContinueStocking()
 
         if (AddProduct(RelativeLocation))
         {
+            // If product was added successfully, continue stocking after a short delay
             GetWorld()->GetTimerManager().SetTimer(ContinuousStockingTimerHandle, this, &AShelf::ContinueStocking, 0.3f, false);
         }
         else
         {
+            // If failed to add product, stop stocking
+            UE_LOG(LogTemp, Warning, TEXT("Failed to add product. Stopping stocking process."));
             bIsStocking = false;
         }
     }
     else
     {
+        // Shelf is full, stop stocking
+        UE_LOG(LogTemp, Display, TEXT("Shelf is full. Stopping stocking process."));
         bIsStocking = false;
     }
 }
