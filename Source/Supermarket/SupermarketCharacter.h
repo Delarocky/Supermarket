@@ -30,7 +30,10 @@ class ASupermarketCharacter : public ACharacter
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Tablet, meta = (AllowPrivateAccess = "true"))
     UWidgetComponent* TabletScreenWidget;
 
-    
+
+    // Add this function declaration if you want to be able to update the transform at runtime
+    UFUNCTION(BlueprintCallable, Category = "Interaction")
+    void UpdateProductBoxTransform();
 
     /** Tablet Widget Class */
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Tablet, meta = (AllowPrivateAccess = "true"))
@@ -79,6 +82,7 @@ class ASupermarketCharacter : public ACharacter
     /** Move Input Action */
     UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, meta = (AllowPrivateAccess = "true"))
     UInputAction* MoveAction;
+    // Add these properties
 
 public:
     ASupermarketCharacter();
@@ -87,6 +91,12 @@ protected:
     virtual void BeginPlay();
 
 public:
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Interaction")
+    FVector ProductBoxOffset;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Interaction")
+    FRotator ProductBoxRotation;
 
     /** Look Input Action */
     UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, meta = (AllowPrivateAccess = "true"))

@@ -1,6 +1,7 @@
 // ProductBox.cpp
 #include "ProductBox.h"
 #include "Camera/CameraComponent.h"
+#include "Components/SceneComponent.h"
 
 AProductBox::AProductBox()
 {
@@ -15,7 +16,9 @@ AProductBox::AProductBox()
     MaxProducts = 20;
     ProductSpacing = FVector(20.0f, 20.0f, 20.0f);
     bIsAttachedToCamera = false;
-    CameraOffset = FVector(50.0f, 0.0f, -50.0f);
+    // Initialize attachment properties
+    CameraOffset = FVector(0.0f, 0.0f, 0.0f);
+    CameraRotation = FRotator(0.0f, 0.0f, 0.0f);
 }
 
 void AProductBox::BeginPlay()
@@ -158,8 +161,26 @@ void AProductBox::AttachToCamera(UCameraComponent* Camera)
     if (Camera)
     {
         AttachedCamera = Camera;
-        AttachToComponent(Camera, FAttachmentTransformRules::KeepRelativeTransform);
-        SetActorRelativeLocation(CameraOffset);
+
+        // Get the root component of the ProductBox
+        USceneComponent* RootComp = GetRootComponent();
+        if (RootComp)
+        {
+            // Detach from any previous parent
+            RootComp->DetachFromComponent(FDetachmentTransformRules::KeepWorldTransform);
+
+            // Calculate the new world location and rotation
+            FVector NewLocation = Camera->GetComponentLocation() + Camera->GetComponentRotation().RotateVector(CameraOffset);
+            FRotator NewRotation = Camera->GetComponentRotation() + CameraRotation;
+
+            // Set the new world transform
+            RootComp->SetWorldLocationAndRotation(NewLocation, NewRotation);
+
+            // Now attach to the camera
+            FAttachmentTransformRules AttachmentRules(EAttachmentRule::KeepWorld, true);
+            RootComp->AttachToComponent(Camera, AttachmentRules);
+        }
+
         bIsAttachedToCamera = true;
     }
 }
@@ -178,7 +199,13 @@ void AProductBox::Tick(float DeltaTime)
 
     if (bIsAttachedToCamera && AttachedCamera)
     {
-        SetActorRelativeLocation(CameraOffset);
+        USceneComponent* RootComp = GetRootComponent();
+        if (RootComp)
+        {
+            FVector NewLocation = AttachedCamera->GetComponentLocation() + AttachedCamera->GetComponentRotation().RotateVector(CameraOffset);
+            FRotator NewRotation = AttachedCamera->GetComponentRotation() + CameraRotation;
+            RootComp->SetWorldLocationAndRotation(NewLocation, NewRotation);
+        }
     }
 }
 
@@ -242,4 +269,17 @@ AProductBox* AProductBox::SpawnProductBox(UObject* WorldContextObject, TSubclass
 void AProductBox::SetProductClass(TSubclassOf<AProduct> NewProductClass)
 {
     ProductClass = NewProductClass;
+}
+
+void AProductBox::AttachToComponent(USceneComponent* Parent)
+{
+    if (Parent)
+    {
+        USceneComponent* RootComp = GetRootComponent();
+        if (RootComp)
+        {
+            FAttachmentTransformRules AttachmentRules(EAttachmentRule::SnapToTarget, true);
+            RootComp->AttachToComponent(Parent, AttachmentRules);
+        }
+    }
 }

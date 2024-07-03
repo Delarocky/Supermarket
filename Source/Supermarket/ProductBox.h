@@ -64,6 +64,15 @@ public:
     static AProductBox* SpawnProductBox(UObject* WorldContextObject, TSubclassOf<AProductBox> ProductBoxClass, TSubclassOf<AProduct> ProductToSpawn, int32 Quantity, FVector SpawnLocation, FVector Spacing, FIntVector Grid);
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Product Box")
     FIntVector GridSize;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attachment")
+    FVector CameraOffset;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attachment")
+    FRotator CameraRotation;
+
+
+    UFUNCTION(BlueprintCallable, Category = "Attachment")
+    void AttachToComponent(USceneComponent* Parent);
 protected:
     virtual void BeginPlay() override;
 
@@ -78,5 +87,5 @@ private:
     UPROPERTY()
     UCameraComponent* AttachedCamera;
 
-    FVector CameraOffset;
+
 };

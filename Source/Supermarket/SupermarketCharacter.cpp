@@ -41,6 +41,8 @@ ASupermarketCharacter::ASupermarketCharacter()
     TabletCameraComponent->bUsePawnControlRotation = false;
     TabletCameraComponent->SetActive(false); // Start with this camera inactive
 
+    ProductBoxOffset = FVector(90.0f, 0.0f, -60.0f);
+    ProductBoxRotation = FRotator(0.0f, 90.0f, 0.0f);
 
     HeldProductBox = nullptr;
     CurrentTargetShelf = nullptr;
@@ -90,6 +92,8 @@ void ASupermarketCharacter::Tick(float DeltaTime)
     {
         UpdateCameraTransition();
     }
+
+    UpdateProductBoxTransform();
 }
 
 void ASupermarketCharacter::BeginPlay()
@@ -523,10 +527,16 @@ void ASupermarketCharacter::PickUpProductBox(AProductBox* ProductBox)
             PrimitiveComponent->SetSimulatePhysics(false);
         }
 
-        HeldProductBox->AttachToCamera(FirstPersonCameraComponent);
+        // Attach the product box to the camera
+        HeldProductBox->AttachToComponent(FirstPersonCameraComponent);
+
+        // Apply custom offset and rotation
+        UpdateProductBoxTransform();
+
         bIsInteracting = true;
     }
 }
+
 
 void ASupermarketCharacter::DropProductBox()
 {
@@ -665,3 +675,13 @@ void ASupermarketCharacter::OnTabletClickInput()
         }
     }
 }
+
+void ASupermarketCharacter::UpdateProductBoxTransform()
+{
+    if (HeldProductBox)
+    {
+        HeldProductBox->SetActorRelativeLocation(ProductBoxOffset);
+        HeldProductBox->SetActorRelativeRotation(ProductBoxRotation);
+    }
+}
+
