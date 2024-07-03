@@ -61,7 +61,7 @@ public:
     TSubclassOf<AProduct> GetProductClass() const { return ProductClass; }
 
     UFUNCTION(BlueprintCallable, Category = "Product Box")
-    static AProductBox* SpawnProductBox(UObject* WorldContextObject, TSubclassOf<AProduct> ProductToSpawn, int32 Quantity, FVector SpawnLocation);
+    static AProductBox* SpawnProductBox(UObject* WorldContextObject, TSubclassOf<AProductBox> ProductBoxClass, TSubclassOf<AProduct> ProductToSpawn, int32 Quantity, FVector SpawnLocation);
 protected:
     virtual void BeginPlay() override;
 

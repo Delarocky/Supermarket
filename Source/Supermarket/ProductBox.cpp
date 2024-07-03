@@ -145,11 +145,11 @@ void AProductBox::Tick(float DeltaTime)
     }
 }
 
-AProductBox* AProductBox::SpawnProductBox(UObject* WorldContextObject, TSubclassOf<AProduct> ProductToSpawn, int32 Quantity, FVector SpawnLocation)
+AProductBox* AProductBox::SpawnProductBox(UObject* WorldContextObject, TSubclassOf<AProductBox> ProductBoxClass, TSubclassOf<AProduct> ProductToSpawn, int32 Quantity, FVector SpawnLocation)
 {
-    if (!WorldContextObject || !ProductToSpawn)
+    if (!WorldContextObject || !ProductBoxClass || !ProductToSpawn)
     {
-        UE_LOG(LogTemp, Error, TEXT("Invalid WorldContextObject or ProductToSpawn in SpawnProductBox"));
+        UE_LOG(LogTemp, Error, TEXT("Invalid WorldContextObject, ProductBoxClass, or ProductToSpawn in SpawnProductBox"));
         return nullptr;
     }
 
@@ -160,10 +160,10 @@ AProductBox* AProductBox::SpawnProductBox(UObject* WorldContextObject, TSubclass
         return nullptr;
     }
 
-    // Spawn the ProductBox
+    // Spawn the ProductBox BP
     FActorSpawnParameters SpawnParams;
     SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn;
-    AProductBox* NewProductBox = World->SpawnActor<AProductBox>(AProductBox::StaticClass(), SpawnLocation, FRotator::ZeroRotator, SpawnParams);
+    AProductBox* NewProductBox = World->SpawnActor<AProductBox>(ProductBoxClass, SpawnLocation, FRotator::ZeroRotator, SpawnParams);
 
     if (NewProductBox)
     {
@@ -171,29 +171,17 @@ AProductBox* AProductBox::SpawnProductBox(UObject* WorldContextObject, TSubclass
         NewProductBox->SetProductClass(ProductToSpawn);
         NewProductBox->MaxProducts = FMath::Clamp(Quantity, 1, 100);  // Clamp quantity between 1 and 100
 
-        // Manually fill the box with products
-        for (int32 i = 0; i < NewProductBox->MaxProducts; ++i)
+        // Set the box scale to 1
+        if (NewProductBox->BoxMesh)
         {
-            FVector ProductLocation = NewProductBox->ProductSpawnPoint->GetComponentLocation();
-            FRotator ProductRotation = NewProductBox->ProductSpawnPoint->GetComponentRotation();
-
-            FActorSpawnParameters ProductSpawnParams;
-            ProductSpawnParams.Owner = NewProductBox;
-            ProductSpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
-
-            AProduct* NewProduct = World->SpawnActor<AProduct>(ProductToSpawn, ProductLocation, ProductRotation, ProductSpawnParams);
-            if (NewProduct)
-            {
-                NewProductBox->Products.Add(NewProduct);
-                NewProduct->AttachToComponent(NewProductBox->ProductSpawnPoint, FAttachmentTransformRules::KeepRelativeTransform);
-            }
+            NewProductBox->BoxMesh->SetWorldScale3D(FVector(1.0f));
         }
 
-        // Arrange the products within the box
-        NewProductBox->ArrangeProducts();
+        // Use the FillBox function to populate the ProductBox
+        NewProductBox->FillBox(ProductToSpawn);
 
-        UE_LOG(LogTemp, Display, TEXT("Spawned ProductBox with %d %s at location %s"),
-            NewProductBox->Products.Num(),
+        UE_LOG(LogTemp, Display, TEXT("Spawned ProductBox with %d %s at location %s, Scale: 1.0"),
+            NewProductBox->GetProductCount(),
             *ProductToSpawn->GetName(),
             *SpawnLocation.ToString());
     }
@@ -204,7 +192,6 @@ AProductBox* AProductBox::SpawnProductBox(UObject* WorldContextObject, TSubclass
 
     return NewProductBox;
 }
-
 
 void AProductBox::SetProductClass(TSubclassOf<AProduct> NewProductClass)
 {
