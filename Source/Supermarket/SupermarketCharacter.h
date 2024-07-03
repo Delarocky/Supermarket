@@ -87,6 +87,7 @@ protected:
     virtual void BeginPlay();
 
 public:
+
     /** Look Input Action */
     UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, meta = (AllowPrivateAccess = "true"))
     class UInputAction* LookAction;
@@ -125,11 +126,18 @@ public:
     /** Get the current tablet widget */
     UFUNCTION(BlueprintCallable, Category = "Tablet")
     UUserWidget* GetTabletScreenWidget() const;
-
+    UFUNCTION(BlueprintImplementableEvent, Category = "Tablet")
+    void OnTabletClicked(const FVector2D& ClickPosition);
 protected:
     /** Called for movement input */
     void Move(const FInputActionValue& Value);
     void SetCameraRotationEnabled(bool bEnable);
+
+    /** Called for tablet click input */
+    void OnTabletClickInput();
+
+    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, meta = (AllowPrivateAccess = "true"))
+    class UInputAction* TabletClickAction;
 
     UPROPERTY(BlueprintReadWrite, Category = "Tablet")
     bool bTabletViewage;

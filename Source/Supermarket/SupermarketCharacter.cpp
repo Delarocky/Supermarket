@@ -136,6 +136,8 @@ void ASupermarketCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInp
         EnhancedInputComponent->BindAction(StockAction, ETriggerEvent::Started, this, &ASupermarketCharacter::StartStocking);
         EnhancedInputComponent->BindAction(StockAction, ETriggerEvent::Completed, this, &ASupermarketCharacter::StopStocking);
         EnhancedInputComponent->BindAction(TabletAction, ETriggerEvent::Started, this, &ASupermarketCharacter::OnTabletAction);
+
+        EnhancedInputComponent->BindAction(TabletClickAction, ETriggerEvent::Started, this, &ASupermarketCharacter::OnTabletClickInput);
     }
     else
     {
@@ -645,5 +647,21 @@ void ASupermarketCharacter::UpdateTabletTransform()
     {
         TabletScreenWidget->SetRelativeLocation(TabletScreenOffset);
         TabletScreenWidget->SetRelativeRotation(TabletScreenRotation);
+    }
+}
+
+void ASupermarketCharacter::OnTabletClickInput()
+{
+    if (bIsTabletMode)
+    {
+        APlayerController* PC = Cast<APlayerController>(GetController());
+        if (PC)
+        {
+            FVector2D MousePosition;
+            if (PC->GetMousePosition(MousePosition.X, MousePosition.Y))
+            {
+                OnTabletClicked(MousePosition);
+            }
+        }
     }
 }
