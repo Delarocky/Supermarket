@@ -47,6 +47,9 @@ public:
 
     UPROPERTY(BlueprintReadWrite, Category = "Shopping")
     bool bKneelDown;
+    
+    UPROPERTY(BlueprintReadWrite, Category = "Shopping")
+    bool bPutInBag;
 
     UFUNCTION(BlueprintCallable, Category = "AI")
     FVector FindMostAccessiblePoint(const TArray<FVector>& Points);

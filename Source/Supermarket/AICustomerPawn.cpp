@@ -421,6 +421,7 @@ void AAICustomerPawn::InterpolateProduct()
 
             // Lower the arm after 1 second
             GetWorldTimerManager().SetTimer(LowerArmTimerHandle, this, &AAICustomerPawn::LowerArm, 0.01f, false);
+
         }
     }
     else
