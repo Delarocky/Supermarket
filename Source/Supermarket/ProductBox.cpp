@@ -95,25 +95,62 @@ AProduct* AProductBox::RemoveProduct()
 
 void AProductBox::ArrangeProducts()
 {
-    int32 ProductsPerRow = 3;
-    int32 ProductsPerColumn = 3;
-    int32 ProductsPerLayer = ProductsPerRow * ProductsPerColumn;
-
-    for (int32 i = 0; i < Products.Num(); ++i)
+    if (Products.Num() == 0 || !ProductSpawnPoint)
     {
-        int32 Layer = i / ProductsPerLayer;
-        int32 IndexInLayer = i % ProductsPerLayer;
-        int32 Row = IndexInLayer / ProductsPerRow;
-        int32 Column = IndexInLayer % ProductsPerRow;
-
-        FVector RelativeLocation = FVector(
-            Column * ProductSpacing.X,
-            Row * ProductSpacing.Y,
-            Layer * ProductSpacing.Z
-        );
-
-        Products[i]->SetActorRelativeLocation(RelativeLocation);
+        UE_LOG(LogTemp, Warning, TEXT("No products or ProductSpawnPoint is null in ArrangeProducts"));
+        return;
     }
+
+    // Get the bounds of the first product to use as a reference
+    FVector ProductExtent = FVector::ZeroVector;
+    if (Products[0])
+    {
+        UStaticMeshComponent* MeshComponent = Products[0]->FindComponentByClass<UStaticMeshComponent>();
+        if (MeshComponent)
+        {
+            ProductExtent = MeshComponent->Bounds.BoxExtent;
+        }
+    }
+
+    // Use the ProductSpawnPoint's location as the starting point
+    FVector SpawnStart = ProductSpawnPoint->GetComponentLocation();
+    FRotator SpawnRotation = ProductSpawnPoint->GetComponentRotation();
+
+    // Calculate the offset to move the bottom right corner to the spawn point
+    FVector CornerOffset = FVector(+ProductExtent.X, +ProductExtent.Y, +ProductExtent.Z);
+
+    UE_LOG(LogTemp, Display, TEXT("Starting product arrangement at %s with rotation %s"),
+        *SpawnStart.ToString(), *SpawnRotation.ToString());
+
+    int32 ProductIndex = 0;
+    for (int32 Z = 0; Z < GridSize.Z && ProductIndex < Products.Num(); ++Z)
+    {
+        for (int32 Y = 0; Y < GridSize.Y && ProductIndex < Products.Num(); ++Y)
+        {
+            for (int32 X = 0; X < GridSize.X && ProductIndex < Products.Num(); ++X)
+            {
+                FVector Offset = FVector(
+                    X * (ProductSpacing.X + 2 * ProductExtent.X),
+                    Y * (ProductSpacing.Y + 2 * ProductExtent.Y),
+                    Z * (ProductSpacing.Z + 2 * ProductExtent.Z)
+                );
+
+                // Apply the corner offset and the rotation of the ProductSpawnPoint to the offset
+                FVector RotatedOffset = SpawnRotation.RotateVector(Offset + CornerOffset);
+                FVector ProductLocation = SpawnStart + RotatedOffset;
+
+                // Set the world location and rotation of the product
+                Products[ProductIndex]->SetActorLocationAndRotation(ProductLocation, SpawnRotation);
+
+                UE_LOG(LogTemp, Verbose, TEXT("Placed product %d at %s"), ProductIndex, *ProductLocation.ToString());
+
+                ProductIndex++;
+            }
+        }
+    }
+
+    UE_LOG(LogTemp, Display, TEXT("Arranged %d products in a %s grid with spacing %s"),
+        ProductIndex, *GridSize.ToString(), *ProductSpacing.ToString());
 }
 
 void AProductBox::AttachToCamera(UCameraComponent* Camera)
@@ -145,11 +182,11 @@ void AProductBox::Tick(float DeltaTime)
     }
 }
 
-AProductBox* AProductBox::SpawnProductBox(UObject* WorldContextObject, TSubclassOf<AProductBox> ProductBoxClass, TSubclassOf<AProduct> ProductToSpawn, int32 Quantity, FVector SpawnLocation)
+AProductBox* AProductBox::SpawnProductBox(UObject* WorldContextObject, TSubclassOf<AProductBox> ProductBoxClass, TSubclassOf<AProduct> ProductToSpawn, int32 Quantity, FVector SpawnLocation, FVector Spacing, FIntVector Grid)
 {
     if (!WorldContextObject || !ProductBoxClass || !ProductToSpawn)
     {
-        UE_LOG(LogTemp, Error, TEXT("Invalid WorldContextObject, ProductBoxClass, or ProductToSpawn in SpawnProductBox"));
+        UE_LOG(LogTemp, Error, TEXT("Invalid parameters in SpawnProductBox"));
         return nullptr;
     }
 
@@ -160,30 +197,39 @@ AProductBox* AProductBox::SpawnProductBox(UObject* WorldContextObject, TSubclass
         return nullptr;
     }
 
-    // Spawn the ProductBox BP
     FActorSpawnParameters SpawnParams;
     SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn;
     AProductBox* NewProductBox = World->SpawnActor<AProductBox>(ProductBoxClass, SpawnLocation, FRotator::ZeroRotator, SpawnParams);
 
     if (NewProductBox)
     {
-        // Set the product class and max products
         NewProductBox->SetProductClass(ProductToSpawn);
-        NewProductBox->MaxProducts = FMath::Clamp(Quantity, 1, 100);  // Clamp quantity between 1 and 100
+        NewProductBox->MaxProducts = FMath::Clamp(Quantity, 1, Grid.X * Grid.Y * Grid.Z);
+        NewProductBox->ProductSpacing = Spacing;
+        NewProductBox->GridSize = Grid;
 
-        // Set the box scale to 1
         if (NewProductBox->BoxMesh)
         {
             NewProductBox->BoxMesh->SetWorldScale3D(FVector(1.0f));
         }
 
-        // Use the FillBox function to populate the ProductBox
+        // Log the ProductSpawnPoint location for debugging
+        if (NewProductBox->ProductSpawnPoint)
+        {
+            FVector SpawnPointWorldLocation = NewProductBox->ProductSpawnPoint->GetComponentLocation();
+            FRotator SpawnPointWorldRotation = NewProductBox->ProductSpawnPoint->GetComponentRotation();
+            UE_LOG(LogTemp, Display, TEXT("ProductSpawnPoint world location: %s, rotation: %s"),
+                *SpawnPointWorldLocation.ToString(), *SpawnPointWorldRotation.ToString());
+        }
+
         NewProductBox->FillBox(ProductToSpawn);
 
-        UE_LOG(LogTemp, Display, TEXT("Spawned ProductBox with %d %s at location %s, Scale: 1.0"),
+        UE_LOG(LogTemp, Display, TEXT("Spawned ProductBox with %d %s at location %s, Spacing: %s, Grid: %s"),
             NewProductBox->GetProductCount(),
             *ProductToSpawn->GetName(),
-            *SpawnLocation.ToString());
+            *SpawnLocation.ToString(),
+            *Spacing.ToString(),
+            *Grid.ToString());
     }
     else
     {

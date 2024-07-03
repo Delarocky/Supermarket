@@ -61,7 +61,9 @@ public:
     TSubclassOf<AProduct> GetProductClass() const { return ProductClass; }
 
     UFUNCTION(BlueprintCallable, Category = "Product Box")
-    static AProductBox* SpawnProductBox(UObject* WorldContextObject, TSubclassOf<AProductBox> ProductBoxClass, TSubclassOf<AProduct> ProductToSpawn, int32 Quantity, FVector SpawnLocation);
+    static AProductBox* SpawnProductBox(UObject* WorldContextObject, TSubclassOf<AProductBox> ProductBoxClass, TSubclassOf<AProduct> ProductToSpawn, int32 Quantity, FVector SpawnLocation, FVector Spacing, FIntVector Grid);
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Product Box")
+    FIntVector GridSize;
 protected:
     virtual void BeginPlay() override;
 
