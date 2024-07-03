@@ -15,7 +15,7 @@ public:
     AProductBox();
     virtual void Tick(float DeltaTime) override;
 
-    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Product Box")
+    UPROPERTY(EditDefaultsOnly, Category = "Product Box")
     UStaticMeshComponent* BoxMesh;
 
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Product Box")
@@ -25,13 +25,19 @@ public:
     TSubclassOf<AProduct> ProductClass;
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Product Box")
+    TSubclassOf<AProduct> DefaultProductClass;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Product Box")
     int32 MaxProducts;
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Product Box")
     FVector ProductSpacing;
 
     UFUNCTION(BlueprintCallable, Category = "Product Box")
-    void FillBox();
+    void FillBox(TSubclassOf<AProduct> ProductToFill);
+
+    UFUNCTION(BlueprintCallable, Category = "Product Box")
+    void SetProductClass(TSubclassOf<AProduct> NewProductClass);
 
     UFUNCTION(BlueprintCallable, Category = "Product Box")
     AProduct* RemoveProduct();
@@ -54,6 +60,8 @@ public:
     UFUNCTION(BlueprintCallable, Category = "Product Box")
     TSubclassOf<AProduct> GetProductClass() const { return ProductClass; }
 
+    UFUNCTION(BlueprintCallable, Category = "Product Box")
+    static AProductBox* SpawnProductBox(UObject* WorldContextObject, TSubclassOf<AProduct> ProductToSpawn, int32 Quantity, FVector SpawnLocation);
 protected:
     virtual void BeginPlay() override;
 

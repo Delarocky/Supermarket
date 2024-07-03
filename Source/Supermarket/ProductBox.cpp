@@ -21,21 +21,49 @@ AProductBox::AProductBox()
 void AProductBox::BeginPlay()
 {
     Super::BeginPlay();
-    FillBox();
+
+    if (ProductClass)
+    {
+        FillBox(ProductClass);
+    }
+    else
+    {
+        UE_LOG(LogTemp, Warning, TEXT("ProductClass is not set in BeginPlay for ProductBox %s"), *GetName());
+    }
 }
 
-void AProductBox::FillBox()
+void AProductBox::FillBox(TSubclassOf<AProduct> ProductToFill)
 {
+    if (!ProductToFill)
+    {
+        UE_LOG(LogTemp, Warning, TEXT("ProductToFill is not set for ProductBox"));
+        return;
+    }
+
+    SetProductClass(ProductToFill);
+
     if (!ProductClass)
     {
         UE_LOG(LogTemp, Warning, TEXT("ProductClass is not set for ProductBox"));
         return;
     }
 
+    // Clear existing products
+    for (AProduct* Product : Products)
+    {
+        if (Product)
+        {
+            Product->Destroy();
+        }
+    }
+    Products.Empty();
+
+    // Fill the box with new products
     while (Products.Num() < MaxProducts)
     {
         FActorSpawnParameters SpawnParams;
         SpawnParams.Owner = this;
+        SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
         AProduct* NewProduct = GetWorld()->SpawnActor<AProduct>(ProductClass, ProductSpawnPoint->GetComponentLocation(), ProductSpawnPoint->GetComponentRotation(), SpawnParams);
         if (NewProduct)
         {
@@ -115,4 +143,70 @@ void AProductBox::Tick(float DeltaTime)
     {
         SetActorRelativeLocation(CameraOffset);
     }
+}
+
+AProductBox* AProductBox::SpawnProductBox(UObject* WorldContextObject, TSubclassOf<AProduct> ProductToSpawn, int32 Quantity, FVector SpawnLocation)
+{
+    if (!WorldContextObject || !ProductToSpawn)
+    {
+        UE_LOG(LogTemp, Error, TEXT("Invalid WorldContextObject or ProductToSpawn in SpawnProductBox"));
+        return nullptr;
+    }
+
+    UWorld* World = GEngine->GetWorldFromContextObject(WorldContextObject, EGetWorldErrorMode::LogAndReturnNull);
+    if (!World)
+    {
+        UE_LOG(LogTemp, Error, TEXT("Invalid World in SpawnProductBox"));
+        return nullptr;
+    }
+
+    // Spawn the ProductBox
+    FActorSpawnParameters SpawnParams;
+    SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn;
+    AProductBox* NewProductBox = World->SpawnActor<AProductBox>(AProductBox::StaticClass(), SpawnLocation, FRotator::ZeroRotator, SpawnParams);
+
+    if (NewProductBox)
+    {
+        // Set the product class and max products
+        NewProductBox->SetProductClass(ProductToSpawn);
+        NewProductBox->MaxProducts = FMath::Clamp(Quantity, 1, 100);  // Clamp quantity between 1 and 100
+
+        // Manually fill the box with products
+        for (int32 i = 0; i < NewProductBox->MaxProducts; ++i)
+        {
+            FVector ProductLocation = NewProductBox->ProductSpawnPoint->GetComponentLocation();
+            FRotator ProductRotation = NewProductBox->ProductSpawnPoint->GetComponentRotation();
+
+            FActorSpawnParameters ProductSpawnParams;
+            ProductSpawnParams.Owner = NewProductBox;
+            ProductSpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+
+            AProduct* NewProduct = World->SpawnActor<AProduct>(ProductToSpawn, ProductLocation, ProductRotation, ProductSpawnParams);
+            if (NewProduct)
+            {
+                NewProductBox->Products.Add(NewProduct);
+                NewProduct->AttachToComponent(NewProductBox->ProductSpawnPoint, FAttachmentTransformRules::KeepRelativeTransform);
+            }
+        }
+
+        // Arrange the products within the box
+        NewProductBox->ArrangeProducts();
+
+        UE_LOG(LogTemp, Display, TEXT("Spawned ProductBox with %d %s at location %s"),
+            NewProductBox->Products.Num(),
+            *ProductToSpawn->GetName(),
+            *SpawnLocation.ToString());
+    }
+    else
+    {
+        UE_LOG(LogTemp, Error, TEXT("Failed to spawn ProductBox"));
+    }
+
+    return NewProductBox;
+}
+
+
+void AProductBox::SetProductClass(TSubclassOf<AProduct> NewProductClass)
+{
+    ProductClass = NewProductClass;
 }
