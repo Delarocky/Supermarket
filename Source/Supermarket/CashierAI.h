@@ -6,6 +6,8 @@
 #include "CashierAI.generated.h"
 
 class ACheckout;
+class UWidgetComponent;
+class UTextBlock;
 
 UCLASS()
 class SUPERMARKET_API ACashierAI : public ACharacter
@@ -29,6 +31,11 @@ public:
     float GetInterpSpeed() const { return InterpSpeed; }
     UFUNCTION(BlueprintCallable, Category = "Cashier")
     void FindAndMoveToCheckout();
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Cashier")
+    UWidgetComponent* TextBoxWidget;
+
+    UPROPERTY(EditDefaultsOnly, Category = "Cashier")
+    TSubclassOf<UUserWidget> TextBoxWidgetClass;
 protected:
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Cashier")
     float ProcessingDelay;
@@ -57,4 +64,6 @@ private:
     UPROPERTY()
     ACheckout* CurrentCheckout;
     bool IsCheckoutAvailable(ACheckout* Checkout) const;
+    void ShowNoCheckoutAvailableText(bool bShow);
+    FTimerHandle FindCheckoutTimerHandle;
 };

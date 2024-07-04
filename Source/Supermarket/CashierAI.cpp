@@ -4,6 +4,9 @@
 #include "AIController.h"
 #include "NavigationSystem.h"
 #include "Kismet/GameplayStatics.h"
+#include "Components/WidgetComponent.h"
+#include "Blueprint/UserWidget.h"
+#include "Components/TextBlock.h"
 #include "Blueprint/AIBlueprintHelperLibrary.h" // Add this include
 
 ACashierAI::ACashierAI()
@@ -15,6 +18,13 @@ ACashierAI::ACashierAI()
     bDebugMode = true;
     CurrentCheckout = nullptr;
     AIController = nullptr;
+
+    TextBoxWidget = CreateDefaultSubobject<UWidgetComponent>(TEXT("TextBoxWidget"));
+    TextBoxWidget->SetupAttachment(RootComponent);
+    TextBoxWidget->SetWidgetSpace(EWidgetSpace::Screen);
+    TextBoxWidget->SetDrawAtDesiredSize(true);
+    TextBoxWidget->SetVisibility(false);
+
 }
 
 void ACashierAI::BeginPlay()
@@ -22,6 +32,11 @@ void ACashierAI::BeginPlay()
     Super::BeginPlay();
     InitializeAIController();
     DebugLog(TEXT("CashierAI initialized"));
+
+    if (TextBoxWidgetClass)
+    {
+        TextBoxWidget->SetWidgetClass(TextBoxWidgetClass);
+    }
 }
 
 void ACashierAI::Tick(float DeltaTime)
@@ -69,7 +84,6 @@ void ACashierAI::MoveToCheckout(ACheckout* Checkout)
         CurrentCheckout = Checkout;
         FVector CheckoutLocation = Checkout->GetCashierPosition();
 
-        // Use AIBlueprintHelperLibrary to move the AI
         UAIBlueprintHelperLibrary::SimpleMoveToLocation(AIController, CheckoutLocation);
 
         GetWorldTimerManager().SetTimer(CheckPositionTimerHandle, this, &ACashierAI::CheckPosition, 0.5f, true);
@@ -124,13 +138,47 @@ void ACashierAI::FindAndMoveToCheckout()
     TArray<AActor*> FoundCheckouts;
     UGameplayStatics::GetAllActorsOfClass(GetWorld(), ACheckout::StaticClass(), FoundCheckouts);
 
+    bool bFoundAvailableCheckout = false;
+
     for (AActor* Actor : FoundCheckouts)
     {
         ACheckout* Checkout = Cast<ACheckout>(Actor);
         if (Checkout && IsCheckoutAvailable(Checkout))
         {
             MoveToCheckout(Checkout);
+            bFoundAvailableCheckout = true;
             break;
+        }
+    }
+
+    if (!bFoundAvailableCheckout)
+    {
+        ShowNoCheckoutAvailableText(true);
+        GetWorldTimerManager().SetTimer(FindCheckoutTimerHandle, this, &ACashierAI::FindAndMoveToCheckout, 5.0f, false);
+    }
+    else
+    {
+        ShowNoCheckoutAvailableText(false);
+    }
+}
+
+void ACashierAI::ShowNoCheckoutAvailableText(bool bShow)
+{
+    if (TextBoxWidget)
+    {
+        TextBoxWidget->SetVisibility(bShow);
+        if (bShow)
+        {
+            UUserWidget* Widget = TextBoxWidget->GetUserWidgetObject();
+            if (Widget)
+            {
+                // Assuming the text widget has a text block named "MessageText"
+                UTextBlock* TextBlock = Cast<UTextBlock>(Widget->GetWidgetFromName(FName("MessageText")));
+                if (TextBlock)
+                {
+                    TextBlock->SetText(FText::FromString("I need an empty Register!"));
+                }
+            }
         }
     }
 }
