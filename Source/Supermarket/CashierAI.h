@@ -64,6 +64,7 @@ private:
     UPROPERTY()
     ACheckout* CurrentCheckout;
     bool IsCheckoutAvailable(ACheckout* Checkout) const;
-    void ShowNoCheckoutAvailableText(bool bShow);
+    void ShowFloatingText(const FString& Message, bool bShow);
     FTimerHandle FindCheckoutTimerHandle;
+    void HandleCheckoutArrival();
 };

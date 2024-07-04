@@ -84,7 +84,8 @@ void ACashierAI::MoveToCheckout(ACheckout* Checkout)
         CurrentCheckout = Checkout;
         FVector CheckoutLocation = Checkout->GetCashierPosition();
 
-        UAIBlueprintHelperLibrary::SimpleMoveToLocation(AIController, CheckoutLocation);
+        // Use MoveToLocation directly
+        AIController->MoveToLocation(CheckoutLocation, -1.0f, false);
 
         GetWorldTimerManager().SetTimer(CheckPositionTimerHandle, this, &ACashierAI::CheckPosition, 0.5f, true);
         DebugLog(FString::Printf(TEXT("Moving to Checkout at location: %s"), *CheckoutLocation.ToString()));
@@ -104,8 +105,7 @@ void ACashierAI::CheckPosition()
         if (DistanceToCheckout <= 100.0f)
         {
             GetWorldTimerManager().ClearTimer(CheckPositionTimerHandle);
-            CurrentCheckout->SetCashier(this);
-            DebugLog(TEXT("Reached Checkout position"));
+            HandleCheckoutArrival();
         }
         else
         {
@@ -133,6 +133,7 @@ bool ACashierAI::IsCheckoutAvailable(ACheckout* Checkout) const
     return Checkout && !Checkout->HasCashier() && !Checkout->IsBeingServiced();
 }
 
+
 void ACashierAI::FindAndMoveToCheckout()
 {
     TArray<AActor*> FoundCheckouts;
@@ -153,16 +154,16 @@ void ACashierAI::FindAndMoveToCheckout()
 
     if (!bFoundAvailableCheckout)
     {
-        ShowNoCheckoutAvailableText(true);
+        ShowFloatingText("I need an empty Register!", true);
         GetWorldTimerManager().SetTimer(FindCheckoutTimerHandle, this, &ACashierAI::FindAndMoveToCheckout, 5.0f, false);
     }
     else
     {
-        ShowNoCheckoutAvailableText(false);
+        ShowFloatingText("", false);
     }
 }
 
-void ACashierAI::ShowNoCheckoutAvailableText(bool bShow)
+void ACashierAI::ShowFloatingText(const FString& Message, bool bShow)
 {
     if (TextBoxWidget)
     {
@@ -172,13 +173,36 @@ void ACashierAI::ShowNoCheckoutAvailableText(bool bShow)
             UUserWidget* Widget = TextBoxWidget->GetUserWidgetObject();
             if (Widget)
             {
-                // Assuming the text widget has a text block named "MessageText"
                 UTextBlock* TextBlock = Cast<UTextBlock>(Widget->GetWidgetFromName(FName("MessageText")));
                 if (TextBlock)
                 {
-                    TextBlock->SetText(FText::FromString("I need an empty Register!"));
+                    TextBlock->SetText(FText::FromString(Message));
                 }
             }
         }
+    }
+}
+
+void ACashierAI::HandleCheckoutArrival()
+{
+    if (CurrentCheckout)
+    {
+        if (IsCheckoutAvailable(CurrentCheckout))
+        {
+            CurrentCheckout->SetCashier(this);
+            ShowFloatingText("", false);
+            DebugLog(TEXT("Arrived at Checkout and it's available"));
+        }
+        else
+        {
+            ShowFloatingText("This Register is taken!", true);
+            DebugLog(TEXT("Arrived at Checkout but it's already taken"));
+            CurrentCheckout = nullptr;
+            GetWorldTimerManager().SetTimer(FindCheckoutTimerHandle, this, &ACashierAI::FindAndMoveToCheckout, 5.0f, false);
+        }
+    }
+    else
+    {
+        DebugLog(TEXT("HandleCheckoutArrival: No assigned Checkout"));
     }
 }
