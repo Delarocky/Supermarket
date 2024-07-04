@@ -65,6 +65,7 @@ public:
     FTimerHandle CheckReachedShelfTimerHandle;
     FTimerHandle RetryTimerHandle;
     
+    void CheckAndDeleteFloatingProducts();
 protected:
 
     UPROPERTY()
