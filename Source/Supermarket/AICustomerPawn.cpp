@@ -24,8 +24,6 @@ AAICustomerPawn::AAICustomerPawn()
     MaxItems = FMath::RandRange(2, 12);  // Random number between 2 and 12
     ShoppingTime = 300.0f; // 5 minutes
     CurrentItems = 0;
-
-    ProductInterpolationElapsedTime = 0.0f;
 }
 
 void AAICustomerPawn::BeginPlay()
@@ -423,9 +421,6 @@ void AAICustomerPawn::InterpolateProduct()
 
             // Lower the arm after 1 second
             GetWorldTimerManager().SetTimer(LowerArmTimerHandle, this, &AAICustomerPawn::LowerArm, 0.01f, false);
-
-            // Reset the elapsed time
-            ProductInterpolationElapsedTime = 0.0f;
         }
     }
     else
@@ -436,10 +431,11 @@ void AAICustomerPawn::InterpolateProduct()
     }
 
     // Add a timeout check
-    const float InterpolationTimeout = 2.0f; // 5 seconds timeout
-    ProductInterpolationElapsedTime += GetWorld()->GetDeltaSeconds();
+    static float InterpolationTimeout = 2.0f; // 5 seconds timeout
+    static float ElapsedTime = 0.0f;
+    ElapsedTime += GetWorld()->GetDeltaSeconds();
 
-    if (ProductInterpolationElapsedTime > InterpolationTimeout)
+    if (ElapsedTime > InterpolationTimeout)
     {
         UE_LOG(LogTemp, Warning, TEXT("Product interpolation timed out. Resetting."));
         GetWorldTimerManager().ClearTimer(ProductInterpolationTimerHandle);
@@ -450,7 +446,7 @@ void AAICustomerPawn::InterpolateProduct()
             CurrentTargetProduct->Destroy();
             CurrentTargetProduct = nullptr;
         }
-        ProductInterpolationElapsedTime = 0.0f;
+        ElapsedTime = 0.0f;
         ChooseProduct(); // Try to choose another product
     }
 }
