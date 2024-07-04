@@ -100,7 +100,7 @@ void ASupermarketCharacter::BeginPlay()
 {
     // Call the base class  
     Super::BeginPlay();
-
+    CreateMoneyDisplayWidget();
     OriginalCameraRotation = FirstPersonCameraComponent->GetRelativeRotation();
     OriginalCameraFOV = FirstPersonCameraComponent->FieldOfView;
     SetupTabletScreen();
@@ -685,3 +685,45 @@ void ASupermarketCharacter::UpdateProductBoxTransform()
     }
 }
 
+
+void ASupermarketCharacter::CreateMoneyDisplayWidget()
+{
+    UE_LOG(LogTemp, Log, TEXT("CreateMoneyDisplayWidget function started"));
+
+    if (APlayerController* PC = Cast<APlayerController>(GetController()))
+    {
+        UE_LOG(LogTemp, Log, TEXT("PlayerController found"));
+
+        // Load the widget class
+        TSubclassOf<UUserWidget> MoneyWidgetClass = LoadClass<UUserWidget>(nullptr, TEXT("/Game/WBP_MoneyDisplay.WBP_MoneyDisplay_C"));
+
+        if (MoneyWidgetClass)
+        {
+            UE_LOG(LogTemp, Log, TEXT("MoneyWidgetClass loaded successfully"));
+
+            // Create the widget
+            MoneyDisplayWidget = CreateWidget<UMoneyDisplayWidget>(PC, MoneyWidgetClass);
+
+            if (MoneyDisplayWidget)
+            {
+                UE_LOG(LogTemp, Log, TEXT("MoneyDisplayWidget created successfully"));
+
+                // Add the widget to the viewport
+                MoneyDisplayWidget->AddToViewport();
+                UE_LOG(LogTemp, Log, TEXT("MoneyDisplayWidget added to viewport"));
+            }
+            else
+            {
+                UE_LOG(LogTemp, Error, TEXT("Failed to create MoneyDisplayWidget"));
+            }
+        }
+        else
+        {
+            UE_LOG(LogTemp, Error, TEXT("Failed to load MoneyWidgetClass"));
+        }
+    }
+    else
+    {
+        UE_LOG(LogTemp, Error, TEXT("PlayerController not found"));
+    }
+}

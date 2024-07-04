@@ -8,6 +8,7 @@
 #include "ProductBox.h"
 #include "Shelf.h"
 #include "Blueprint/UserWidget.h"  // Add this include
+#include "MoneyDisplayWidget.h"
 #include "SupermarketCharacter.generated.h"
 
 class UInputComponent;
@@ -201,6 +202,8 @@ public:
     UCameraComponent* GetFirstPersonCameraComponent() const { return FirstPersonCameraComponent; }
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Camera")
     float CameraTransitionTime;
+    UPROPERTY()
+    UMoneyDisplayWidget* MoneyDisplayWidget;
 private:
     /** Timer handle for camera transition */
     FTimerHandle CameraTransitionTimerHandle;
@@ -236,4 +239,5 @@ private:
     FRotator TargetCameraRotation;
     float TargetCameraFOV;
     void SetupTabletScreen();
+    void CreateMoneyDisplayWidget();
 };
