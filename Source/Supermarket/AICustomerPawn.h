@@ -125,7 +125,7 @@ private:
     UPROPERTY()
     AShelf* CurrentShelf;
 
-
+    float ProductInterpolationElapsedTime;
     UPROPERTY()
     ACheckout* CurrentCheckout;
     FTimerHandle RetryPickUpTimerHandle;
