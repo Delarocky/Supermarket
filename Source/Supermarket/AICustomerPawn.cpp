@@ -424,11 +424,8 @@ void AAICustomerPawn::InterpolateProduct()
             // Lower the arm after 1 second
             GetWorldTimerManager().SetTimer(LowerArmTimerHandle, this, &AAICustomerPawn::LowerArm, 0.01f, false);
 
-<<<<<<< HEAD
             // Reset the elapsed time
             ProductInterpolationElapsedTime = 0.0f;
-=======
->>>>>>> parent of 5009853 (Added new gamemodestate with money widget, also made a check to delete floating products)
         }
     }
     else
@@ -437,7 +434,6 @@ void AAICustomerPawn::InterpolateProduct()
         ResetGrabAnimationFlags();
         LowerArm();
     }
-<<<<<<< HEAD
 
     // Add a timeout check
     const float InterpolationTimeout = 2.0f; // 5 seconds timeout
@@ -457,8 +453,6 @@ void AAICustomerPawn::InterpolateProduct()
         ProductInterpolationElapsedTime = 0.0f;
         ChooseProduct(); // Try to choose another product
     }
-=======
->>>>>>> parent of 5009853 (Added new gamemodestate with money widget, also made a check to delete floating products)
 }
 
 void AAICustomerPawn::LowerArm()
