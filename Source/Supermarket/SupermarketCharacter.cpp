@@ -100,7 +100,7 @@ void ASupermarketCharacter::BeginPlay()
 {
     // Call the base class  
     Super::BeginPlay();
-
+    CreateMoneyDisplayWidget();
     OriginalCameraRotation = FirstPersonCameraComponent->GetRelativeRotation();
     OriginalCameraFOV = FirstPersonCameraComponent->FieldOfView;
     SetupTabletScreen();
@@ -685,3 +685,23 @@ void ASupermarketCharacter::UpdateProductBoxTransform()
     }
 }
 
+void ASupermarketCharacter::CreateMoneyDisplayWidget()
+{
+    if (APlayerController* PC = Cast<APlayerController>(GetController()))
+    {
+        // Load the widget class
+        TSubclassOf<UUserWidget> MoneyWidgetClass = LoadClass<UUserWidget>(nullptr, TEXT("/Game/WBP_MoneyDisplay.WBP_MoneyDisplay_C"));
+
+        if (MoneyWidgetClass)
+        {
+            // Create the widget
+            MoneyDisplayWidget = CreateWidget<UMoneyDisplayWidget>(PC, MoneyWidgetClass);
+
+            if (MoneyDisplayWidget)
+            {
+                // Add the widget to the viewport
+                MoneyDisplayWidget->AddToViewport();
+            }
+        }
+    }
+}
