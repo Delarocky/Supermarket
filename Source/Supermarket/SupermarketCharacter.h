@@ -8,6 +8,7 @@
 #include "ProductBox.h"
 #include "Shelf.h"
 #include "Blueprint/UserWidget.h"  // Add this include
+#include "MoneyDisplayWidget.h"
 #include "SupermarketCharacter.generated.h"
 
 class UInputComponent;
@@ -172,6 +173,15 @@ protected:
     /** Tablet Screen Rotation */
  
     FRotator TabletScreenRotation;
+
+    UPROPERTY()
+    UMoneyDisplayWidget* MoneyDisplayWidget;
+
+    // Add this function declaration
+    void CreateMoneyDisplayWidget();
+
+    // In the BeginPlay function, add this line
+    
 
 protected:
     // APawn interface

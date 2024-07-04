@@ -421,7 +421,6 @@ void AAICustomerPawn::InterpolateProduct()
 
             // Lower the arm after 1 second
             GetWorldTimerManager().SetTimer(LowerArmTimerHandle, this, &AAICustomerPawn::LowerArm, 0.01f, false);
-
         }
     }
     else
@@ -429,6 +428,26 @@ void AAICustomerPawn::InterpolateProduct()
         GetWorldTimerManager().ClearTimer(ProductInterpolationTimerHandle);
         ResetGrabAnimationFlags();
         LowerArm();
+    }
+
+    // Add a timeout check
+    static float InterpolationTimeout = 2.0f; // 5 seconds timeout
+    static float ElapsedTime = 0.0f;
+    ElapsedTime += GetWorld()->GetDeltaSeconds();
+
+    if (ElapsedTime > InterpolationTimeout)
+    {
+        UE_LOG(LogTemp, Warning, TEXT("Product interpolation timed out. Resetting."));
+        GetWorldTimerManager().ClearTimer(ProductInterpolationTimerHandle);
+        ResetGrabAnimationFlags();
+        LowerArm();
+        if (CurrentTargetProduct)
+        {
+            CurrentTargetProduct->Destroy();
+            CurrentTargetProduct = nullptr;
+        }
+        ElapsedTime = 0.0f;
+        ChooseProduct(); // Try to choose another product
     }
 }
 
@@ -572,6 +591,9 @@ void AAICustomerPawn::LeaveCheckout()
     // Reset shopping state
     CurrentItems = 0;
     ShoppingBag->EmptyBag();
+
+    // Check for and delete any floating products
+    CheckAndDeleteFloatingProducts();
 
     // Leave the store
     LeaveStore();
@@ -865,6 +887,10 @@ void AAICustomerPawn::LeaveStore()
 void AAICustomerPawn::DestroyAI()
 {
     UE_LOG(LogTemp, Display, TEXT("AI has left the store and is being destroyed"));
+
+    // Perform one last check for floating products
+    CheckAndDeleteFloatingProducts();
+
     Destroy();
 }
 
@@ -926,4 +952,21 @@ void AAICustomerPawn::CheckReachedAccessPoint()
         }
     }
     // If still moving, continue waiting
+}
+
+
+void AAICustomerPawn::CheckAndDeleteFloatingProducts()
+{
+    TArray<AActor*> FoundProducts;
+    UGameplayStatics::GetAllActorsOfClass(GetWorld(), AProduct::StaticClass(), FoundProducts);
+
+    for (AActor* Actor : FoundProducts)
+    {
+        AProduct* Product = Cast<AProduct>(Actor);
+        if (Product && !Product->GetAttachParentActor() && !Product->IsHidden())
+        {
+            UE_LOG(LogTemp, Warning, TEXT("Deleting floating product: %s"), *Product->GetName());
+            Product->Destroy();
+        }
+    }
 }
