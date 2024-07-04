@@ -431,14 +431,7 @@ void AAICustomerPawn::InterpolateProduct()
     }
 
     // Add a timeout check
-    static float InterpolationTimeout = 2.0f; // 5 seconds timeout
-    static float ElapsedTime = 0.0f;
-    ElapsedTime += GetWorld()->GetDeltaSeconds();
 
-    if (ElapsedTime > InterpolationTimeout)
-    {
-        UE_LOG(LogTemp, Warning, TEXT("Product interpolation timed out. Resetting."));
-        GetWorldTimerManager().ClearTimer(ProductInterpolationTimerHandle);
         ResetGrabAnimationFlags();
         LowerArm();
         if (CurrentTargetProduct)
@@ -448,7 +441,7 @@ void AAICustomerPawn::InterpolateProduct()
         }
         ElapsedTime = 0.0f;
         ChooseProduct(); // Try to choose another product
-    }
+    
 }
 
 void AAICustomerPawn::LowerArm()
