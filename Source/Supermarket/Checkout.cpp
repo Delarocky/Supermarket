@@ -8,8 +8,11 @@
 #include "Components/StaticMeshComponent.h"
 #include "Components/TextRenderComponent.h"
 #include "Components/AudioComponent.h"
+#include "Components/BoxComponent.h"
 #include "SupermarketGameState.h"
 #include "Kismet/GameplayStatics.h"
+#include "CashierAI.h"
+#include "SupermarketCharacter.h"
 
 ACheckout::ACheckout()
 {
@@ -34,6 +37,16 @@ ACheckout::ACheckout()
 
     ScanPoint = CreateDefaultSubobject<USceneComponent>(TEXT("ScanPoint"));
     ScanPoint->SetupAttachment(RootComponent);
+
+    PlayerDetectionArea = CreateDefaultSubobject<UBoxComponent>(TEXT("PlayerDetectionArea"));
+    PlayerDetectionArea->SetupAttachment(RootComponent);
+    PlayerDetectionArea->SetBoxExtent(FVector(100.0f, 100.0f, 100.0f));
+    PlayerDetectionArea->SetCollisionProfileName(TEXT("OverlapAll"));
+    PlayerDetectionArea->OnComponentBeginOverlap.AddDynamic(this, &ACheckout::OnPlayerEnterDetectionArea);
+    PlayerDetectionArea->OnComponentEndOverlap.AddDynamic(this, &ACheckout::OnPlayerExitDetectionArea);
+
+    bPlayerPresent = false;
+    CurrentCashier = nullptr;
 
     for (int32 i = 0; i < MaxQueueSize; ++i)
     {
@@ -107,9 +120,17 @@ bool ACheckout::TryEnterQueue(AAICustomerPawn* Customer)
 
 void ACheckout::ProcessCustomer(AAICustomerPawn* Customer)
 {
+    DebugLog(FString::Printf(TEXT("ProcessCustomer called for %s"), *GetNameSafe(Customer)));
+
+    if (!CanProcessCustomers())
+    {
+        DebugLog(TEXT("Cannot process customer: No cashier or player present"));
+        return;
+    }
+
     if (bIsProcessingCustomer)
     {
-        //UE_LOG(LogTemp, Warning, TEXT("Already processing a customer. Ignoring this call."));
+        DebugLog(TEXT("Already processing a customer. Ignoring this call."));
         return;
     }
 
@@ -124,26 +145,24 @@ void ACheckout::ProcessCustomer(AAICustomerPawn* Customer)
 
             float DistanceToQueueFront = FVector::Dist(CustomerLocation, QueueFrontLocation);
 
-            UE_LOG(LogTemp, Display, TEXT("Customer distance to queue front: %f, Processing distance: %f"),
-                DistanceToQueueFront, ProcessingDistance);
+            DebugLog(FString::Printf(TEXT("Customer distance to queue front: %f, Processing distance: %f"),
+                DistanceToQueueFront, ProcessingDistance));
 
             if (DistanceToQueueFront <= ProcessingDistance)
             {
                 if (Customer && Customer->ShoppingBag)
                 {
-                    UE_LOG(LogTemp, Display, TEXT("Processing customer at front of queue."));
+                    DebugLog(TEXT("Processing customer at front of queue."));
 
-                    // Debug print the contents of the shopping bag
                     Customer->ShoppingBag->DebugPrintContents();
 
                     ProductsToScan = Customer->ShoppingBag->GetProducts();
-                    UE_LOG(LogTemp, Display, TEXT("Products in bag: %d"), ProductsToScan.Num());
+                    DebugLog(FString::Printf(TEXT("Products in bag: %d"), ProductsToScan.Num()));
 
-                    // Clear previous items and copy new items
                     ItemsOnCounter.Empty();
                     ItemsOnCounter = ProductsToScan;
 
-                    UE_LOG(LogTemp, Display, TEXT("Items on counter: %d"), ItemsOnCounter.Num());
+                    DebugLog(FString::Printf(TEXT("Items on counter: %d"), ItemsOnCounter.Num()));
 
                     PlaceItemsOnCounter();
 
@@ -155,22 +174,22 @@ void ACheckout::ProcessCustomer(AAICustomerPawn* Customer)
                 }
                 else
                 {
-                    UE_LOG(LogTemp, Error, TEXT("Error: Customer or ShoppingBag is null"));
+                    DebugLog(TEXT("Error: Customer or ShoppingBag is null"));
                 }
             }
             else
             {
-                UE_LOG(LogTemp, Warning, TEXT("Customer not close enough to queue front to be processed."));
+                DebugLog(TEXT("Customer not close enough to queue front to be processed."));
             }
         }
         else
         {
-            UE_LOG(LogTemp, Error, TEXT("Error: First queue position is null"));
+            DebugLog(TEXT("Error: First queue position is null"));
         }
     }
     else
     {
-        UE_LOG(LogTemp, Warning, TEXT("Attempted to process a customer who is not at the front of the queue"));
+        DebugLog(TEXT("Attempted to process a customer who is not at the front of the queue"));
     }
 }
 
@@ -224,6 +243,8 @@ void ACheckout::PlaceItemsOnCounter()
 
 void ACheckout::MoveNextItemToScanPosition()
 {
+    DebugLog(TEXT("MoveNextItemToScanPosition called"));
+
     if (ItemsOnCounter.Num() > 0)
     {
         AProduct* NextItem = ItemsOnCounter[0];
@@ -232,20 +253,20 @@ void ACheckout::MoveNextItemToScanPosition()
             FVector StartLocation = NextItem->GetActorLocation();
             FVector EndLocation = ScanPoint->GetComponentLocation();
 
-            // Get the product's mesh
             UStaticMeshComponent* ProductMesh = NextItem->FindComponentByClass<UStaticMeshComponent>();
             if (ProductMesh)
             {
-                // Calculate the offset from the actor's origin to the bottom of the mesh
                 FVector MeshBounds = ProductMesh->Bounds.BoxExtent;
                 FVector BottomOffset = FVector(0, 0, +MeshBounds.Z);
-
-                // Adjust the end location to align the bottom of the product with the scan point
                 EndLocation += BottomOffset;
             }
 
             float Distance = FVector::Dist(StartLocation, EndLocation);
-            float Duration = Distance / ItemMoveSpeed;
+            float MoveSpeed = CurrentCashier ? CurrentCashier->GetInterpSpeed() : ItemMoveSpeed;
+            float Duration = Distance / MoveSpeed;
+
+            DebugLog(FString::Printf(TEXT("Moving item to scan position. Start: %s, End: %s, Speed: %f, Duration: %f"),
+                *StartLocation.ToString(), *EndLocation.ToString(), MoveSpeed, Duration));
 
             FTimerDelegate TimerDelegate;
             TimerDelegate.BindUFunction(this, FName("UpdateItemPosition"), NextItem, StartLocation, EndLocation, 0.0f, Duration);
@@ -254,7 +275,7 @@ void ACheckout::MoveNextItemToScanPosition()
     }
     else
     {
-        // All items have been scanned
+        DebugLog(TEXT("No items left on counter. Proceeding to scan next item."));
         ScanNextItem();
     }
 }
@@ -314,33 +335,40 @@ void ACheckout::ScanNextItem()
 
 void ACheckout::ScanItem(AProduct* Product)
 {
-    if (Product && ScanItemAnimation && CheckoutMesh)
+    DebugLog(FString::Printf(TEXT("ScanItem called for %s"), *GetNameSafe(Product)));
+
+    if (!CanProcessCustomers())
     {
-        CheckoutMesh->PlayAnimation(ScanItemAnimation, false);
+        DebugLog(TEXT("Cannot scan item: No cashier or player present"));
+        return;
+    }
+
+    if (Product && ScanItemAnimation)
+    {
+       
         TotalAmount += Product->GetPrice();
         ScannedItems.Add(Product);
         DisplayTotal(TotalAmount);
 
         DebugLog(FString::Printf(TEXT("Scanned item: %s, Price: %.2f, New Total: %.2f"),
             *Product->GetProductName(), Product->GetPrice(), TotalAmount));
+
+        float ScanDelay = CurrentCashier ? CurrentCashier->GetProcessingDelay() : TimeBetweenScans;
+        GetWorld()->GetTimerManager().SetTimer(ScanItemTimerHandle, this, &ACheckout::ScanNextItem, ScanDelay, false);
+
+        DebugLog(FString::Printf(TEXT("Next scan scheduled in %.2f seconds"), ScanDelay));
     }
     else
     {
-        DebugLog(FString::Printf(TEXT("Failed to scan item. Product: %s, Animation: %s, Mesh: %s"),
+        DebugLog(FString::Printf(TEXT("Failed to scan item. Product: %s, Animation: %s"),
             Product ? TEXT("Valid") : TEXT("Invalid"),
-            ScanItemAnimation ? TEXT("Valid") : TEXT("Invalid"),
-            CheckoutMesh ? TEXT("Valid") : TEXT("Invalid")));
+            ScanItemAnimation ? TEXT("Valid") : TEXT("Invalid")));
     }
 }
 
 void ACheckout::FinishTransaction()
 {
     DebugLog(TEXT("FinishTransaction called"));
-
-    if (FinishTransactionAnimation && CheckoutMesh)
-    {
-        CheckoutMesh->PlayAnimation(FinishTransactionAnimation, false);
-    }
 
     bool PaymentSuccessful = ProcessPayment(TotalAmount);
     if (PaymentSuccessful)
@@ -391,6 +419,8 @@ void ACheckout::CustomerLeft(AAICustomerPawn* Customer)
 
 void ACheckout::UpdateQueue()
 {
+    DebugLog(TEXT("UpdateQueue called"));
+
     for (int32 i = 0; i < CustomersInQueue.Num(); ++i)
     {
         if (CustomersInQueue[i] && QueuePositions.IsValidIndex(i))
@@ -398,13 +428,15 @@ void ACheckout::UpdateQueue()
             FVector TargetLocation = QueuePositions[i]->GetComponentLocation();
             CustomersInQueue[i]->MoveTo(TargetLocation);
 
-            // Calculate and set the target rotation for each customer
             SetCustomerTargetRotation(CustomersInQueue[i], i);
+
+            DebugLog(FString::Printf(TEXT("Customer %d moved to position %s"), i, *TargetLocation.ToString()));
         }
     }
 
-    // Trigger the rotation update for all customers
     StartRotationUpdate();
+
+    DebugLog(FString::Printf(TEXT("Queue updated. Customers in queue: %d"), CustomersInQueue.Num()));
 
     if (CustomersInQueue.Num() > 0 && QueuePositions.Num() > 0)
     {
@@ -418,13 +450,17 @@ void ACheckout::UpdateQueue()
 
             float DistanceToQueueFront = FVector::Dist(CustomerLocation, QueueFrontLocation);
 
-            if (DistanceToQueueFront <= ProcessingDistance)
+            DebugLog(FString::Printf(TEXT("Front customer distance to queue: %f"), DistanceToQueueFront));
+
+            if (DistanceToQueueFront <= ProcessingDistance && CanProcessCustomers())
             {
+                DebugLog(TEXT("Processing front customer"));
                 ProcessCustomer(FrontCustomer);
             }
             else
             {
-                DebugLog(FString::Printf(TEXT("Front customer not close enough to queue front. Distance: %f"), DistanceToQueueFront));
+                DebugLog(FString::Printf(TEXT("Front customer not ready for processing. Distance: %f, Can Process: %s"),
+                    DistanceToQueueFront, CanProcessCustomers() ? TEXT("Yes") : TEXT("No")));
             }
         }
     }
@@ -597,3 +633,60 @@ void ACheckout::DebugLog(const FString& Message)
     }
 }
 
+void ACheckout::SetCashier(ACashierAI* NewCashier)
+{
+    if (NewCashier && !CurrentCashier)
+    {
+        CurrentCashier = NewCashier;
+        DebugLog(FString::Printf(TEXT("Cashier set: %s"), *GetNameSafe(NewCashier)));
+    }
+    else if (CurrentCashier)
+    {
+        DebugLog(TEXT("Cannot set cashier: Checkout already has a cashier"));
+    }
+    else
+    {
+        DebugLog(TEXT("Cannot set cashier: Invalid cashier provided"));
+    }
+}
+
+void ACheckout::RemoveCashier()
+{
+    if (CurrentCashier)
+    {
+        CurrentCashier = nullptr;
+        DebugLog(TEXT("Cashier removed"));
+    }
+    else
+    {
+        DebugLog(TEXT("Cannot remove cashier: No cashier assigned"));
+    }
+}
+
+void ACheckout::OnPlayerEnterDetectionArea(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
+{
+    if (Cast<ASupermarketCharacter>(OtherActor))
+    {
+        bPlayerPresent = true;
+        DebugLog(TEXT("Player entered detection area"));
+    }
+}
+
+void ACheckout::OnPlayerExitDetectionArea(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex)
+{
+    if (Cast<ASupermarketCharacter>(OtherActor))
+    {
+        bPlayerPresent = false;
+        DebugLog(TEXT("Player exited detection area"));
+    }
+}
+
+bool ACheckout::CanProcessCustomers() const
+{
+    return bPlayerPresent || CurrentCashier != nullptr;
+}
+
+FVector ACheckout::GetCashierPosition() const
+{
+    return GetActorLocation() + GetActorRotation().RotateVector(CashierPositionOffset);
+}

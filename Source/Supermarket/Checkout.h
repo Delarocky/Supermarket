@@ -4,6 +4,7 @@
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
 #include "Checkout.generated.h"
+
 class USceneComponent;
 class AAICustomerPawn;
 class AProduct;
@@ -12,6 +13,8 @@ class UAnimMontage;
 class UStaticMeshComponent;
 class UTextRenderComponent;
 class UAudioComponent;
+class ACashierAI;
+class UBoxComponent;
 
 UCLASS()
 class SUPERMARKET_API ACheckout : public AActor
@@ -55,7 +58,20 @@ public:
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Checkout")
     float ItemMoveSpeed = 300.0f; // Units per second
+    UFUNCTION(BlueprintCallable)
+    void SetCashier(ACashierAI* NewCashier);
 
+    UFUNCTION(BlueprintCallable)
+    void RemoveCashier();
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Checkout")
+    UBoxComponent* PlayerDetectionArea;
+    UFUNCTION(BlueprintCallable, Category = "Checkout")
+    FVector GetCashierPosition() const;
+    UFUNCTION(BlueprintCallable, Category = "Checkout")
+    bool HasCashier() const { return CurrentCashier != nullptr; }
+
+    UFUNCTION(BlueprintCallable, Category = "Checkout")
+    bool IsBeingServiced() const { return bPlayerPresent || HasCashier(); }
 protected:
     virtual void BeginPlay() override;
 
@@ -81,6 +97,8 @@ protected:
     UPROPERTY(EditAnywhere, Category = "Queue")
     TArray<USceneComponent*> QueuePositions;
 private:
+    UPROPERTY(EditAnywhere, Category = "Checkout")
+    FVector CashierPositionOffset = FVector(0, -100, 0);  // Adjust this offset as needed
     UPROPERTY()
     TArray<AProduct*> ScannedItems;
     UPROPERTY(EditAnywhere, Category = "Queue", meta = (ClampMin = "0.1", ClampMax = "10.0"))
@@ -146,4 +164,16 @@ private:
 
     UFUNCTION()
     void UpdateItemPosition(AProduct* Item, FVector StartLocation, FVector EndLocation, float ElapsedTime, float Duration);
+
+    UPROPERTY()
+    ACashierAI* CurrentCashier;
+
+    UFUNCTION()
+    void OnPlayerEnterDetectionArea(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
+
+    UFUNCTION()
+    void OnPlayerExitDetectionArea(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex);
+
+    bool bPlayerPresent;
+    bool CanProcessCustomers() const;
 };
