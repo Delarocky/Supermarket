@@ -596,9 +596,6 @@ void AAICustomerPawn::LeaveCheckout()
     CurrentItems = 0;
     ShoppingBag->EmptyBag();
 
-    // Check for and delete any floating products
-    CheckAndDeleteFloatingProducts();
-
     // Leave the store
     LeaveStore();
 }
@@ -891,10 +888,6 @@ void AAICustomerPawn::LeaveStore()
 void AAICustomerPawn::DestroyAI()
 {
     UE_LOG(LogTemp, Display, TEXT("AI has left the store and is being destroyed"));
-
-    // Perform one last check for floating products
-    CheckAndDeleteFloatingProducts();
-
     Destroy();
 }
 
@@ -956,21 +949,4 @@ void AAICustomerPawn::CheckReachedAccessPoint()
         }
     }
     // If still moving, continue waiting
-}
-
-
-void AAICustomerPawn::CheckAndDeleteFloatingProducts()
-{
-    TArray<AActor*> FoundProducts;
-    UGameplayStatics::GetAllActorsOfClass(GetWorld(), AProduct::StaticClass(), FoundProducts);
-
-    for (AActor* Actor : FoundProducts)
-    {
-        AProduct* Product = Cast<AProduct>(Actor);
-        if (Product && !Product->GetAttachParentActor() && !Product->IsHidden())
-        {
-            UE_LOG(LogTemp, Warning, TEXT("Deleting floating product: %s"), *Product->GetName());
-            Product->Destroy();
-        }
-    }
 }
