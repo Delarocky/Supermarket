@@ -57,7 +57,7 @@ void UShoppingBag::DestroyProducts()
 
 void UShoppingBag::DebugPrintContents() const
 {
-    UE_LOG(LogTemp, Display, TEXT("Shopping Bag Contents:"));
+    //UE_LOG(LogTemp, Display, TEXT("Shopping Bag Contents:"));
     for (const auto& Product : Products)
     {
         if (Product)

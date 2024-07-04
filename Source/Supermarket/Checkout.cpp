@@ -8,6 +8,7 @@
 #include "Components/StaticMeshComponent.h"
 #include "Components/TextRenderComponent.h"
 #include "Components/AudioComponent.h"
+#include "SupermarketGameState.h"
 #include "Kismet/GameplayStatics.h"
 
 ACheckout::ACheckout()
@@ -345,6 +346,12 @@ void ACheckout::FinishTransaction()
     if (PaymentSuccessful)
     {
         DebugLog(FString::Printf(TEXT("Payment of $%.2f processed successfully for %d items"), TotalAmount, ScannedItems.Num()));
+
+        // Update the total money in the game state
+        if (ASupermarketGameState* GameState = GetWorld()->GetGameState<ASupermarketGameState>())
+        {
+            GameState->AddMoney(TotalAmount);
+        }
     }
     else
     {

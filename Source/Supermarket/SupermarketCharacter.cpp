@@ -305,8 +305,8 @@ void ASupermarketCharacter::UpdateCameraTransition()
         }
 
         // Log for debugging
-        UE_LOG(LogTemp, Log, TEXT("Updating camera transition. Alpha: %f, New Rotation: %s"),
-            SmoothedAlpha, *NewRotation.ToString());
+        //UE_LOG(LogTemp, Log, TEXT("Updating camera transition. Alpha: %f, New Rotation: %s"),
+           // SmoothedAlpha, *NewRotation.ToString());
 
         if (Alpha >= 1.0f)
         {

@@ -131,7 +131,7 @@ void AAICustomerPawn::FinishShopping()
 
 void AAICustomerPawn::ChooseProduct()
 {
-    UE_LOG(LogTemp, Display, TEXT("ChooseProduct called. Current Items: %d, Max Items: %d"), CurrentItems, MaxItems);
+   //UE_LOG(LogTemp, Display, TEXT("ChooseProduct called. Current Items: %d, Max Items: %d"), CurrentItems, MaxItems);
 
     if (CurrentItems >= MaxItems)
     {
@@ -187,7 +187,7 @@ void AAICustomerPawn::ChooseProduct()
     }
     else
     {
-        UE_LOG(LogTemp, Warning, TEXT("No accessible stocked shelves found. Waiting..."));
+        //UE_LOG(LogTemp, Warning, TEXT("No accessible stocked shelves found. Waiting..."));
         GetWorldTimerManager().SetTimer(RetryTimerHandle, this, &AAICustomerPawn::ChooseProduct, 2.0f, false);
     }
 }
