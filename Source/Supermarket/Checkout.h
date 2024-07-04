@@ -98,7 +98,7 @@ protected:
     TArray<USceneComponent*> QueuePositions;
 private:
     UPROPERTY(EditAnywhere, Category = "Checkout")
-    FVector CashierPositionOffset = FVector(0, -100, 0);  // Adjust this offset as needed
+    FVector CashierPositionOffset = FVector(100, -200, 0);  // Adjust this offset as needed
     UPROPERTY()
     TArray<AProduct*> ScannedItems;
     UPROPERTY(EditAnywhere, Category = "Queue", meta = (ClampMin = "0.1", ClampMax = "10.0"))
