@@ -16,6 +16,10 @@
 #include "Kismet/GameplayStatics.h"
 #include "Components/WidgetComponent.h"
 #include "Blueprint/UserWidget.h"
+#include "MovementBoundary.h"
+#include "Checkout.h"
+#include "Kismet/KismetSystemLibrary.h"
+#include "DrawDebugHelpers.h"
 #include "GameFramework/CharacterMovementComponent.h"
 
 DEFINE_LOG_CATEGORY(LogTemplateCharacter);
@@ -48,6 +52,7 @@ ASupermarketCharacter::ASupermarketCharacter()
     CurrentTargetShelf = nullptr;
     bIsInteracting = false;
 
+
     // Create tablet mesh
     TabletMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("TabletMesh"));
     TabletMesh->SetupAttachment(GetMesh(), "hand_r"); // Attach to right hand
@@ -66,7 +71,10 @@ ASupermarketCharacter::ASupermarketCharacter()
     TabletScreenWidget->SetDrawSize(FVector2D(150.0f, 230.0f)); // Set the size of the widget
     TabletScreenWidget->SetVisibility(false); // Start with the widget hidden
 
-
+    bIsMovingObject = false;
+    MoveObjectHoldTime = 2.0f;
+    MaxMoveDistance = 500.0f;
+    RotationAngle = 45.0f;
 
     // Initialize tablet mode variables
     bIsTabletMode = false;
@@ -92,6 +100,11 @@ void ASupermarketCharacter::Tick(float DeltaTime)
     {
         UpdateCameraTransition();
     }
+    if (bIsMovingObject)
+    {
+        UE_LOG(LogTemp, Verbose, TEXT("Tick: Calling UpdateObjectPosition"));
+        UpdateObjectPosition();
+    }
 
     UpdateProductBoxTransform();
 }
@@ -108,7 +121,10 @@ void ASupermarketCharacter::BeginPlay()
     {
         OriginalControllerRotation = Controller->GetControlRotation();
     }
+    FindMovementBoundaries();
+
     UpdateTabletTransform();
+
     //Add Input Mapping Context
     if (APlayerController* PlayerController = Cast<APlayerController>(Controller))
     {
@@ -142,6 +158,11 @@ void ASupermarketCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInp
         EnhancedInputComponent->BindAction(TabletAction, ETriggerEvent::Started, this, &ASupermarketCharacter::OnTabletAction);
 
         EnhancedInputComponent->BindAction(TabletClickAction, ETriggerEvent::Started, this, &ASupermarketCharacter::OnTabletClickInput);
+
+        EnhancedInputComponent->BindAction(MoveObjectAction, ETriggerEvent::Started, this, &ASupermarketCharacter::OnMoveObjectActionPressed);
+        EnhancedInputComponent->BindAction(MoveObjectAction, ETriggerEvent::Completed, this, &ASupermarketCharacter::OnMoveObjectActionReleased);
+        EnhancedInputComponent->BindAction(RotateLeftAction, ETriggerEvent::Triggered, this, &ASupermarketCharacter::RotateObjectLeft);
+        EnhancedInputComponent->BindAction(RotateRightAction, ETriggerEvent::Triggered, this, &ASupermarketCharacter::RotateObjectRight);
     }
     else
     {
@@ -726,4 +747,185 @@ void ASupermarketCharacter::CreateMoneyDisplayWidget()
     {
         UE_LOG(LogTemp, Error, TEXT("PlayerController not found"));
     }
+}
+
+void ASupermarketCharacter::OnMoveObjectActionPressed()
+{
+    UE_LOG(LogTemp, Log, TEXT("OnMoveObjectActionPressed called"));
+    GetWorldTimerManager().SetTimer(MoveObjectTimerHandle, this, &ASupermarketCharacter::StartMovingObject, MoveObjectHoldTime, false);
+}
+
+void ASupermarketCharacter::OnMoveObjectActionReleased()
+{
+    UE_LOG(LogTemp, Log, TEXT("OnMoveObjectActionReleased called"));
+    StopMovingObject();
+}
+
+
+
+void ASupermarketCharacter::StartMovingObject()
+{
+    if (bIsHoldingObject)
+    {
+        StopMovingObject();
+        return;
+    }
+
+    UE_LOG(LogTemp, Log, TEXT("StartMovingObject called"));
+    FHitResult HitResult;
+    FVector Start = FirstPersonCameraComponent->GetComponentLocation();
+    FVector End = Start + FirstPersonCameraComponent->GetForwardVector() * MaxMoveDistance;
+
+    FCollisionQueryParams QueryParams;
+    QueryParams.AddIgnoredActor(this);
+
+    if (GetWorld()->LineTraceSingleByChannel(HitResult, Start, End, ECC_Visibility, QueryParams))
+    {
+        AActor* HitActor = HitResult.GetActor();
+        if (HitActor && HitActor->Implements<UMovableObject>())
+        {
+            CurrentMovableObject = TScriptInterface<IMovableObject>(HitActor);
+            if (CurrentMovableObject.GetObject())
+            {
+                ObjectOriginalLocation = HitActor->GetActorLocation();
+                ObjectOriginalRotation = HitActor->GetActorRotation();
+                InitialGrabOffset = HitResult.Location - ObjectOriginalLocation;
+                bIsMovingObject = true;
+                bIsHoldingObject = true;
+                IMovableObject::Execute_StartMoving(CurrentMovableObject.GetObject());
+                UE_LOG(LogTemp, Log, TEXT("Started moving object: %s"), *HitActor->GetName());
+            }
+        }
+    }
+}
+
+
+void ASupermarketCharacter::StopMovingObject()
+{
+    if (CurrentMovableObject.GetObject())
+    {
+        bool bIsValidPlacement = IMovableObject::Execute_IsValidPlacement(CurrentMovableObject.GetObject());
+        if (!bIsValidPlacement)
+        {
+            AActor* MovableActor = Cast<AActor>(CurrentMovableObject.GetObject());
+            if (MovableActor)
+            {
+                MovableActor->SetActorLocation(ObjectOriginalLocation);
+                MovableActor->SetActorRotation(ObjectOriginalRotation);
+            }
+        }
+        IMovableObject::Execute_StopMoving(CurrentMovableObject.GetObject());
+        CurrentMovableObject = nullptr;
+    }
+    bIsMovingObject = false;
+    bIsHoldingObject = false;
+    UE_LOG(LogTemp, Log, TEXT("Stopped moving object"));
+}
+
+void ASupermarketCharacter::RotateObjectLeft()
+{
+    if (bIsMovingObject && CurrentMovableObject.GetObject())
+    {
+        IMovableObject::Execute_RotateLeft(CurrentMovableObject.GetObject());
+        AActor* MovableActor = Cast<AActor>(CurrentMovableObject.GetObject());
+        if (MovableActor)
+        {
+            MovableActor->AddActorWorldRotation(FRotator(0, -RotationAngle, 0));
+        }
+        UE_LOG(LogTemp, Log, TEXT("Rotated object left"));
+    }
+}
+
+void ASupermarketCharacter::RotateObjectRight()
+{
+    if (bIsMovingObject && CurrentMovableObject.GetObject())
+    {
+        IMovableObject::Execute_RotateRight(CurrentMovableObject.GetObject());
+        AActor* MovableActor = Cast<AActor>(CurrentMovableObject.GetObject());
+        if (MovableActor)
+        {
+            MovableActor->AddActorWorldRotation(FRotator(0, RotationAngle, 0));
+        }
+        UE_LOG(LogTemp, Log, TEXT("Rotated object right"));
+    }
+}
+
+void ASupermarketCharacter::UpdateObjectPosition()
+{
+    if (!CurrentMovableObject.GetObject() || !bIsMovingObject)
+    {
+        return;
+    }
+
+    FVector Start = FirstPersonCameraComponent->GetComponentLocation();
+    FVector End = Start + FirstPersonCameraComponent->GetForwardVector() * MaxMoveDistance;
+
+    FHitResult HitResult;
+    FCollisionQueryParams QueryParams;
+    QueryParams.AddIgnoredActor(this);
+    QueryParams.AddIgnoredActor(Cast<AActor>(CurrentMovableObject.GetObject()));
+
+    if (GetWorld()->LineTraceSingleByChannel(HitResult, Start, End, ECC_Visibility, QueryParams))
+    {
+        FVector NewLocation = HitResult.Location - InitialGrabOffset;
+        NewLocation.Z = ObjectOriginalLocation.Z;
+
+        AActor* MovableActor = Cast<AActor>(CurrentMovableObject.GetObject());
+        if (MovableActor)
+        {
+            // Check if the new location is within any movement boundary
+            bool bIsWithinBoundary = false;
+            for (AMovementBoundary* Boundary : MovementBoundaries)
+            {
+                if (Boundary && Boundary->IsPointWithinBoundary(NewLocation))
+                {
+                    bIsWithinBoundary = true;
+                    break;
+                }
+            }
+
+            if (!bIsWithinBoundary)
+            {
+                // Find the closest point within a boundary
+                FVector ClosestPoint = NewLocation;
+                float ClosestDistance = MAX_FLT;
+                for (AMovementBoundary* Boundary : MovementBoundaries)
+                {
+                    if (Boundary)
+                    {
+                        FVector ClampedPoint = Boundary->ClampPointToBoundary(NewLocation);
+                        float Distance = FVector::DistSquared(NewLocation, ClampedPoint);
+                        if (Distance < ClosestDistance)
+                        {
+                            ClosestDistance = Distance;
+                            ClosestPoint = ClampedPoint;
+                        }
+                    }
+                }
+                NewLocation = ClosestPoint;
+            }
+
+            MovableActor->SetActorLocation(NewLocation);
+
+            bool bIsValidPlacement = IMovableObject::Execute_IsValidPlacement(CurrentMovableObject.GetObject());
+            IMovableObject::Execute_UpdateOutline(CurrentMovableObject.GetObject(), bIsValidPlacement);
+        }
+    }
+}
+
+void ASupermarketCharacter::FindMovementBoundaries()
+{
+    MovementBoundaries.Empty();
+    TArray<AActor*> FoundActors;
+    UGameplayStatics::GetAllActorsOfClass(GetWorld(), AMovementBoundary::StaticClass(), FoundActors);
+
+    for (AActor* Actor : FoundActors)
+    {
+        if (AMovementBoundary* Boundary = Cast<AMovementBoundary>(Actor))
+        {
+            MovementBoundaries.Add(Boundary);
+        }
+    }
+
+    UE_LOG(LogTemp, Log, TEXT("Found %d movement boundaries"), MovementBoundaries.Num());
 }

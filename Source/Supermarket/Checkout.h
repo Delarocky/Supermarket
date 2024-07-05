@@ -3,6 +3,7 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
+#include "IMovableObject.h"
 #include "Checkout.generated.h"
 
 class USceneComponent;
@@ -22,6 +23,41 @@ class SUPERMARKET_API ACheckout : public AActor
     GENERATED_BODY()
 
 public:
+
+    // IMovableObject interface
+    UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "Movable Object")
+    void StartMoving();
+    virtual void StartMoving_Implementation();
+
+    UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "Movable Object")
+    void StopMoving();
+    virtual void StopMoving_Implementation();
+
+    UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "Movable Object")
+    void RotateLeft();
+    virtual void RotateLeft_Implementation();
+
+    UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "Movable Object")
+    void RotateRight();
+    virtual void RotateRight_Implementation();
+
+    UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "Movable Object")
+    bool IsValidPlacement() const;
+    virtual bool IsValidPlacement_Implementation() const;
+
+    UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "Movable Object")
+    void UpdateOutline(bool bIsValidPlacement);
+    virtual void UpdateOutline_Implementation(bool bIsValidPlacement);
+
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Movement")
+    class UBoxComponent* PlacementCollision;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement")
+    float RotationAngle;
+
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Movement")
+    bool bIsMoving;
+
     ACheckout();
     UFUNCTION(BlueprintCallable)
     void ProcessCustomer(AAICustomerPawn* Customer);
@@ -96,6 +132,14 @@ protected:
     int32 MaxQueueSize = 10;
     UPROPERTY(EditAnywhere, Category = "Queue")
     TArray<USceneComponent*> QueuePositions;
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
+    class UStaticMeshComponent* ShelfMesh;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Outline")
+    class UMaterialInterface* OutlineMaterial;
+
+    UPROPERTY()
+    class UMaterialInstanceDynamic* OutlineMaterialInstance;
 private:
     UPROPERTY(EditAnywhere, Category = "Checkout")
     FVector CashierPositionOffset = FVector(100, -200, 0);  // Adjust this offset as needed
@@ -121,7 +165,14 @@ private:
     UPROPERTY(EditAnywhere, Category = "Checkout")
     float ProcessingDistance = 100.0f;
 
+    UPROPERTY()
+    UMaterialInterface* OriginalMaterial;
 
+    UPROPERTY()
+    UMaterialInterface* ValidPlacementMaterial;
+
+    UPROPERTY()
+    UMaterialInterface* InvalidPlacementMaterial;
 
     UPROPERTY()
     TArray<AAICustomerPawn*> CustomersInQueue;

@@ -8,6 +8,7 @@
 #include "Components/SceneComponent.h"
 #include "Product.h"
 #include "ProductBox.h"
+#include "IMovableObject.h"
 #include "Shelf.generated.h"
 
 
@@ -18,6 +19,41 @@ class SUPERMARKET_API AShelf : public AActor
     GENERATED_BODY()
 
 public:
+
+    // IMovableObject interface
+    UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "Movable Object")
+    void StartMoving();
+    virtual void StartMoving_Implementation();
+
+    UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "Movable Object")
+    void StopMoving();
+    virtual void StopMoving_Implementation();
+
+    UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "Movable Object")
+    void RotateLeft();
+    virtual void RotateLeft_Implementation();
+
+    UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "Movable Object")
+    void RotateRight();
+    virtual void RotateRight_Implementation();
+
+    UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "Movable Object")
+    bool IsValidPlacement() const;
+    virtual bool IsValidPlacement_Implementation() const;
+
+    UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "Movable Object")
+    void UpdateOutline(bool bIsValidPlacement);
+    virtual void UpdateOutline_Implementation(bool bIsValidPlacement);
+
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Movement")
+    class UBoxComponent* PlacementCollision;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement")
+    float RotationAngle;
+
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Movement")
+    bool bIsMoving;
+
     AShelf();
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
     USceneComponent* AccessPoint2;
@@ -35,8 +71,7 @@ public:
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
     USceneComponent* ProductSpawnPoint;
 
-    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Components")
-    UStaticMeshComponent* ShelfMesh;
+    
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Shelf")
     TSubclassOf<AProduct> ProductClass;
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Shelf")
@@ -93,6 +128,15 @@ public:
 protected:
     virtual void BeginPlay() override;
 
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
+    class UStaticMeshComponent* ShelfMesh;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Outline")
+    class UMaterialInterface* OutlineMaterial;
+
+    UPROPERTY()
+    class UMaterialInstanceDynamic* OutlineMaterialInstance;
+
 private:
     UPROPERTY()
     TArray<AProduct*> Products;
@@ -106,4 +150,13 @@ private:
     void StockNextProduct();
 
     bool bIsStocking;
+
+    UPROPERTY()
+    UMaterialInterface* OriginalMaterial;
+
+    UPROPERTY()
+    UMaterialInterface* ValidPlacementMaterial;
+
+    UPROPERTY()
+    UMaterialInterface* InvalidPlacementMaterial;
 };

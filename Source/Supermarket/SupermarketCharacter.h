@@ -9,6 +9,7 @@
 #include "Shelf.h"
 #include "Blueprint/UserWidget.h"  // Add this include
 #include "MoneyDisplayWidget.h"
+#include "MovementBoundary.h"
 #include "SupermarketCharacter.generated.h"
 
 class UInputComponent;
@@ -31,6 +32,7 @@ class ASupermarketCharacter : public ACharacter
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Tablet, meta = (AllowPrivateAccess = "true"))
     UWidgetComponent* TabletScreenWidget;
 
+    
 
     // Add this function declaration if you want to be able to update the transform at runtime
     UFUNCTION(BlueprintCallable, Category = "Interaction")
@@ -84,9 +86,15 @@ class ASupermarketCharacter : public ACharacter
     UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, meta = (AllowPrivateAccess = "true"))
     UInputAction* MoveAction;
     // Add these properties
+    UPROPERTY(EditAnywhere, Category = "Movement")
+    float MoveObjectHoldTime;
 
+  
 public:
     ASupermarketCharacter();
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement")
+    TArray<AMovementBoundary*> MovementBoundaries;
 
 protected:
     virtual void BeginPlay();
@@ -139,7 +147,30 @@ public:
     UUserWidget* GetTabletScreenWidget() const;
     UFUNCTION(BlueprintImplementableEvent, Category = "Tablet")
     void OnTabletClicked(const FVector2D& ClickPosition);
+    UFUNCTION(BlueprintCallable, Category = "Movement")
+    void FindMovementBoundaries();
 protected:
+    UFUNCTION()
+    void OnMoveObjectActionPressed();
+
+    UFUNCTION()
+    void OnMoveObjectActionReleased();
+
+    UFUNCTION()
+    void StartMovingObject();
+
+    UFUNCTION()
+    void StopMovingObject();
+
+    UFUNCTION()
+    void RotateObjectLeft();
+
+    UFUNCTION()
+    void RotateObjectRight();
+
+    UFUNCTION()
+    void UpdateObjectPosition();
+
     /** Called for movement input */
     void Move(const FInputActionValue& Value);
     void SetCameraRotationEnabled(bool bEnable);
@@ -193,6 +224,14 @@ protected:
     float TabletCameraFOV;
     /** Start camera transition */
     void StartCameraTransition(bool bToTabletView);
+    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input)
+    class UInputAction* MoveObjectAction;
+
+    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input)
+    class UInputAction* RotateLeftAction;
+
+    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input)
+    class UInputAction* RotateRightAction;
 public:
     UFUNCTION(BlueprintCallable, Category = "Tablet")
     void UpdateTabletTransform();
@@ -240,4 +279,15 @@ private:
     float TargetCameraFOV;
     void SetupTabletScreen();
     void CreateMoneyDisplayWidget();
+    FTimerHandle MoveObjectTimerHandle;
+    TScriptInterface<IMovableObject> CurrentMovableObject;
+    FVector ObjectOriginalLocation;
+    FRotator ObjectOriginalRotation;
+    bool bIsMovingObject;
+    UPROPERTY(EditAnywhere, Category = "Movement")
+    float MaxMoveDistance;
+    UPROPERTY(EditAnywhere, Category = "Movement")
+    float RotationAngle;
+    bool bIsHoldingObject;
+    FVector InitialGrabOffset;
 };
