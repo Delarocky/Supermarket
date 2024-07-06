@@ -20,39 +20,6 @@ class SUPERMARKET_API AShelf : public AActor
 
 public:
 
-    // IMovableObject interface
-    UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "Movable Object")
-    void StartMoving();
-    virtual void StartMoving_Implementation();
-
-    UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "Movable Object")
-    void StopMoving();
-    virtual void StopMoving_Implementation();
-
-    UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "Movable Object")
-    void RotateLeft();
-    virtual void RotateLeft_Implementation();
-
-    UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "Movable Object")
-    void RotateRight();
-    virtual void RotateRight_Implementation();
-
-    UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "Movable Object")
-    bool IsValidPlacement() const;
-    virtual bool IsValidPlacement_Implementation() const;
-
-    UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "Movable Object")
-    void UpdateOutline(bool bIsValidPlacement);
-    virtual void UpdateOutline_Implementation(bool bIsValidPlacement);
-
-    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Movement")
-    class UBoxComponent* PlacementCollision;
-
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement")
-    float RotationAngle;
-
-    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Movement")
-    bool bIsMoving;
 
     AShelf();
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")

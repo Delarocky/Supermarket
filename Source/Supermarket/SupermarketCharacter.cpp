@@ -705,18 +705,20 @@ void ASupermarketCharacter::OnTabletClickInput()
 {
     if (bIsTabletMode)
     {
+        UE_LOG(LogTemp, Log, TEXT("Tablet click input detected"));
+
         APlayerController* PC = Cast<APlayerController>(GetController());
         if (PC)
         {
             FVector2D MousePosition;
             if (PC->GetMousePosition(MousePosition.X, MousePosition.Y))
             {
+                UE_LOG(LogTemp, Log, TEXT("Mouse Position: %s"), *MousePosition.ToString());
                 OnTabletClicked(MousePosition);
             }
         }
     }
 }
-
 void ASupermarketCharacter::UpdateProductBoxTransform()
 {
     if (HeldProductBox)

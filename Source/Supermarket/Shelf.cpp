@@ -34,13 +34,7 @@ AShelf::AShelf()
     bStartFullyStocked = false; // Set default value
     CurrentProductClass = nullptr;
 
-    PlacementCollision = CreateDefaultSubobject<UBoxComponent>(TEXT("PlacementCollision"));
-    PlacementCollision->SetupAttachment(RootComponent);
-    PlacementCollision->SetCollisionProfileName(TEXT("OverlapAll"));
-    PlacementCollision->SetGenerateOverlapEvents(true);
 
-    RotationAngle = 1.0f;
-    bIsMoving = false;
 
     // Load materials
     static ConstructorHelpers::FObjectFinder<UMaterialInterface> ValidMat(TEXT("/Game/M_ValidPlacement"));
@@ -406,93 +400,4 @@ bool AShelf::GetNextProductLocation(FVector& OutLocation) const
         return true;
     }
     return false;
-}
-
-void AShelf::StartMoving_Implementation()
-{
-    bIsMoving = true;
-    UE_LOG(LogTemp, Log, TEXT("Shelf %s started moving"), *GetName());
-}
-
-void AShelf::StopMoving_Implementation()
-{
-    bIsMoving = false;
-    UE_LOG(LogTemp, Log, TEXT("Shelf %s stopped moving"), *GetName());
-
-    // Reset to original material
-    if (ShelfMesh && OriginalMaterial)
-    {
-        ShelfMesh->SetMaterial(0, OriginalMaterial);
-    }
-}
-
-void AShelf::RotateLeft_Implementation()
-{
-    AddActorWorldRotation(FRotator(0, -RotationAngle, 0));
-    UE_LOG(LogTemp, Log, TEXT("Shelf %s rotated left"), *GetName());
-}
-
-void AShelf::RotateRight_Implementation()
-{
-    AddActorWorldRotation(FRotator(0, RotationAngle, 0));
-    UE_LOG(LogTemp, Log, TEXT("Shelf %s rotated right"), *GetName());
-}
-
-bool AShelf::IsValidPlacement_Implementation() const
-{
-    // Check if the shelf is on a valid surface (e.g., floor)
-    FVector Start = GetActorLocation();
-    FVector End = Start - FVector::UpVector * 100.0f; // Check 100 units below the object
-
-    FHitResult HitResult;
-    FCollisionQueryParams QueryParams;
-    QueryParams.AddIgnoredActor(this);
-
-    if (GetWorld()->LineTraceSingleByChannel(HitResult, Start, End, ECC_Visibility, QueryParams))
-    {
-        // Check if the surface below is considered valid (e.g., it's the floor)
-        // You might want to tag your floor actors or check for specific actor types
-        if (HitResult.GetActor() && HitResult.GetActor()->ActorHasTag("Floor"))
-        {
-            // Check for overlap with other objects
-            TArray<AActor*> OverlappingActors;
-            GetOverlappingActors(OverlappingActors, AShelf::StaticClass()); // Check overlap with other shelves
-
-            if (OverlappingActors.Num() == 0)
-            {
-                return true; // Valid placement if on floor and not overlapping other shelves
-            }
-        }
-    }
-
-    return false; // Invalid placement
-}
-
-void AShelf::UpdateOutline_Implementation(bool bIsValidPlacement)
-{
-    if (!OutlineMaterial)
-    {
-        // Load the outline material if not already loaded
-        static ConstructorHelpers::FObjectFinder<UMaterialInterface> OutlineMaterialObj(TEXT("/Game/M_Outline"));
-        if (OutlineMaterialObj.Succeeded())
-        {
-            OutlineMaterial = OutlineMaterialObj.Object;
-        }
-    }
-
-    if (ShelfMesh && OutlineMaterial)
-    {
-        // Create a dynamic material instance if not already created
-        if (!OutlineMaterialInstance)
-        {
-            OutlineMaterialInstance = UMaterialInstanceDynamic::Create(OutlineMaterial, this);
-        }
-
-        // Set the outline color based on placement validity
-        FLinearColor OutlineColor = bIsValidPlacement ? FLinearColor::Green : FLinearColor::Red;
-        OutlineMaterialInstance->SetVectorParameterValue(FName("OutlineColor"), OutlineColor);
-
-        // Apply the outline material to the mesh
-        ShelfMesh->SetOverlayMaterial(OutlineMaterialInstance);
-    }
 }
