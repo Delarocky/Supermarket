@@ -122,15 +122,19 @@ void ASupermarketCharacter::BeginPlay()
         OriginalControllerRotation = Controller->GetControlRotation();
     }
     FindMovementBoundaries();
-
+    SetupBuildModeInputs();
+    SetupInputMappingContexts();
+    UpdateMovementState(); // Ensure correct initial state
     UpdateTabletTransform();
+    bIsBuildModeActive = false;
 
-    //Add Input Mapping Context
-    if (APlayerController* PlayerController = Cast<APlayerController>(Controller))
+    APlayerController* PlayerController = Cast<APlayerController>(Controller);
+    if (PlayerController)
     {
-        if (UEnhancedInputLocalPlayerSubsystem* Subsystem = ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(PlayerController->GetLocalPlayer()))
+        UEnhancedInputLocalPlayerSubsystem* Subsystem = ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(PlayerController->GetLocalPlayer());
+        if (Subsystem)
         {
-            Subsystem->AddMappingContext(DefaultMappingContext, 0);
+            Subsystem->AddMappingContext(SupermarketMappingContext, 0);
         }
     }
 }
@@ -163,6 +167,12 @@ void ASupermarketCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInp
         EnhancedInputComponent->BindAction(MoveObjectAction, ETriggerEvent::Completed, this, &ASupermarketCharacter::OnMoveObjectActionReleased);
         EnhancedInputComponent->BindAction(RotateLeftAction, ETriggerEvent::Triggered, this, &ASupermarketCharacter::RotateObjectLeft);
         EnhancedInputComponent->BindAction(RotateRightAction, ETriggerEvent::Triggered, this, &ASupermarketCharacter::RotateObjectRight);
+
+        EnhancedInputComponent->BindAction(BuildModeAction, ETriggerEvent::Started, this, &ASupermarketCharacter::ToggleBuildMode);
+        EnhancedInputComponent->BindAction(MoveAction, ETriggerEvent::Triggered, this, &ASupermarketCharacter::MoveInBuildMode);
+        EnhancedInputComponent->BindAction(BuildModeRotateAction, ETriggerEvent::Triggered, this, &ASupermarketCharacter::RotateInBuildMode);
+        EnhancedInputComponent->BindAction(RightMouseButtonPressedAction, ETriggerEvent::Started, this, &ASupermarketCharacter::OnRightMouseButtonPressed);
+        EnhancedInputComponent->BindAction(RightMouseButtonReleasedAction, ETriggerEvent::Completed, this, &ASupermarketCharacter::OnRightMouseButtonReleased);
     }
     else
     {
@@ -172,7 +182,10 @@ void ASupermarketCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInp
 
 void ASupermarketCharacter::OnTabletAction()
 {
-    ToggleTabletMode();
+    if (!bIsBuildModeActive)
+    {
+        ToggleTabletMode();
+    }
 }
 
 void ASupermarketCharacter::ToggleTabletMode()
@@ -471,33 +484,41 @@ void ASupermarketCharacter::CheckShelfInView()
 
 void ASupermarketCharacter::Move(const FInputActionValue& Value)
 {
-    // input is a Vector2D
-    FVector2D MovementVector = Value.Get<FVector2D>();
+    if (Controller == nullptr || bIsBuildModeActive)
+        return;
 
-    if (Controller != nullptr)
-    {
-        // add movement 
-        AddMovementInput(GetActorForwardVector(), MovementVector.Y);
-        AddMovementInput(GetActorRightVector(), MovementVector.X);
-    }
+    const FVector2D MovementVector = Value.Get<FVector2D>();
+
+    const FRotator Rotation = Controller->GetControlRotation();
+    const FRotator YawRotation(0, Rotation.Yaw, 0);
+
+    const FVector ForwardDirection = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::X);
+    const FVector RightDirection = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::Y);
+
+    AddMovementInput(ForwardDirection, MovementVector.Y);
+    AddMovementInput(RightDirection, MovementVector.X);
 }
 
 void ASupermarketCharacter::Look(const FInputActionValue& Value)
 {
-    if (!bIsTabletMode)
-    {
-        // input is a Vector2D
-        FVector2D LookAxisVector = Value.Get<FVector2D>();
+    if (Controller == nullptr)
+        return;
 
-        if (Controller != nullptr)
+    const FVector2D LookAxisVector = Value.Get<FVector2D>();
+
+    if (bIsBuildModeActive)
+    {
+        if (BuildModeCamera && bIsRightMouseButtonPressed)
         {
-            // add yaw and pitch input to controller
-            AddControllerYawInput(LookAxisVector.X);
-            AddControllerPitchInput(LookAxisVector.Y);
+            BuildModeCamera->RotateCamera(LookAxisVector);
         }
     }
+    else
+    {
+        AddControllerYawInput(LookAxisVector.X);
+        AddControllerPitchInput(LookAxisVector.Y);
+    }
 }
-
 
 
 void ASupermarketCharacter::OnInteract()
@@ -928,4 +949,139 @@ void ASupermarketCharacter::FindMovementBoundaries()
     }
 
     UE_LOG(LogTemp, Log, TEXT("Found %d movement boundaries"), MovementBoundaries.Num());
+}
+
+void ASupermarketCharacter::SetupBuildModeInputs()
+{
+    if (APlayerController* PlayerController = Cast<APlayerController>(Controller))
+    {
+        if (UEnhancedInputLocalPlayerSubsystem* Subsystem = ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(PlayerController->GetLocalPlayer()))
+        {
+            // Assuming you have a separate Input Mapping Context for build mode
+            Subsystem->AddMappingContext(BuildModeMappingContext, 1);
+        }
+    }
+}
+
+void ASupermarketCharacter::ToggleBuildMode()
+{
+    bIsBuildModeActive = !bIsBuildModeActive;
+
+    APlayerController* PlayerController = Cast<APlayerController>(Controller);
+    if (PlayerController)
+    {
+        UEnhancedInputLocalPlayerSubsystem* Subsystem = ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(PlayerController->GetLocalPlayer());
+        if (Subsystem)
+        {
+            if (bIsBuildModeActive)
+            {
+                Subsystem->AddMappingContext(BuildModeMappingContext, 1);
+                PlayerController->SetShowMouseCursor(true);
+                PlayerController->SetInputMode(FInputModeGameAndUI());
+
+                if (!BuildModeCamera)
+                {
+                    FActorSpawnParameters SpawnParams;
+                    SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+                    BuildModeCamera = GetWorld()->SpawnActor<ABuildModeCameraActor>(BuildModeCameraClass, GetActorLocation(), FRotator::ZeroRotator, SpawnParams);
+                }
+
+                if (BuildModeCamera)
+                {
+                    PlayerController->SetViewTargetWithBlend(BuildModeCamera, 0.5f);
+                }
+            }
+            else
+            {
+                Subsystem->RemoveMappingContext(BuildModeMappingContext);
+                PlayerController->SetShowMouseCursor(false);
+                PlayerController->SetInputMode(FInputModeGameOnly());
+
+                if (BuildModeCamera)
+                {
+                    BuildModeCamera->Destroy();
+                    BuildModeCamera = nullptr;
+                }
+
+                PlayerController->SetViewTargetWithBlend(this, 0.5f);
+            }
+        }
+    }
+
+    // Disable character movement in build mode
+    GetCharacterMovement()->SetMovementMode(bIsBuildModeActive ? MOVE_None : MOVE_Walking);
+}
+
+void ASupermarketCharacter::MoveInBuildMode(const FInputActionValue& Value)
+{
+    if (bIsBuildModeActive && BuildModeCamera)
+    {
+        FVector2D MovementVector = Value.Get<FVector2D>();
+        BuildModeCamera->MoveCamera(MovementVector);
+    }
+}
+
+void ASupermarketCharacter::RotateInBuildMode(const FInputActionValue& Value)
+{
+    if (bIsBuildModeActive && BuildModeCamera && bIsRightMouseButtonPressed)
+    {
+        const FVector2D RotationVector = Value.Get<FVector2D>();
+        BuildModeCamera->RotateCamera(RotationVector);
+    }
+}
+
+void ASupermarketCharacter::UpdateMovementState()
+{
+    if (bIsBuildModeActive)
+    {
+        // Disable character movement
+        GetCharacterMovement()->SetMovementMode(MOVE_None);
+    }
+    else
+    {
+        // Enable character movement
+        GetCharacterMovement()->SetMovementMode(MOVE_Walking);
+    }
+}
+
+void ASupermarketCharacter::OnRightMouseButtonPressed()
+{
+    bIsRightMouseButtonPressed = true;
+    if (bIsBuildModeActive)
+    {
+        APlayerController* PC = Cast<APlayerController>(Controller);
+        if (PC)
+        {
+            PC->SetInputMode(FInputModeGameOnly());
+            PC->SetShowMouseCursor(false);
+        }
+    }
+}
+
+void ASupermarketCharacter::OnRightMouseButtonReleased()
+{
+    bIsRightMouseButtonPressed = false;
+    if (bIsBuildModeActive)
+    {
+        APlayerController* PC = Cast<APlayerController>(Controller);
+        if (PC)
+        {
+            PC->SetInputMode(FInputModeGameAndUI());
+            PC->SetShowMouseCursor(true);
+        }
+    }
+}
+
+void ASupermarketCharacter::SetupInputMappingContexts()
+{
+    APlayerController* PlayerController = Cast<APlayerController>(Controller);
+    if (PlayerController)
+    {
+        UEnhancedInputLocalPlayerSubsystem* Subsystem = ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(PlayerController->GetLocalPlayer());
+        if (Subsystem)
+        {
+            Subsystem->AddMappingContext(SupermarketMappingContext, 0);
+            // BuildModeMappingContext will be added/removed in ToggleBuildMode
+        }
+    }
 }

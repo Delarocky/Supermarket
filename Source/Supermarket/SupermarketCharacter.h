@@ -10,6 +10,8 @@
 #include "Blueprint/UserWidget.h"  // Add this include
 #include "MoneyDisplayWidget.h"
 #include "MovementBoundary.h"
+#include "Camera/CameraComponent.h"
+#include "BuildModeCameraActor.h"
 #include "SupermarketCharacter.generated.h"
 
 class UInputComponent;
@@ -85,6 +87,7 @@ class ASupermarketCharacter : public ACharacter
     /** Move Input Action */
     UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, meta = (AllowPrivateAccess = "true"))
     UInputAction* MoveAction;
+  
     // Add these properties
     UPROPERTY(EditAnywhere, Category = "Movement")
     float MoveObjectHoldTime;
@@ -95,7 +98,25 @@ public:
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement")
     TArray<AMovementBoundary*> MovementBoundaries;
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Build Mode")
+    bool bIsBuildModeActive;
 
+    UPROPERTY(EditDefaultsOnly, Category = "Build Mode")
+    TSubclassOf<ABuildModeCameraActor> BuildModeCameraClass;
+
+    UPROPERTY(EditDefaultsOnly, Category = "Build Mode")
+    TSubclassOf<UUserWidget> BuildModeWidgetClass;
+
+    UFUNCTION(BlueprintCallable, Category = "Build Mode")
+    void ToggleBuildMode();
+
+    UFUNCTION(BlueprintCallable, Category = "Build Mode")
+    void MoveInBuildMode(const FInputActionValue& Value);
+
+    UFUNCTION(BlueprintCallable, Category = "Build Mode")
+    void RotateInBuildMode(const FInputActionValue& Value);
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Input")
+    class UInputMappingContext* SupermarketMappingContext;
 protected:
     virtual void BeginPlay();
 
@@ -243,6 +264,22 @@ public:
     float CameraTransitionTime;
     UPROPERTY()
     UMoneyDisplayWidget* MoneyDisplayWidget;
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Input, meta = (AllowPrivateAccess = "true"))
+    class UInputMappingContext* BuildModeMappingContext;
+    UFUNCTION(BlueprintCallable, Category = "Build Mode")
+    bool IsInBuildMode() const { return bIsBuildModeActive; }
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Build Mode")
+    float BuildModeRotationSpeed = 0.1f;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Build Mode")
+    float BuildModeMoveSpeed = 1000.0f;  // You can adjust this default value as needed
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Build Mode")
+    bool bIsRightMouseButtonPressed;
+
+    UFUNCTION(BlueprintCallable, Category = "Build Mode")
+    void OnRightMouseButtonPressed();
+
+    UFUNCTION(BlueprintCallable, Category = "Build Mode")
+    void OnRightMouseButtonReleased();
 private:
     /** Timer handle for camera transition */
     FTimerHandle CameraTransitionTimerHandle;
@@ -290,4 +327,24 @@ private:
     float RotationAngle;
     bool bIsHoldingObject;
     FVector InitialGrabOffset;
+    UPROPERTY()
+    ABuildModeCameraActor* BuildModeCamera;
+    UPROPERTY()
+
+    UUserWidget* BuildModeWidget;
+
+    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, meta = (AllowPrivateAccess = "true"))
+
+    class UInputAction* BuildModeAction;
+
+    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, meta = (AllowPrivateAccess = "true"))
+    class UInputAction* BuildModeRotateAction;
+
+    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, meta = (AllowPrivateAccess = "true"))
+    class UInputAction* RightMouseButtonPressedAction;
+    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, meta = (AllowPrivateAccess = "true"))
+    class UInputAction* RightMouseButtonReleasedAction;
+    void SetupBuildModeInputs();
+    void UpdateMovementState();
+    void SetupInputMappingContexts();
 };
