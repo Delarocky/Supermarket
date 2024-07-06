@@ -9,8 +9,9 @@
 #include "Shelf.h"
 #include "Blueprint/UserWidget.h"  // Add this include
 #include "MoneyDisplayWidget.h"
-#include "MovementBoundary.h"
 #include "Camera/CameraComponent.h"
+#include "Components/BoxComponent.h"
+#include "Engine/PostProcessVolume.h"
 #include "BuildModeCameraActor.h"
 #include "SupermarketCharacter.generated.h"
 
@@ -96,8 +97,26 @@ class ASupermarketCharacter : public ACharacter
 public:
     ASupermarketCharacter();
 
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement")
-    TArray<AMovementBoundary*> MovementBoundaries;
+    FVector ClampLocationToBuildingArea(const FVector& Location);
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Build Mode")
+    UBoxComponent* BuildingArea;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Build Mode")
+    APostProcessVolume* HighlightVolume;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Build Mode")
+    UMaterialInterface* HighlightMaterial;
+
+    UFUNCTION(BlueprintCallable, Category = "Build Mode")
+    void ToggleObjectMovement();
+
+    UFUNCTION(BlueprintCallable, Category = "Build Mode")
+    void RotateObjectLeft();
+
+    UFUNCTION(BlueprintCallable, Category = "Build Mode")
+    void RotateObjectRight();
+   
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Build Mode")
     bool bIsBuildModeActive;
 
@@ -120,7 +139,34 @@ public:
 protected:
     virtual void BeginPlay();
 
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Build Mode")
+    float RotationAngle;
+
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Build Mode")
+    AActor* SelectedObject;
+
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Build Mode")
+    bool bIsMovingObject;
+
+    UFUNCTION()
+    void OnLeftMouseButtonPressed();
+
+    UFUNCTION()
+    void OnLeftMouseButtonReleased();
+
+    UFUNCTION()
+    void MoveSelectedObject();
+
+    UFUNCTION()
+    void HighlightHoveredObject(AActor* HoveredActor);
+
 public:
+
+    UFUNCTION(BlueprintCallable, Category = "Build Mode")
+    void SetBuildingAreaSize(const FVector& NewSize);
+
+    UFUNCTION(BlueprintCallable, Category = "Build Mode")
+    void SetBuildingAreaLocation(const FVector& NewLocation);
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Interaction")
     FVector ProductBoxOffset;
@@ -298,14 +344,12 @@ private:
     void SetupTabletScreen();
     void CreateMoneyDisplayWidget();
     FTimerHandle MoveObjectTimerHandle;
-    TScriptInterface<IMovableObject> CurrentMovableObject;
+    
     FVector ObjectOriginalLocation;
     FRotator ObjectOriginalRotation;
-    bool bIsMovingObject;
     UPROPERTY(EditAnywhere, Category = "Movement")
     float MaxMoveDistance;
-    UPROPERTY(EditAnywhere, Category = "Movement")
-    float RotationAngle;
+    
     bool bIsHoldingObject;
     FVector InitialGrabOffset;
     UPROPERTY()
@@ -329,4 +373,7 @@ private:
     void UpdateMovementState();
     void SetupInputMappingContexts();
 
+    FVector GetMouseWorldPosition();
+    AActor* GetActorUnderCursor();
+    bool IsActorInBuildingArea(AActor* Actor);
 };

@@ -3,7 +3,6 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
-#include "IMovableObject.h"
 #include "Checkout.generated.h"
 
 class USceneComponent;

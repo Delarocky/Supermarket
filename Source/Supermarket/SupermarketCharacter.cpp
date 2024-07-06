@@ -16,8 +16,8 @@
 #include "Kismet/GameplayStatics.h"
 #include "Components/WidgetComponent.h"
 #include "Blueprint/UserWidget.h"
-#include "MovementBoundary.h"
 #include "BuildModeWidget.h"
+#include "Components/BoxComponent.h"
 #include "Checkout.h"
 #include "Kismet/KismetSystemLibrary.h"
 #include "DrawDebugHelpers.h"
@@ -91,6 +91,21 @@ ASupermarketCharacter::ASupermarketCharacter()
     bIsCameraTransitioning = false;
 
     PrimaryActorTick.bCanEverTick = true;
+
+    /*
+    BuildingArea = CreateDefaultSubobject<UBoxComponent>(TEXT("BuildingArea"));
+    if (BuildingArea)
+    {
+        BuildingArea->SetupAttachment(RootComponent);
+        BuildingArea->SetBoxExtent(FVector(1000.0f, 1000.0f, 100.0f));
+        BuildingArea->SetCollisionProfileName(TEXT("OverlapAll"));
+    }
+    */
+    // Initialize other member variables
+    HighlightVolume = nullptr;
+    RotationAngle = 45.0f;
+    bIsMovingObject = false;
+    SelectedObject = nullptr;
 }
 
 void ASupermarketCharacter::Tick(float DeltaTime)
@@ -109,6 +124,17 @@ void ASupermarketCharacter::Tick(float DeltaTime)
     }
 
     UpdateProductBoxTransform();
+
+    if (bIsBuildModeActive)
+    {
+        AActor* HoveredActor = GetActorUnderCursor();
+        HighlightHoveredObject(HoveredActor);
+
+        if (bIsMovingObject && SelectedObject)
+        {
+            MoveSelectedObject();
+        }
+    }
 }
 
 void ASupermarketCharacter::BeginPlay()
@@ -140,6 +166,50 @@ void ASupermarketCharacter::BeginPlay()
             Subsystem->AddMappingContext(SupermarketMappingContext, 0);
         }
     }
+
+    if (!HighlightVolume && GetWorld())
+    {
+        FActorSpawnParameters SpawnParams;
+        SpawnParams.Owner = this;
+        HighlightVolume = GetWorld()->SpawnActor<APostProcessVolume>(APostProcessVolume::StaticClass(), FVector::ZeroVector, FRotator::ZeroRotator, SpawnParams);
+
+        if (HighlightVolume)
+        {
+            HighlightVolume->bUnbound = true;
+            HighlightVolume->Settings.bOverride_DynamicGlobalIlluminationMethod = true;
+            HighlightVolume->Settings.DynamicGlobalIlluminationMethod = EDynamicGlobalIlluminationMethod::Lumen;
+            UE_LOG(LogTemp, Log, TEXT("HighlightVolume created successfully"));
+        }
+        else
+        {
+            UE_LOG(LogTemp, Error, TEXT("Failed to create HighlightVolume"));
+        }
+    }
+    else if (HighlightVolume)
+    {
+        UE_LOG(LogTemp, Warning, TEXT("HighlightVolume already exists"));
+    }
+    else
+    {
+        UE_LOG(LogTemp, Error, TEXT("Invalid World context"));
+    }
+
+    
+    // Spawn BuildingArea in the world instead of attaching to the character
+    if (!BuildingArea)
+    {
+        BuildingArea = NewObject<UBoxComponent>(this, TEXT("BuildingArea"));
+        if (BuildingArea)
+        {
+            BuildingArea->RegisterComponent();
+            BuildingArea->SetWorldLocation(FVector(1941, 2477, 95)); // Set to desired location
+            BuildingArea->SetBoxExtent(FVector(1000.0f, 1000.0f, 100.0f));
+            BuildingArea->SetCollisionProfileName(TEXT("NoCollision"));
+            BuildingArea->SetHiddenInGame(false); // Make it visible for debugging
+        }
+    }
+  
+
 }
 
 //////////////////////////////////////////////////////////////////////////// Input
@@ -172,6 +242,12 @@ void ASupermarketCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInp
         EnhancedInputComponent->BindAction(BuildModeRotateAction, ETriggerEvent::Triggered, this, &ASupermarketCharacter::RotateInBuildMode);
         EnhancedInputComponent->BindAction(RightMouseButtonPressedAction, ETriggerEvent::Started, this, &ASupermarketCharacter::OnRightMouseButtonPressed);
         EnhancedInputComponent->BindAction(RightMouseButtonReleasedAction, ETriggerEvent::Completed, this, &ASupermarketCharacter::OnRightMouseButtonReleased);
+
+        PlayerInputComponent->BindAction("ToggleObjectMovement", IE_Pressed, this, &ASupermarketCharacter::ToggleObjectMovement);
+        PlayerInputComponent->BindAction("RotateObjectLeft", IE_Pressed, this, &ASupermarketCharacter::RotateObjectLeft);
+        PlayerInputComponent->BindAction("RotateObjectRight", IE_Pressed, this, &ASupermarketCharacter::RotateObjectRight);
+        PlayerInputComponent->BindAction("LeftMouseButton", IE_Pressed, this, &ASupermarketCharacter::OnLeftMouseButtonPressed);
+        PlayerInputComponent->BindAction("LeftMouseButton", IE_Released, this, &ASupermarketCharacter::OnLeftMouseButtonReleased);
     }
     else
     {
@@ -940,3 +1016,214 @@ void ASupermarketCharacter::SetupInputMappingContexts()
     }
 }
 
+void ASupermarketCharacter::ToggleObjectMovement()
+{
+    if (!bIsBuildModeActive) return;
+
+    bIsMovingObject = !bIsMovingObject;
+    if (bIsMovingObject)
+    {
+        SelectedObject = GetActorUnderCursor();
+        if (SelectedObject)
+        {
+            UE_LOG(LogTemp, Display, TEXT("Selected object: %s"), *SelectedObject->GetName());
+        }
+    }
+    else
+    {
+        if (SelectedObject)
+        {
+            UE_LOG(LogTemp, Display, TEXT("Placed object: %s"), *SelectedObject->GetName());
+        }
+        SelectedObject = nullptr;
+    }
+}
+
+void ASupermarketCharacter::RotateObjectLeft()
+{
+    if (bIsBuildModeActive && SelectedObject)
+    {
+        SelectedObject->AddActorWorldRotation(FRotator(0, -RotationAngle, 0));
+        UE_LOG(LogTemp, Display, TEXT("Rotated object left: %s"), *SelectedObject->GetName());
+    }
+}
+
+void ASupermarketCharacter::RotateObjectRight()
+{
+    if (bIsBuildModeActive && SelectedObject)
+    {
+        SelectedObject->AddActorWorldRotation(FRotator(0, RotationAngle, 0));
+        UE_LOG(LogTemp, Display, TEXT("Rotated object right: %s"), *SelectedObject->GetName());
+    }
+}
+
+void ASupermarketCharacter::OnLeftMouseButtonPressed()
+{
+    if (bIsBuildModeActive)
+    {
+        ToggleObjectMovement();
+    }
+}
+
+void ASupermarketCharacter::OnLeftMouseButtonReleased()
+{
+    if (bIsBuildModeActive && bIsMovingObject)
+    {
+        ToggleObjectMovement();
+    }
+}
+
+void ASupermarketCharacter::MoveSelectedObject()
+{
+    if (SelectedObject && BuildingArea)
+    {
+        FVector MouseWorldPosition = GetMouseWorldPosition();
+        FVector NewLocation = MouseWorldPosition;
+
+        // Ensure the object stays at its original height
+        NewLocation.Z = SelectedObject->GetActorLocation().Z;
+
+        // Move the object to the new location
+        SelectedObject->SetActorLocation(NewLocation);
+
+        // Check if the new position is within the building area
+        if (!IsActorInBuildingArea(SelectedObject))
+        {
+            // If outside, clamp the position to the building area bounds
+            FVector ClampedLocation = ClampLocationToBuildingArea(NewLocation);
+            SelectedObject->SetActorLocation(ClampedLocation);
+        }
+
+        UE_LOG(LogTemp, Verbose, TEXT("Moving object to: %s"), *NewLocation.ToString());
+    }
+}
+
+
+void ASupermarketCharacter::HighlightHoveredObject(AActor* HoveredActor)
+{
+    static AActor* LastHighlightedActor = nullptr;
+
+    // Clear previous highlight
+    if (LastHighlightedActor && LastHighlightedActor != HoveredActor)
+    {
+        TArray<UStaticMeshComponent*> MeshComponents;
+        LastHighlightedActor->GetComponents<UStaticMeshComponent>(MeshComponents);
+        for (UStaticMeshComponent* MeshComponent : MeshComponents)
+        {
+            if (MeshComponent)
+            {
+                MeshComponent->SetRenderCustomDepth(false);
+            }
+        }
+    }
+
+    // Apply new highlight
+    if (HoveredActor && HoveredActor != LastHighlightedActor)
+    {
+        TArray<UStaticMeshComponent*> MeshComponents;
+        HoveredActor->GetComponents<UStaticMeshComponent>(MeshComponents);
+        for (UStaticMeshComponent* MeshComponent : MeshComponents)
+        {
+            if (MeshComponent)
+            {
+                MeshComponent->SetRenderCustomDepth(true);
+                MeshComponent->SetCustomDepthStencilValue(1); // Make sure this value matches your post-process material
+            }
+        }
+        UE_LOG(LogTemp, Verbose, TEXT("Highlighting object: %s"), *HoveredActor->GetName());
+    }
+
+    LastHighlightedActor = HoveredActor;
+}
+
+FVector ASupermarketCharacter::GetMouseWorldPosition()
+{
+    APlayerController* PlayerController = UGameplayStatics::GetPlayerController(this, 0);
+    if (PlayerController)
+    {
+        FVector WorldLocation, WorldDirection;
+        if (PlayerController->DeprojectMousePositionToWorld(WorldLocation, WorldDirection))
+        {
+            // Use the BuildModeCamera for raycasting if it exists
+            FVector Start = BuildModeCamera ? BuildModeCamera->GetActorLocation() : WorldLocation;
+            FVector End = Start + WorldDirection * 10000.0f;
+
+            FHitResult HitResult;
+            FCollisionQueryParams CollisionParams;
+            CollisionParams.AddIgnoredActor(this);
+            CollisionParams.AddIgnoredActor(BuildModeCamera);
+
+            if (GetWorld()->LineTraceSingleByChannel(HitResult, Start, End, ECC_Visibility, CollisionParams))
+            {
+                return HitResult.Location;
+            }
+        }
+    }
+    return FVector::ZeroVector;
+}
+
+AActor* ASupermarketCharacter::GetActorUnderCursor()
+{
+    APlayerController* PlayerController = Cast<APlayerController>(GetController());
+    if (!PlayerController)
+    {
+        return nullptr;
+    }
+
+    FHitResult HitResult;
+    if (PlayerController->GetHitResultUnderCursor(ECC_Visibility, false, HitResult))
+    {
+        return HitResult.GetActor();
+    }
+
+    return nullptr;
+}
+
+bool ASupermarketCharacter::IsActorInBuildingArea(AActor* Actor)
+{
+    if (Actor && BuildingArea)
+    {
+        FVector ActorLocation = Actor->GetActorLocation();
+        FVector BoxLocation = BuildingArea->GetComponentLocation();
+        FVector BoxExtent = BuildingArea->GetScaledBoxExtent();
+
+        // Check if the actor's location is within the box bounds
+        bool bXInBounds = FMath::Abs(ActorLocation.X - BoxLocation.X) <= BoxExtent.X;
+        bool bYInBounds = FMath::Abs(ActorLocation.Y - BoxLocation.Y) <= BoxExtent.Y;
+        bool bZInBounds = FMath::Abs(ActorLocation.Z - BoxLocation.Z) <= BoxExtent.Z;
+
+        return bXInBounds && bYInBounds && bZInBounds;
+    }
+    return false;
+}
+
+void ASupermarketCharacter::SetBuildingAreaSize(const FVector& NewSize)
+{
+    if (BuildingArea)
+    {
+        BuildingArea->SetBoxExtent(NewSize);
+    }
+}
+
+void ASupermarketCharacter::SetBuildingAreaLocation(const FVector& NewLocation)
+{
+    if (BuildingArea)
+    {
+        BuildingArea->SetWorldLocation(NewLocation);
+    }
+}
+
+FVector ASupermarketCharacter::ClampLocationToBuildingArea(const FVector& Location)
+{
+    if (!BuildingArea) return Location;
+
+    FVector BuildingAreaLocation = BuildingArea->GetComponentLocation();
+    FVector BuildingAreaExtent = BuildingArea->GetScaledBoxExtent();
+
+    FVector ClampedLocation;
+    ClampedLocation.X = FMath::Clamp(Location.X, BuildingAreaLocation.X - BuildingAreaExtent.X, BuildingAreaLocation.X + BuildingAreaExtent.X);
+    ClampedLocation.Y = FMath::Clamp(Location.Y, BuildingAreaLocation.Y - BuildingAreaExtent.Y, BuildingAreaLocation.Y + BuildingAreaExtent.Y);
+    ClampedLocation.Z = Location.Z; // Keep the original Z value
+
+    return ClampedLocation;
+}

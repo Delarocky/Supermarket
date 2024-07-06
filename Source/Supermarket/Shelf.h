@@ -8,7 +8,6 @@
 #include "Components/SceneComponent.h"
 #include "Product.h"
 #include "ProductBox.h"
-#include "IMovableObject.h"
 #include "Shelf.generated.h"
 
 
