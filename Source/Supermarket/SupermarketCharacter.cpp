@@ -100,10 +100,11 @@ void ASupermarketCharacter::Tick(float DeltaTime)
     {
         UpdateCameraTransition();
     }
-    if (bIsMovingObject)
+    
+
+    if (bIsBuildModeActive && BuildModeCamera)
     {
-        UE_LOG(LogTemp, Verbose, TEXT("Tick: Calling UpdateObjectPosition"));
-        UpdateObjectPosition();
+        LastBuildModeCameraTransform = BuildModeCamera->GetActorTransform();
     }
 
     UpdateProductBoxTransform();
@@ -114,6 +115,7 @@ void ASupermarketCharacter::BeginPlay()
     // Call the base class  
     Super::BeginPlay();
     CreateMoneyDisplayWidget();
+    
     OriginalCameraRotation = FirstPersonCameraComponent->GetRelativeRotation();
     OriginalCameraFOV = FirstPersonCameraComponent->FieldOfView;
     SetupTabletScreen();
@@ -121,7 +123,7 @@ void ASupermarketCharacter::BeginPlay()
     {
         OriginalControllerRotation = Controller->GetControlRotation();
     }
-    FindMovementBoundaries();
+    
     SetupBuildModeInputs();
     SetupInputMappingContexts();
     UpdateMovementState(); // Ensure correct initial state
@@ -163,10 +165,6 @@ void ASupermarketCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInp
 
         EnhancedInputComponent->BindAction(TabletClickAction, ETriggerEvent::Started, this, &ASupermarketCharacter::OnTabletClickInput);
 
-        EnhancedInputComponent->BindAction(MoveObjectAction, ETriggerEvent::Started, this, &ASupermarketCharacter::OnMoveObjectActionPressed);
-        EnhancedInputComponent->BindAction(MoveObjectAction, ETriggerEvent::Completed, this, &ASupermarketCharacter::OnMoveObjectActionReleased);
-        EnhancedInputComponent->BindAction(RotateLeftAction, ETriggerEvent::Triggered, this, &ASupermarketCharacter::RotateObjectLeft);
-        EnhancedInputComponent->BindAction(RotateRightAction, ETriggerEvent::Triggered, this, &ASupermarketCharacter::RotateObjectRight);
 
         EnhancedInputComponent->BindAction(BuildModeAction, ETriggerEvent::Started, this, &ASupermarketCharacter::ToggleBuildMode);
         EnhancedInputComponent->BindAction(MoveAction, ETriggerEvent::Triggered, this, &ASupermarketCharacter::MoveInBuildMode);
@@ -770,186 +768,7 @@ void ASupermarketCharacter::CreateMoneyDisplayWidget()
     }
 }
 
-void ASupermarketCharacter::OnMoveObjectActionPressed()
-{
-    UE_LOG(LogTemp, Log, TEXT("OnMoveObjectActionPressed called"));
-    GetWorldTimerManager().SetTimer(MoveObjectTimerHandle, this, &ASupermarketCharacter::StartMovingObject, MoveObjectHoldTime, false);
-}
 
-void ASupermarketCharacter::OnMoveObjectActionReleased()
-{
-    UE_LOG(LogTemp, Log, TEXT("OnMoveObjectActionReleased called"));
-    StopMovingObject();
-}
-
-
-
-void ASupermarketCharacter::StartMovingObject()
-{
-    if (bIsHoldingObject)
-    {
-        StopMovingObject();
-        return;
-    }
-
-    UE_LOG(LogTemp, Log, TEXT("StartMovingObject called"));
-    FHitResult HitResult;
-    FVector Start = FirstPersonCameraComponent->GetComponentLocation();
-    FVector End = Start + FirstPersonCameraComponent->GetForwardVector() * MaxMoveDistance;
-
-    FCollisionQueryParams QueryParams;
-    QueryParams.AddIgnoredActor(this);
-
-    if (GetWorld()->LineTraceSingleByChannel(HitResult, Start, End, ECC_Visibility, QueryParams))
-    {
-        AActor* HitActor = HitResult.GetActor();
-        if (HitActor && HitActor->Implements<UMovableObject>())
-        {
-            CurrentMovableObject = TScriptInterface<IMovableObject>(HitActor);
-            if (CurrentMovableObject.GetObject())
-            {
-                ObjectOriginalLocation = HitActor->GetActorLocation();
-                ObjectOriginalRotation = HitActor->GetActorRotation();
-                InitialGrabOffset = HitResult.Location - ObjectOriginalLocation;
-                bIsMovingObject = true;
-                bIsHoldingObject = true;
-                IMovableObject::Execute_StartMoving(CurrentMovableObject.GetObject());
-                UE_LOG(LogTemp, Log, TEXT("Started moving object: %s"), *HitActor->GetName());
-            }
-        }
-    }
-}
-
-
-void ASupermarketCharacter::StopMovingObject()
-{
-    if (CurrentMovableObject.GetObject())
-    {
-        bool bIsValidPlacement = IMovableObject::Execute_IsValidPlacement(CurrentMovableObject.GetObject());
-        if (!bIsValidPlacement)
-        {
-            AActor* MovableActor = Cast<AActor>(CurrentMovableObject.GetObject());
-            if (MovableActor)
-            {
-                MovableActor->SetActorLocation(ObjectOriginalLocation);
-                MovableActor->SetActorRotation(ObjectOriginalRotation);
-            }
-        }
-        IMovableObject::Execute_StopMoving(CurrentMovableObject.GetObject());
-        CurrentMovableObject = nullptr;
-    }
-    bIsMovingObject = false;
-    bIsHoldingObject = false;
-    UE_LOG(LogTemp, Log, TEXT("Stopped moving object"));
-}
-
-void ASupermarketCharacter::RotateObjectLeft()
-{
-    if (bIsMovingObject && CurrentMovableObject.GetObject())
-    {
-        IMovableObject::Execute_RotateLeft(CurrentMovableObject.GetObject());
-        AActor* MovableActor = Cast<AActor>(CurrentMovableObject.GetObject());
-        if (MovableActor)
-        {
-            MovableActor->AddActorWorldRotation(FRotator(0, -RotationAngle, 0));
-        }
-        UE_LOG(LogTemp, Log, TEXT("Rotated object left"));
-    }
-}
-
-void ASupermarketCharacter::RotateObjectRight()
-{
-    if (bIsMovingObject && CurrentMovableObject.GetObject())
-    {
-        IMovableObject::Execute_RotateRight(CurrentMovableObject.GetObject());
-        AActor* MovableActor = Cast<AActor>(CurrentMovableObject.GetObject());
-        if (MovableActor)
-        {
-            MovableActor->AddActorWorldRotation(FRotator(0, RotationAngle, 0));
-        }
-        UE_LOG(LogTemp, Log, TEXT("Rotated object right"));
-    }
-}
-
-void ASupermarketCharacter::UpdateObjectPosition()
-{
-    if (!CurrentMovableObject.GetObject() || !bIsMovingObject)
-    {
-        return;
-    }
-
-    FVector Start = FirstPersonCameraComponent->GetComponentLocation();
-    FVector End = Start + FirstPersonCameraComponent->GetForwardVector() * MaxMoveDistance;
-
-    FHitResult HitResult;
-    FCollisionQueryParams QueryParams;
-    QueryParams.AddIgnoredActor(this);
-    QueryParams.AddIgnoredActor(Cast<AActor>(CurrentMovableObject.GetObject()));
-
-    if (GetWorld()->LineTraceSingleByChannel(HitResult, Start, End, ECC_Visibility, QueryParams))
-    {
-        FVector NewLocation = HitResult.Location - InitialGrabOffset;
-        NewLocation.Z = ObjectOriginalLocation.Z;
-
-        AActor* MovableActor = Cast<AActor>(CurrentMovableObject.GetObject());
-        if (MovableActor)
-        {
-            // Check if the new location is within any movement boundary
-            bool bIsWithinBoundary = false;
-            for (AMovementBoundary* Boundary : MovementBoundaries)
-            {
-                if (Boundary && Boundary->IsPointWithinBoundary(NewLocation))
-                {
-                    bIsWithinBoundary = true;
-                    break;
-                }
-            }
-
-            if (!bIsWithinBoundary)
-            {
-                // Find the closest point within a boundary
-                FVector ClosestPoint = NewLocation;
-                float ClosestDistance = MAX_FLT;
-                for (AMovementBoundary* Boundary : MovementBoundaries)
-                {
-                    if (Boundary)
-                    {
-                        FVector ClampedPoint = Boundary->ClampPointToBoundary(NewLocation);
-                        float Distance = FVector::DistSquared(NewLocation, ClampedPoint);
-                        if (Distance < ClosestDistance)
-                        {
-                            ClosestDistance = Distance;
-                            ClosestPoint = ClampedPoint;
-                        }
-                    }
-                }
-                NewLocation = ClosestPoint;
-            }
-
-            MovableActor->SetActorLocation(NewLocation);
-
-            bool bIsValidPlacement = IMovableObject::Execute_IsValidPlacement(CurrentMovableObject.GetObject());
-            IMovableObject::Execute_UpdateOutline(CurrentMovableObject.GetObject(), bIsValidPlacement);
-        }
-    }
-}
-
-void ASupermarketCharacter::FindMovementBoundaries()
-{
-    MovementBoundaries.Empty();
-    TArray<AActor*> FoundActors;
-    UGameplayStatics::GetAllActorsOfClass(GetWorld(), AMovementBoundary::StaticClass(), FoundActors);
-
-    for (AActor* Actor : FoundActors)
-    {
-        if (AMovementBoundary* Boundary = Cast<AMovementBoundary>(Actor))
-        {
-            MovementBoundaries.Add(Boundary);
-        }
-    }
-
-    UE_LOG(LogTemp, Log, TEXT("Found %d movement boundaries"), MovementBoundaries.Num());
-}
 
 void ASupermarketCharacter::SetupBuildModeInputs()
 {
@@ -983,12 +802,36 @@ void ASupermarketCharacter::ToggleBuildMode()
                 {
                     FActorSpawnParameters SpawnParams;
                     SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
-                    BuildModeCamera = GetWorld()->SpawnActor<ABuildModeCameraActor>(BuildModeCameraClass, GetActorLocation(), FRotator::ZeroRotator, SpawnParams);
+
+                    // Set the spawn location to the player's position
+                    FVector SpawnLocation = GetActorLocation();
+                    // You can adjust this offset if needed
+                    SpawnLocation.Z += 1000.0f; // Raise the camera 1000 units above the player
+
+                    FRotator SpawnRotation(-60.0f, 0.0f, 0.0f); // Default downward angle
+
+                    BuildModeCamera = GetWorld()->SpawnActor<ABuildModeCameraActor>(BuildModeCameraClass, SpawnLocation, SpawnRotation, SpawnParams);
+
+                    if (BuildModeCamera)
+                    {
+                        // Set the pivot point to the player's location
+                        BuildModeCamera->SetPivotLocation(GetActorLocation());
+                    }
                 }
 
                 if (BuildModeCamera)
                 {
                     PlayerController->SetViewTargetWithBlend(BuildModeCamera, 0.5f);
+                }
+
+                // Create and display the build mode widget
+                if (BuildModeWidgetClass && !BuildModeWidget)
+                {
+                    BuildModeWidget = CreateWidget<UUserWidget>(GetWorld(), BuildModeWidgetClass);
+                    if (BuildModeWidget)
+                    {
+                        BuildModeWidget->AddToViewport();
+                    }
                 }
             }
             else
@@ -1004,6 +847,13 @@ void ASupermarketCharacter::ToggleBuildMode()
                 }
 
                 PlayerController->SetViewTargetWithBlend(this, 0.5f);
+
+                // Remove the build mode widget
+                if (BuildModeWidget)
+                {
+                    BuildModeWidget->RemoveFromParent();
+                    BuildModeWidget = nullptr;
+                }
             }
         }
     }
@@ -1011,6 +861,7 @@ void ASupermarketCharacter::ToggleBuildMode()
     // Disable character movement in build mode
     GetCharacterMovement()->SetMovementMode(bIsBuildModeActive ? MOVE_None : MOVE_Walking);
 }
+
 
 void ASupermarketCharacter::MoveInBuildMode(const FInputActionValue& Value)
 {
@@ -1085,3 +936,4 @@ void ASupermarketCharacter::SetupInputMappingContexts()
         }
     }
 }
+

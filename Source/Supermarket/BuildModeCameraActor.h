@@ -28,14 +28,14 @@ public:
     float MoveSpeed = 1000.0f;
 
     
-    float RotateSpeed = 10.0f;
+    float RotateSpeed = 15.0f;
 
     USceneComponent* PivotPoint;
     
-    float CameraDistance = 1000.0f;
+    float CameraDistance = 750.0f;
    
-    float CameraHeight = 1000.0f;
-
+    float CameraHeight = 750.0f;
+    void SetPivotLocation(const FVector& NewPivotLocation);
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Build Mode")
     float CameraPitch = -45.0f;
 private:

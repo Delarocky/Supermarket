@@ -92,7 +92,7 @@ class ASupermarketCharacter : public ACharacter
     UPROPERTY(EditAnywhere, Category = "Movement")
     float MoveObjectHoldTime;
 
-  
+    FTransform LastBuildModeCameraTransform;
 public:
     ASupermarketCharacter();
 
@@ -168,29 +168,9 @@ public:
     UUserWidget* GetTabletScreenWidget() const;
     UFUNCTION(BlueprintImplementableEvent, Category = "Tablet")
     void OnTabletClicked(const FVector2D& ClickPosition);
-    UFUNCTION(BlueprintCallable, Category = "Movement")
-    void FindMovementBoundaries();
+
 protected:
-    UFUNCTION()
-    void OnMoveObjectActionPressed();
 
-    UFUNCTION()
-    void OnMoveObjectActionReleased();
-
-    UFUNCTION()
-    void StartMovingObject();
-
-    UFUNCTION()
-    void StopMovingObject();
-
-    UFUNCTION()
-    void RotateObjectLeft();
-
-    UFUNCTION()
-    void RotateObjectRight();
-
-    UFUNCTION()
-    void UpdateObjectPosition();
 
     /** Called for movement input */
     void Move(const FInputActionValue& Value);
@@ -280,6 +260,7 @@ public:
 
     UFUNCTION(BlueprintCallable, Category = "Build Mode")
     void OnRightMouseButtonReleased();
+
 private:
     /** Timer handle for camera transition */
     FTimerHandle CameraTransitionTimerHandle;
@@ -347,4 +328,5 @@ private:
     void SetupBuildModeInputs();
     void UpdateMovementState();
     void SetupInputMappingContexts();
+
 };

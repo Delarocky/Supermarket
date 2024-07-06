@@ -56,3 +56,12 @@ void ABuildModeCameraActor::UpdateCameraPosition()
     CameraComponent->SetWorldLocation(CameraLocation);
     CameraComponent->SetWorldRotation(FRotator(CameraPitch, PivotPoint->GetComponentRotation().Yaw, 0.0f));
 }
+
+void ABuildModeCameraActor::SetPivotLocation(const FVector& NewPivotLocation)
+{
+    if (PivotPoint)
+    {
+        PivotPoint->SetWorldLocation(NewPivotLocation);
+        UpdateCameraPosition();
+    }
+}
