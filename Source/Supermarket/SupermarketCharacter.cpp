@@ -17,6 +17,7 @@
 #include "Components/WidgetComponent.h"
 #include "Blueprint/UserWidget.h"
 #include "MovementBoundary.h"
+#include "BuildModeWidget.h"
 #include "Checkout.h"
 #include "Kismet/KismetSystemLibrary.h"
 #include "DrawDebugHelpers.h"
