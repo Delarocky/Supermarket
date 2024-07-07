@@ -19,8 +19,13 @@
 #include "BuildModeWidget.h"
 #include "Components/BoxComponent.h"
 #include "Checkout.h"
+#include "Components/PrimitiveComponent.h"
 #include "Kismet/KismetSystemLibrary.h"
+#include "Camera/CameraComponent.h"
+#include "BuildModeCameraActor.h"
+#include "Engine/StaticMeshActor.h"
 #include "DrawDebugHelpers.h"
+#include "Kismet/GameplayStatics.h"
 #include "GameFramework/CharacterMovementComponent.h"
 
 FVector IntersectRayWithPlane(const FVector& RayOrigin, const FVector& RayDirection, const FPlane& Plane)
@@ -1068,7 +1073,7 @@ void ASupermarketCharacter::OnLeftMouseButtonPressed()
 {
     if (bIsBuildModeActive)
     {
-        ToggleObjectMovement();
+        StartObjectMovement();
     }
 }
 
@@ -1210,7 +1215,11 @@ AActor* ASupermarketCharacter::GetActorUnderCursor()
     FHitResult HitResult;
     if (PlayerController->GetHitResultUnderCursor(ECC_Visibility, false, HitResult))
     {
-        return HitResult.GetActor();
+        AActor* HitActor = HitResult.GetActor();
+        if (CanObjectBeMoved(HitActor))
+        {
+            return HitActor;
+        }
     }
 
     return nullptr;
@@ -1274,19 +1283,29 @@ void ASupermarketCharacter::UpdateObjectPosition()
     if (!PlayerController)
         return;
 
+    // Get current mouse position in screen space
     FVector2D CurrentMousePosition;
     PlayerController->GetMousePosition(CurrentMousePosition.X, CurrentMousePosition.Y);
 
-    // Calculate mouse movement in screen space
-    FVector2D MouseDelta = CurrentMousePosition - InitialMousePosition;
+    // Calculate the world position of the current mouse cursor
+    FVector WorldPosition, WorldDirection;
+    PlayerController->DeprojectScreenPositionToWorld(CurrentMousePosition.X, CurrentMousePosition.Y, WorldPosition, WorldDirection);
 
-    // Convert screen space movement to world space movement
-    FVector WorldSpaceMovement = (CameraRight * MouseDelta.X + CameraForward * -MouseDelta.Y) * 0.5f; // Adjust multiplier as needed
+    // Calculate the movement plane (parallel to the camera's view)
+    FVector CameraLocation = BuildModeCamera->GetActorLocation();
+    FVector CameraForwardVector = BuildModeCamera->GetActorForwardVector();
+    FPlane ObjectMovementPlane(InitialHitPoint, CameraForwardVector);
 
-    FVector NewLocation = InitialObjectPosition + WorldSpaceMovement;
-    NewLocation.Z = InitialObjectPosition.Z; // Maintain original height
+    // Find the intersection point between the mouse ray and the movement plane
+    FVector NewHitPoint = FMath::RayPlaneIntersection(WorldPosition, WorldDirection, ObjectMovementPlane);
 
-    // Move the object to the new location
+    // Calculate the movement delta
+    FVector MovementDelta = NewHitPoint - InitialHitPoint;
+
+    // Apply the movement to the object
+    FVector NewLocation = InitialObjectTransform.GetLocation() + MovementDelta;
+
+    // Set the new location for the object
     SelectedObject->SetActorLocation(NewLocation);
 
     // Check if the new position is within the building area
@@ -1296,8 +1315,6 @@ void ASupermarketCharacter::UpdateObjectPosition()
         FVector ClampedLocation = ClampLocationToBuildingArea(NewLocation);
         SelectedObject->SetActorLocation(ClampedLocation);
     }
-
-    UE_LOG(LogTemp, Verbose, TEXT("Moving object to: %s"), *NewLocation.ToString());
 }
 
 
@@ -1312,35 +1329,56 @@ void ASupermarketCharacter::StartObjectMovement()
     if (!bIsBuildModeActive || !BuildModeCamera)
         return;
 
-    SelectedObject = GetActorUnderCursor();
-    if (!SelectedObject)
-        return;
-
     APlayerController* PlayerController = Cast<APlayerController>(GetController());
     if (!PlayerController)
         return;
 
-    bIsMovingObject = true;
-    InitialObjectPosition = SelectedObject->GetActorLocation();
+    FHitResult HitResult;
+    PlayerController->GetHitResultUnderCursor(ECC_Visibility, false, HitResult);
 
-    // Get the camera component from BuildModeCamera
-    UCameraComponent* CameraComponent = BuildModeCamera->FindComponentByClass<UCameraComponent>();
-    if (CameraComponent)
+    SelectedObject = HitResult.GetActor();
+    if (!SelectedObject || !CanObjectBeMoved(SelectedObject))
     {
-        // Store camera vectors for movement calculations
-        CameraRight = CameraComponent->GetRightVector();
-        CameraForward = CameraComponent->GetForwardVector();
-        CameraRight.Z = 0;
-        CameraForward.Z = 0;
-        CameraRight.Normalize();
-        CameraForward.Normalize();
-    }
-    else
-    {
-        UE_LOG(LogTemp, Error, TEXT("Camera component not found in BuildModeCamera"));
+        SelectedObject = nullptr;
         return;
     }
 
-    // Store initial mouse position
-    PlayerController->GetMousePosition(InitialMousePosition.X, InitialMousePosition.Y);
+    bIsMovingObject = true;
+
+    // Store the initial hit point in world space
+    InitialHitPoint = HitResult.ImpactPoint;
+
+    // Calculate and store the grab offset in object space
+    FVector LocalGrabOffset = SelectedObject->GetActorTransform().InverseTransformPosition(InitialHitPoint);
+    ClickOffset = LocalGrabOffset;
+
+    // Store the initial object transform
+    InitialObjectTransform = SelectedObject->GetActorTransform();
+}
+
+
+bool ASupermarketCharacter::CanObjectBeMoved(AActor* Actor)
+{
+    if (!Actor)
+        return false;
+
+    // Check if the actor has the "Moveable" tag
+    if (!Actor->ActorHasTag(FName("Moveable")))
+        return false;
+
+    // Check if the root component is movable
+    USceneComponent* ActorRootComponent = Actor->GetRootComponent();
+    if (!ActorRootComponent || ActorRootComponent->Mobility != EComponentMobility::Movable)
+        return false;
+
+    // If it's a StaticMeshActor, check if its StaticMeshComponent is movable
+    AStaticMeshActor* StaticMeshActor = Cast<AStaticMeshActor>(Actor);
+    if (StaticMeshActor)
+    {
+        UStaticMeshComponent* MeshComponent = StaticMeshActor->GetStaticMeshComponent();
+        if (!MeshComponent || MeshComponent->Mobility != EComponentMobility::Movable)
+            return false;
+    }
+
+    return true;
 }

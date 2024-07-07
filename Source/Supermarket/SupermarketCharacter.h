@@ -314,6 +314,8 @@ public:
 
     UFUNCTION(BlueprintCallable, Category = "Build Mode")
     void UpdateObjectPosition();
+    UFUNCTION(BlueprintCallable, Category = "Build Mode")
+    bool CanObjectBeMoved(AActor* Actor);
 private:
     /** Timer handle for camera transition */
     FTimerHandle CameraTransitionTimerHandle;
@@ -390,4 +392,8 @@ private:
     FVector2D LastMousePosition;
     FVector CameraRight;
     FVector CameraForward;
+    FVector InitialHitPoint;
+    FVector ClickOffset;
+    FTransform InitialObjectTransform;
+
 };
