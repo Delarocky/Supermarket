@@ -23,6 +23,12 @@
 #include "DrawDebugHelpers.h"
 #include "GameFramework/CharacterMovementComponent.h"
 
+FVector IntersectRayWithPlane(const FVector& RayOrigin, const FVector& RayDirection, const FPlane& Plane)
+{
+    float t = (Plane.W - FVector::DotProduct(Plane.GetNormal(), RayOrigin)) / FVector::DotProduct(Plane.GetNormal(), RayDirection);
+    return RayOrigin + RayDirection * t;
+}
+
 DEFINE_LOG_CATEGORY(LogTemplateCharacter);
 
 //////////////////////////////////////////////////////////////////////////
@@ -125,15 +131,9 @@ void ASupermarketCharacter::Tick(float DeltaTime)
 
     UpdateProductBoxTransform();
 
-    if (bIsBuildModeActive)
+    if (bIsBuildModeActive && bIsMovingObject && SelectedObject)
     {
-        AActor* HoveredActor = GetActorUnderCursor();
-        HighlightHoveredObject(HoveredActor);
-
-        if (bIsMovingObject && SelectedObject)
-        {
-            MoveSelectedObject();
-        }
+        MoveSelectedObject();
     }
 }
 
@@ -1027,6 +1027,13 @@ void ASupermarketCharacter::ToggleObjectMovement()
         if (SelectedObject)
         {
             UE_LOG(LogTemp, Display, TEXT("Selected object: %s"), *SelectedObject->GetName());
+            InitialObjectPosition = SelectedObject->GetActorLocation();
+
+            APlayerController* PC = Cast<APlayerController>(GetController());
+            if (PC)
+            {
+                PC->GetMousePosition(LastMousePosition.X, LastMousePosition.Y);
+            }
         }
     }
     else
@@ -1065,6 +1072,7 @@ void ASupermarketCharacter::OnLeftMouseButtonPressed()
     }
 }
 
+
 void ASupermarketCharacter::OnLeftMouseButtonReleased()
 {
     if (bIsBuildModeActive && bIsMovingObject)
@@ -1075,13 +1083,39 @@ void ASupermarketCharacter::OnLeftMouseButtonReleased()
 
 void ASupermarketCharacter::MoveSelectedObject()
 {
-    if (SelectedObject && BuildingArea)
-    {
-        FVector MouseWorldPosition = GetMouseWorldPosition();
-        FVector NewLocation = MouseWorldPosition;
+    if (!SelectedObject || !BuildModeCamera) return;
 
-        // Ensure the object stays at its original height
-        NewLocation.Z = SelectedObject->GetActorLocation().Z;
+    APlayerController* PC = Cast<APlayerController>(GetController());
+    if (!PC) return;
+
+    // Get mouse position in screen space
+    FVector2D MousePosition;
+    if (!PC->GetMousePosition(MousePosition.X, MousePosition.Y))
+    {
+        return;
+    }
+
+    // Get the camera component from BuildModeCamera
+    UCameraComponent* CameraComponent = BuildModeCamera->FindComponentByClass<UCameraComponent>();
+    if (!CameraComponent)
+    {
+        UE_LOG(LogTemp, Error, TEXT("Camera component not found in BuildModeCamera"));
+        return;
+    }
+
+    // Deproject screen space coordinate to world space
+    FVector WorldPosition, WorldDirection;
+    if (UGameplayStatics::DeprojectScreenToWorld(PC, MousePosition, WorldPosition, WorldDirection))
+    {
+        // Calculate the plane at the object's current height
+        FPlane ObjectMovementPlane(InitialObjectPosition, FVector::UpVector);
+
+        // Find the intersection point between the mouse ray and the movement plane
+        FVector IntersectionPoint = IntersectRayWithPlane(WorldPosition, WorldDirection, ObjectMovementPlane);
+
+        // Set the new location, maintaining the original Z position
+        FVector NewLocation = IntersectionPoint;
+        NewLocation.Z = InitialObjectPosition.Z;
 
         // Move the object to the new location
         SelectedObject->SetActorLocation(NewLocation);
@@ -1138,24 +1172,27 @@ void ASupermarketCharacter::HighlightHoveredObject(AActor* HoveredActor)
 
 FVector ASupermarketCharacter::GetMouseWorldPosition()
 {
-    APlayerController* PlayerController = UGameplayStatics::GetPlayerController(this, 0);
+    APlayerController* PlayerController = Cast<APlayerController>(GetController());
     if (PlayerController)
     {
-        FVector WorldLocation, WorldDirection;
-        if (PlayerController->DeprojectMousePositionToWorld(WorldLocation, WorldDirection))
+        FVector2D MousePosition;
+        if (PlayerController->GetMousePosition(MousePosition.X, MousePosition.Y))
         {
-            // Use the BuildModeCamera for raycasting if it exists
-            FVector Start = BuildModeCamera ? BuildModeCamera->GetActorLocation() : WorldLocation;
-            FVector End = Start + WorldDirection * 10000.0f;
-
-            FHitResult HitResult;
-            FCollisionQueryParams CollisionParams;
-            CollisionParams.AddIgnoredActor(this);
-            CollisionParams.AddIgnoredActor(BuildModeCamera);
-
-            if (GetWorld()->LineTraceSingleByChannel(HitResult, Start, End, ECC_Visibility, CollisionParams))
+            FVector WorldLocation, WorldDirection;
+            if (UGameplayStatics::DeprojectScreenToWorld(PlayerController, MousePosition, WorldLocation, WorldDirection))
             {
-                return HitResult.Location;
+                FVector Start = BuildModeCamera ? BuildModeCamera->GetActorLocation() : WorldLocation;
+                FVector End = Start + WorldDirection * 10000.0f;
+
+                FHitResult HitResult;
+                FCollisionQueryParams CollisionParams;
+                CollisionParams.AddIgnoredActor(this);
+                CollisionParams.AddIgnoredActor(BuildModeCamera);
+
+                if (GetWorld()->LineTraceSingleByChannel(HitResult, Start, End, ECC_Visibility, CollisionParams))
+                {
+                    return HitResult.Location;
+                }
             }
         }
     }
@@ -1226,4 +1263,84 @@ FVector ASupermarketCharacter::ClampLocationToBuildingArea(const FVector& Locati
     ClampedLocation.Z = Location.Z; // Keep the original Z value
 
     return ClampedLocation;
+}
+
+void ASupermarketCharacter::UpdateObjectPosition()
+{
+    if (!bIsMovingObject || !SelectedObject || !BuildModeCamera)
+        return;
+
+    APlayerController* PlayerController = Cast<APlayerController>(GetController());
+    if (!PlayerController)
+        return;
+
+    FVector2D CurrentMousePosition;
+    PlayerController->GetMousePosition(CurrentMousePosition.X, CurrentMousePosition.Y);
+
+    // Calculate mouse movement in screen space
+    FVector2D MouseDelta = CurrentMousePosition - InitialMousePosition;
+
+    // Convert screen space movement to world space movement
+    FVector WorldSpaceMovement = (CameraRight * MouseDelta.X + CameraForward * -MouseDelta.Y) * 0.5f; // Adjust multiplier as needed
+
+    FVector NewLocation = InitialObjectPosition + WorldSpaceMovement;
+    NewLocation.Z = InitialObjectPosition.Z; // Maintain original height
+
+    // Move the object to the new location
+    SelectedObject->SetActorLocation(NewLocation);
+
+    // Check if the new position is within the building area
+    if (!IsActorInBuildingArea(SelectedObject))
+    {
+        // If outside, clamp the position to the building area bounds
+        FVector ClampedLocation = ClampLocationToBuildingArea(NewLocation);
+        SelectedObject->SetActorLocation(ClampedLocation);
+    }
+
+    UE_LOG(LogTemp, Verbose, TEXT("Moving object to: %s"), *NewLocation.ToString());
+}
+
+
+void ASupermarketCharacter::StopObjectMovement()
+{
+    bIsMovingObject = false;
+    SelectedObject = nullptr;
+}
+
+void ASupermarketCharacter::StartObjectMovement()
+{
+    if (!bIsBuildModeActive || !BuildModeCamera)
+        return;
+
+    SelectedObject = GetActorUnderCursor();
+    if (!SelectedObject)
+        return;
+
+    APlayerController* PlayerController = Cast<APlayerController>(GetController());
+    if (!PlayerController)
+        return;
+
+    bIsMovingObject = true;
+    InitialObjectPosition = SelectedObject->GetActorLocation();
+
+    // Get the camera component from BuildModeCamera
+    UCameraComponent* CameraComponent = BuildModeCamera->FindComponentByClass<UCameraComponent>();
+    if (CameraComponent)
+    {
+        // Store camera vectors for movement calculations
+        CameraRight = CameraComponent->GetRightVector();
+        CameraForward = CameraComponent->GetForwardVector();
+        CameraRight.Z = 0;
+        CameraForward.Z = 0;
+        CameraRight.Normalize();
+        CameraForward.Normalize();
+    }
+    else
+    {
+        UE_LOG(LogTemp, Error, TEXT("Camera component not found in BuildModeCamera"));
+        return;
+    }
+
+    // Store initial mouse position
+    PlayerController->GetMousePosition(InitialMousePosition.X, InitialMousePosition.Y);
 }

@@ -306,7 +306,14 @@ public:
 
     UFUNCTION(BlueprintCallable, Category = "Build Mode")
     void OnRightMouseButtonReleased();
+    UFUNCTION(BlueprintCallable, Category = "Build Mode")
+    void StartObjectMovement();
 
+    UFUNCTION(BlueprintCallable, Category = "Build Mode")
+    void StopObjectMovement();
+
+    UFUNCTION(BlueprintCallable, Category = "Build Mode")
+    void UpdateObjectPosition();
 private:
     /** Timer handle for camera transition */
     FTimerHandle CameraTransitionTimerHandle;
@@ -376,4 +383,11 @@ private:
     FVector GetMouseWorldPosition();
     AActor* GetActorUnderCursor();
     bool IsActorInBuildingArea(AActor* Actor);
+    FVector2D InitialMouseOffset;
+    FVector2D InitialMousePosition;
+    FVector InitialObjectPosition;
+    FPlane MovementPlane;
+    FVector2D LastMousePosition;
+    FVector CameraRight;
+    FVector CameraForward;
 };
