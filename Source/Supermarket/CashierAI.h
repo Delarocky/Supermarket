@@ -67,4 +67,12 @@ private:
     void ShowFloatingText(const FString& Message, bool bShow);
     FTimerHandle FindCheckoutTimerHandle;
     void HandleCheckoutArrival();
+    void MoveTo(const FVector& Location);
+    FVector FindMostAccessiblePoint(const TArray<FVector>& Points);
+    void TurnToFaceCheckout();
+    void UpdateRotation(float DeltaTime);
+    FRotator TargetRotation;
+    float RotationTime;
+    float ElapsedTime;
+    bool bIsRotating;
 };
