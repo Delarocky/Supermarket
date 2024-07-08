@@ -3,6 +3,7 @@
 #include "CoreMinimal.h"
 #include "GameFramework/Character.h"
 #include "Navigation/PathFollowingComponent.h"
+#include "ParkingSpace.h"
 #include "AICustomerPawn.generated.h"
 
 class UShoppingBag;
@@ -64,7 +65,10 @@ public:
     UShoppingBag* ShoppingBag;
     FTimerHandle CheckReachedShelfTimerHandle;
     FTimerHandle RetryTimerHandle;
-    
+    void SetInitialSpawnLocation(const FVector& Location) { InitialSpawnLocation = Location; }
+    void SetAssignedParkingSpace(AParkingSpace* ParkingSpace) { AssignedParkingSpace = ParkingSpace; }
+    void CheckReachedParkingSpace();
+    void NotifyParkingSpaceAndDestroy();
 protected:
 
     UPROPERTY()
@@ -132,4 +136,6 @@ private:
     int32 FailedNavigationAttempts;
     static const int32 MaxFailedNavigationAttempts = 3;
     void ResetFailedNavigationAttempts() { FailedNavigationAttempts = 0; }
+    FVector InitialSpawnLocation;
+    AParkingSpace* AssignedParkingSpace;
 };

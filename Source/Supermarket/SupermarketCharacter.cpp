@@ -22,9 +22,11 @@
 #include "Components/PrimitiveComponent.h"
 #include "Kismet/KismetSystemLibrary.h"
 #include "Camera/CameraComponent.h"
+#include "StoreStatusWidget.h"
 #include "BuildModeCameraActor.h"
 #include "Engine/StaticMeshActor.h"
 #include "DrawDebugHelpers.h"
+#include "HAL/CriticalSection.h"
 #include "Kismet/GameplayStatics.h"
 #include "GameFramework/CharacterMovementComponent.h"
 
@@ -214,6 +216,9 @@ void ASupermarketCharacter::BeginPlay()
         }
     }
   
+    // Initialize StoreManager reference
+    CreateAndShowStoreStatusWidget();
+    StoreManager = AStoreManager::GetInstance(GetWorld());
 
 }
 
@@ -253,6 +258,8 @@ void ASupermarketCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInp
         PlayerInputComponent->BindAction("RotateObjectRight", IE_Pressed, this, &ASupermarketCharacter::RotateObjectRight);
         PlayerInputComponent->BindAction("LeftMouseButton", IE_Pressed, this, &ASupermarketCharacter::OnLeftMouseButtonPressed);
         PlayerInputComponent->BindAction("LeftMouseButton", IE_Released, this, &ASupermarketCharacter::OnLeftMouseButtonReleased);
+
+        EnhancedInputComponent->BindAction(ToggleStoreStatusAction, ETriggerEvent::Triggered, this, &ASupermarketCharacter::ToggleStoreStatusInput);
     }
     else
     {
@@ -1381,4 +1388,58 @@ bool ASupermarketCharacter::CanObjectBeMoved(AActor* Actor)
     }
 
     return true;
+}
+
+void ASupermarketCharacter::ToggleStoreStatus()
+{
+    if (StoreManager)
+    {
+        bool bCurrentStatus = StoreManager->IsStoreOpen();
+        StoreManager->SetStoreOpen(!bCurrentStatus);
+        UE_LOG(LogTemp, Display, TEXT("Store status toggled. Now %s"), StoreManager->IsStoreOpen() ? TEXT("OPEN") : TEXT("CLOSED"));
+
+        // Update the widget if it exists
+        if (StoreStatusWidget)
+        {
+            StoreStatusWidget->SetStoreOpen(!bCurrentStatus);
+        }
+    }
+    else
+    {
+        UE_LOG(LogTemp, Warning, TEXT("StoreManager not found. Cannot toggle store status."));
+    }
+}
+
+void ASupermarketCharacter::ToggleStoreStatusInput(const FInputActionValue& Value)
+{
+    ToggleStoreStatus();
+}
+
+void ASupermarketCharacter::CreateAndShowStoreStatusWidget()
+{
+    if (StoreStatusWidgetClass)
+    {
+        APlayerController* PlayerController = UGameplayStatics::GetPlayerController(this, 0);
+        if (PlayerController)
+        {
+            StoreStatusWidget = CreateWidget<UStoreStatusWidget>(PlayerController, StoreStatusWidgetClass);
+            if (StoreStatusWidget)
+            {
+                StoreStatusWidget->AddToViewport();
+                UE_LOG(LogTemp, Display, TEXT("Store Status Widget added to viewport"));
+            }
+            else
+            {
+                UE_LOG(LogTemp, Error, TEXT("Failed to create Store Status Widget"));
+            }
+        }
+        else
+        {
+            UE_LOG(LogTemp, Error, TEXT("PlayerController not found"));
+        }
+    }
+    else
+    {
+        UE_LOG(LogTemp, Error, TEXT("StoreStatusWidgetClass is not set"));
+    }
 }

@@ -843,22 +843,19 @@ FVector AAICustomerPawn::GetRandomLocationInStore()
 
 void AAICustomerPawn::LeaveStore()
 {
-    UE_LOG(LogTemp, Display, TEXT("AI is leaving the store"));
-
-    FVector RandomLocation = GetRandomLocationInStore();
+    UE_LOG(LogTemp, Display, TEXT("AI is returning to the parking space"));
 
     if (AIController)
     {
-        UAIBlueprintHelperLibrary::SimpleMoveToLocation(AIController, RandomLocation);
+        UAIBlueprintHelperLibrary::SimpleMoveToLocation(AIController, InitialSpawnLocation);
 
-        // Set a timer to destroy the AI after it reaches the destination
-        float EstimatedTravelTime = FVector::Dist(GetActorLocation(), RandomLocation) / GetCharacterMovement()->MaxWalkSpeed;
-        GetWorldTimerManager().SetTimer(LeaveStoreTimerHandle, this, &AAICustomerPawn::DestroyAI, EstimatedTravelTime, false);
+        // Set a timer to check if the AI has reached the parking space
+        GetWorldTimerManager().SetTimer(LeaveStoreTimerHandle, this, &AAICustomerPawn::CheckReachedParkingSpace, 0.5f, true);
     }
     else
     {
         UE_LOG(LogTemp, Error, TEXT("AIController is null in LeaveStore!"));
-        DestroyAI(); // Destroy immediately if there's no AIController
+        NotifyParkingSpaceAndDestroy();
     }
 }
 
@@ -926,4 +923,23 @@ void AAICustomerPawn::CheckReachedAccessPoint()
         }
     }
     // If still moving, continue waiting
+}
+
+
+void AAICustomerPawn::CheckReachedParkingSpace()
+{
+    if (FVector::Dist(GetActorLocation(), InitialSpawnLocation) < 100.0f) // Adjust this distance as needed
+    {
+        GetWorldTimerManager().ClearTimer(LeaveStoreTimerHandle);
+        NotifyParkingSpaceAndDestroy();
+    }
+}
+
+void AAICustomerPawn::NotifyParkingSpaceAndDestroy()
+{
+    if (AssignedParkingSpace)
+    {
+        AssignedParkingSpace->CustomerReturned(this);
+    }
+    Destroy();
 }

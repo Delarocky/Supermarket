@@ -13,6 +13,9 @@
 #include "Components/BoxComponent.h"
 #include "Engine/PostProcessVolume.h"
 #include "BuildModeCameraActor.h"
+#include "StoreManager.h"
+#include "StoreStatusWidget.h"
+#include "ParkingSpace.h"
 #include "SupermarketCharacter.generated.h"
 
 class UInputComponent;
@@ -279,6 +282,14 @@ protected:
 
     UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input)
     class UInputAction* RotateRightAction;
+    /** Store Status Toggle Action */
+    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, meta = (AllowPrivateAccess = "true"))
+    class UInputAction* ToggleStoreStatusAction;
+
+    /** Toggle Store Status */
+    void ToggleStoreStatusInput(const FInputActionValue& Value);
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "UI")
+    TSubclassOf<UStoreStatusWidget> StoreStatusWidgetClass;
 public:
     UFUNCTION(BlueprintCallable, Category = "Tablet")
     void UpdateTabletTransform();
@@ -316,6 +327,13 @@ public:
     void UpdateObjectPosition();
     UFUNCTION(BlueprintCallable, Category = "Build Mode")
     bool CanObjectBeMoved(AActor* Actor);
+    UFUNCTION(BlueprintCallable, Category = "Store Management")
+    void ToggleStoreStatus();
+    UFUNCTION(BlueprintCallable, Category = "UI")
+    void CreateAndShowStoreStatusWidget();
+    FCriticalSection StoreStatusLock;
+    void SetInitialSpawnLocation(const FVector& Location) { InitialSpawnLocation = Location; }
+    void SetAssignedParkingSpace(AParkingSpace* ParkingSpace) { AssignedParkingSpace = ParkingSpace; }
 private:
     /** Timer handle for camera transition */
     FTimerHandle CameraTransitionTimerHandle;
@@ -395,5 +413,10 @@ private:
     FVector InitialHitPoint;
     FVector ClickOffset;
     FTransform InitialObjectTransform;
-
+    UPROPERTY()
+    AStoreManager* StoreManager;
+    FVector InitialSpawnLocation;
+    AParkingSpace* AssignedParkingSpace;
+    UPROPERTY()
+    UStoreStatusWidget* StoreStatusWidget;
 };
