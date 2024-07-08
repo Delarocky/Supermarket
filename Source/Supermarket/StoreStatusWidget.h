@@ -17,7 +17,7 @@ public:
     void SetStoreOpen(bool bIsOpen);
 
     UFUNCTION(BlueprintCallable, Category = "Store Status")
-    bool IsStoreOpen() const;
+    bool IsStoreOpen();
 
     UFUNCTION(BlueprintCallable, Category = "Store Status")
     void ToggleStoreStatus();
@@ -36,4 +36,7 @@ private:
 
     UPROPERTY()
     AStoreManager* StoreManager;
+
+    UFUNCTION()
+    void InitializeWidget();
 };

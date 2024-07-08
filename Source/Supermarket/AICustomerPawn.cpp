@@ -547,7 +547,7 @@ void AAICustomerPawn::MoveTo(const FVector& Location)
     if (AIController)
     {
         // Use MoveToLocation with a small acceptance radius for precise movement
-        AIController->MoveToLocation(Location, 1.0f, false, true, false, false, nullptr, true);
+        AIController->MoveToLocation(Location, 2.0f, false, true, false, false, nullptr, true);
     }
     else
     {
@@ -555,7 +555,7 @@ void AAICustomerPawn::MoveTo(const FVector& Location)
         InitializeAIController();
         if (AIController)
         {
-            AIController->MoveToLocation(Location, 1.0f, false, true, false, false, nullptr, true);
+            AIController->MoveToLocation(Location, 2.0f, false, true, false, false, nullptr, true);
         }
     }
 }

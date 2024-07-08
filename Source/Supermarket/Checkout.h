@@ -192,4 +192,5 @@ private:
 
     bool bPlayerPresent;
     bool CanProcessCustomers() const;
+    static constexpr float PROCESSING_DISTANCE_THRESHOLD = 50.0f;
 };

@@ -10,6 +10,9 @@
 #include "Kismet/KismetMathLibrary.h"
 #include "Blueprint/AIBlueprintHelperLibrary.h" // Add this include
 
+TArray<ACheckout*> ACashierAI::OccupiedCheckouts;
+FCriticalSection ACashierAI::OccupiedCheckoutsLock;
+
 ACashierAI::ACashierAI()
 {
     PrimaryActorTick.bCanEverTick = true;
@@ -73,6 +76,7 @@ void ACashierAI::LeaveCheckout()
     if (CurrentCheckout)
     {
         CurrentCheckout->RemoveCashier();
+        ReleaseCheckout(CurrentCheckout);
         CurrentCheckout = nullptr;
         GetWorldTimerManager().ClearTimer(CheckPositionTimerHandle);
         DebugLog(TEXT("Left Checkout"));
@@ -144,30 +148,18 @@ bool ACashierAI::IsCheckoutAvailable(ACheckout* Checkout) const
 
 void ACashierAI::FindAndMoveToCheckout()
 {
-    TArray<AActor*> FoundCheckouts;
-    UGameplayStatics::GetAllActorsOfClass(GetWorld(), ACheckout::StaticClass(), FoundCheckouts);
+    ACheckout* AvailableCheckout = FindAvailableCheckout(GetWorld());
 
-    bool bFoundAvailableCheckout = false;
-
-    for (AActor* Actor : FoundCheckouts)
+    if (AvailableCheckout)
     {
-        ACheckout* Checkout = Cast<ACheckout>(Actor);
-        if (Checkout && IsCheckoutAvailable(Checkout))
-        {
-            MoveToCheckout(Checkout);
-            bFoundAvailableCheckout = true;
-            break;
-        }
-    }
-
-    if (!bFoundAvailableCheckout)
-    {
-        ShowFloatingText("I need an empty Register!", true);
-        GetWorldTimerManager().SetTimer(FindCheckoutTimerHandle, this, &ACashierAI::FindAndMoveToCheckout, 5.0f, false);
+        ClaimCheckout(AvailableCheckout);
+        MoveToCheckout(AvailableCheckout);
+        ShowFloatingText("", false);
     }
     else
     {
-        ShowFloatingText("", false);
+        ShowFloatingText("I need an empty Register!", true);
+        GetWorldTimerManager().SetTimer(FindCheckoutTimerHandle, this, &ACashierAI::FindAndMoveToCheckout, 5.0f, false);
     }
 }
 
@@ -205,8 +197,9 @@ void ACashierAI::HandleCheckoutArrival()
         {
             ShowFloatingText("This Register is taken!", true);
             DebugLog(TEXT("Arrived at Checkout but it's already taken"));
+            ReleaseCheckout(CurrentCheckout);
             CurrentCheckout = nullptr;
-            GetWorldTimerManager().SetTimer(FindCheckoutTimerHandle, this, &ACashierAI::FindAndMoveToCheckout, 5.0f, false);
+            GetWorldTimerManager().SetTimer(FindCheckoutTimerHandle, this, &ACashierAI::FindAndMoveToCheckout, 1.0f, false);
         }
     }
     else
@@ -306,3 +299,39 @@ void ACashierAI::MoveTo(const FVector& Location)
         }
     }
 }
+
+void ACashierAI::ReleaseCheckout(ACheckout* Checkout)
+{
+    if (Checkout)
+    {
+        FScopeLock Lock(&OccupiedCheckoutsLock);
+        OccupiedCheckouts.Remove(Checkout);
+    }
+}
+
+void ACashierAI::ClaimCheckout(ACheckout* Checkout)
+{
+    if (Checkout)
+    {
+        FScopeLock Lock(&OccupiedCheckoutsLock);
+        OccupiedCheckouts.AddUnique(Checkout);
+    }
+}
+
+ACheckout* ACashierAI::FindAvailableCheckout(UWorld* World)
+{
+    TArray<AActor*> FoundCheckouts;
+    UGameplayStatics::GetAllActorsOfClass(World, ACheckout::StaticClass(), FoundCheckouts);
+
+    FScopeLock Lock(&OccupiedCheckoutsLock);
+    for (AActor* Actor : FoundCheckouts)
+    {
+        ACheckout* Checkout = Cast<ACheckout>(Actor);
+        if (Checkout && !OccupiedCheckouts.Contains(Checkout) && !Checkout->IsBeingServiced())
+        {
+            return Checkout;
+        }
+    }
+    return nullptr;
+}
+

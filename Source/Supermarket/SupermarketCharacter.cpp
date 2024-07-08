@@ -219,6 +219,11 @@ void ASupermarketCharacter::BeginPlay()
     // Initialize StoreManager reference
     CreateAndShowStoreStatusWidget();
     StoreManager = AStoreManager::GetInstance(GetWorld());
+    if (StoreManager)
+    {
+        // Ensure the store starts closed
+        StoreManager->SetStoreOpen(false);
+    }
 
 }
 
@@ -1392,6 +1397,7 @@ bool ASupermarketCharacter::CanObjectBeMoved(AActor* Actor)
 
 void ASupermarketCharacter::ToggleStoreStatus()
 {
+    StoreManager = AStoreManager::GetInstance(GetWorld());
     if (StoreManager)
     {
         bool bCurrentStatus = StoreManager->IsStoreOpen();

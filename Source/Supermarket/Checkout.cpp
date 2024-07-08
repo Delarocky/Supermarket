@@ -472,40 +472,41 @@ void ACheckout::CustomerLeft(AAICustomerPawn* Customer)
 
 void ACheckout::UpdateQueue()
 {
-   // DebugLog(TEXT("UpdateQueue called"));
-
     for (int32 i = 0; i < CustomersInQueue.Num(); ++i)
     {
         if (CustomersInQueue[i] && QueuePositions.IsValidIndex(i))
         {
             FVector TargetLocation = QueuePositions[i]->GetComponentLocation();
+
+            // If this is the front customer, move them closer to the checkout
+            if (i == 0)
+            {
+                FVector CheckoutLocation = GetActorLocation();
+                FVector DirectionToCheckout = (CheckoutLocation - TargetLocation).GetSafeNormal();
+                TargetLocation += DirectionToCheckout * (ProcessingDistance - PROCESSING_DISTANCE_THRESHOLD);
+            }
+
             CustomersInQueue[i]->MoveTo(TargetLocation);
-
             SetCustomerTargetRotation(CustomersInQueue[i], i);
-
             DebugLog(FString::Printf(TEXT("Customer %d moved to position %s"), i, *TargetLocation.ToString()));
         }
     }
 
     StartRotationUpdate();
 
-    //DebugLog(FString::Printf(TEXT("Queue updated. Customers in queue: %d"), CustomersInQueue.Num()));
-
     if (CustomersInQueue.Num() > 0 && QueuePositions.Num() > 0)
     {
         AAICustomerPawn* FrontCustomer = CustomersInQueue[0];
-        USceneComponent* FirstQueuePosition = QueuePositions[0];
+        FVector CheckoutLocation = GetActorLocation();
 
-        if (FrontCustomer && FirstQueuePosition)
+        if (FrontCustomer)
         {
             FVector CustomerLocation = FrontCustomer->GetActorLocation();
-            FVector QueueFrontLocation = FirstQueuePosition->GetComponentLocation();
+            float DistanceToCheckout = FVector::Dist(CustomerLocation, CheckoutLocation);
 
-            float DistanceToQueueFront = FVector::Dist(CustomerLocation, QueueFrontLocation);
+            DebugLog(FString::Printf(TEXT("Front customer distance to checkout: %f"), DistanceToCheckout));
 
-            DebugLog(FString::Printf(TEXT("Front customer distance to queue: %f"), DistanceToQueueFront));
-
-            if (DistanceToQueueFront <= ProcessingDistance && CanProcessCustomers())
+            if (DistanceToCheckout <= ProcessingDistance && CanProcessCustomers())
             {
                 DebugLog(TEXT("Processing front customer"));
                 ProcessCustomer(FrontCustomer);
@@ -513,7 +514,7 @@ void ACheckout::UpdateQueue()
             else
             {
                 DebugLog(FString::Printf(TEXT("Front customer not ready for processing. Distance: %f, Can Process: %s"),
-                    DistanceToQueueFront, CanProcessCustomers() ? TEXT("Yes") : TEXT("No")));
+                    DistanceToCheckout, CanProcessCustomers() ? TEXT("Yes") : TEXT("No")));
             }
         }
     }
@@ -695,6 +696,7 @@ void ACheckout::SetCashier(ACashierAI* NewCashier)
     else if (CurrentCashier)
     {
         DebugLog(TEXT("Cannot set cashier: Checkout already has a cashier"));
+        NewCashier->LeaveCheckout(); // Make the new cashier find another checkout
     }
     else
     {

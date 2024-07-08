@@ -36,6 +36,8 @@ public:
 
     UPROPERTY(EditDefaultsOnly, Category = "Cashier")
     TSubclassOf<UUserWidget> TextBoxWidgetClass;
+    static TArray<ACheckout*> OccupiedCheckouts;
+    static FCriticalSection OccupiedCheckoutsLock;
 protected:
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Cashier")
     float ProcessingDelay;
@@ -75,4 +77,9 @@ private:
     float RotationTime;
     float ElapsedTime;
     bool bIsRotating;
+    
+
+    static ACheckout* FindAvailableCheckout(UWorld* World);
+    void ClaimCheckout(ACheckout* Checkout);
+    void ReleaseCheckout(ACheckout* Checkout);
 };

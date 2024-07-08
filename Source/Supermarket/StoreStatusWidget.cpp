@@ -7,14 +7,7 @@
 void UStoreStatusWidget::NativeConstruct()
 {
     Super::NativeConstruct();
-
-   
-
-    StoreManager = AStoreManager::GetInstance(GetWorld());
-    if (StoreManager)
-    {
-        SetStoreOpen(StoreManager->IsStoreOpen());
-    }
+    InitializeWidget();
 }
 
 void UStoreStatusWidget::SetStoreOpen(bool bIsOpen)
@@ -24,14 +17,16 @@ void UStoreStatusWidget::SetStoreOpen(bool bIsOpen)
         StatusText->SetText(FText::FromString(bIsOpen ? "OPEN" : "CLOSED"));
     }
 
+    StoreManager = AStoreManager::GetInstance(GetWorld());
     if (StoreManager)
     {
         StoreManager->SetStoreOpen(bIsOpen);
     }
 }
 
-bool UStoreStatusWidget::IsStoreOpen() const
+bool UStoreStatusWidget::IsStoreOpen()
 {
+    StoreManager = AStoreManager::GetInstance(GetWorld());
     return StoreManager ? StoreManager->IsStoreOpen() : false;
 }
 
@@ -43,4 +38,13 @@ void UStoreStatusWidget::ToggleStoreStatus()
 void UStoreStatusWidget::OnToggleButtonClicked()
 {
     SetStoreOpen(!IsStoreOpen());
+}
+
+void UStoreStatusWidget::InitializeWidget()
+{
+    StoreManager = AStoreManager::GetInstance(GetWorld());
+    if (StoreManager)
+    {
+        SetStoreOpen(StoreManager->IsStoreOpen());
+    }
 }
