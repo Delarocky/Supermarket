@@ -3,6 +3,11 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Character.h"
+#include "AIController.h"
+#include "NavigationSystem.h"
+#include "Blueprint/AIBlueprintHelperLibrary.h"
+#include "EnvironmentQuery/EnvQueryManager.h"
+#include "EnvironmentQuery/EnvQueryInstanceBlueprintWrapper.h"
 #include "CashierAI.generated.h"
 
 class ACheckout;
@@ -38,6 +43,12 @@ public:
     TSubclassOf<UUserWidget> TextBoxWidgetClass;
     static TArray<ACheckout*> OccupiedCheckouts;
     static FCriticalSection OccupiedCheckoutsLock;
+
+    UPROPERTY(EditDefaultsOnly, Category = "AI")
+    UEnvQuery* FindPathQuery;
+
+    UFUNCTION()
+    void OnFindPathQueryFinished(UEnvQueryInstanceBlueprintWrapper* QueryInstance, EEnvQueryStatus::Type QueryStatus);
 protected:
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Cashier")
     float ProcessingDelay;
@@ -82,4 +93,7 @@ private:
     static ACheckout* FindAvailableCheckout(UWorld* World);
     void ClaimCheckout(ACheckout* Checkout);
     void ReleaseCheckout(ACheckout* Checkout);
+    UPROPERTY()
+    FTimerHandle MovementCheckTimerHandle;
+    void CheckMovement();
 };

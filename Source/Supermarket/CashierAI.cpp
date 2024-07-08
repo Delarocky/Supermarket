@@ -7,7 +7,9 @@
 #include "Components/WidgetComponent.h"
 #include "Blueprint/UserWidget.h"
 #include "Components/TextBlock.h"
+#include "Navigation/PathFollowingComponent.h"
 #include "Kismet/KismetMathLibrary.h"
+#include "DrawDebugHelpers.h"
 #include "Blueprint/AIBlueprintHelperLibrary.h" // Add this include
 
 TArray<ACheckout*> ACashierAI::OccupiedCheckouts;
@@ -28,7 +30,8 @@ ACashierAI::ACashierAI()
     TextBoxWidget->SetWidgetSpace(EWidgetSpace::Screen);
     TextBoxWidget->SetDrawAtDesiredSize(true);
     TextBoxWidget->SetVisibility(false);
-
+    
+   
 }
 
 void ACashierAI::BeginPlay()
@@ -41,6 +44,7 @@ void ACashierAI::BeginPlay()
     {
         TextBoxWidget->SetWidgetClass(TextBoxWidgetClass);
     }
+   
 }
 
 void ACashierAI::Tick(float DeltaTime)
@@ -56,6 +60,7 @@ void ACashierAI::Tick(float DeltaTime)
     {
         UpdateRotation(DeltaTime);
     }
+
 }
 
 void ACashierAI::InitializeAIController()
@@ -70,6 +75,7 @@ void ACashierAI::InitializeAIController()
         DebugLog(TEXT("AIController initialized successfully"));
     }
 }
+
 
 void ACashierAI::LeaveCheckout()
 {
@@ -89,22 +95,20 @@ void ACashierAI::LeaveCheckout()
 
 void ACashierAI::MoveToCheckout(ACheckout* Checkout)
 {
-    if (Checkout && AIController)
+    if (Checkout)
     {
         CurrentCheckout = Checkout;
         FVector CheckoutLocation = Checkout->GetCashierPosition();
+        MoveTo(CheckoutLocation);
+        ClaimCheckout(Checkout);
+        //DebugLog(FString::Printf(TEXT("Moving to Checkout at location: %s"), *CheckoutLocation.ToString()));
 
-        TArray<FVector> AccessPoints;
-        AccessPoints.Add(CheckoutLocation);
-        FVector TargetLocation = FindMostAccessiblePoint(AccessPoints);
-
-        MoveTo(TargetLocation);
-        GetWorldTimerManager().SetTimer(CheckPositionTimerHandle, this, &ACashierAI::CheckPosition, 0.5f, true);
-        DebugLog(FString::Printf(TEXT("Moving to Checkout at location: %s"), *TargetLocation.ToString()));
+        // Set up a timer to check if we've reached the checkout
+        GetWorldTimerManager().SetTimer(CheckPositionTimerHandle, this, &ACashierAI::CheckPosition, 0.1f, true);
     }
     else
     {
-        DebugLog(TEXT("Cannot move to Checkout: Invalid Checkout or AIController"));
+        DebugLog(TEXT("Cannot move to Checkout: Invalid Checkout"));
     }
 }
 
@@ -121,13 +125,13 @@ void ACashierAI::CheckPosition()
         }
         else
         {
-            DebugLog(FString::Printf(TEXT("Still moving to Checkout. Distance: %f"), DistanceToCheckout));
+            //DebugLog(FString::Printf(TEXT("Still moving to Checkout. Distance: %f"), DistanceToCheckout));
         }
     }
     else
     {
         GetWorldTimerManager().ClearTimer(CheckPositionTimerHandle);
-        DebugLog(TEXT("CheckPosition: No assigned Checkout"));
+        //DebugLog(TEXT("CheckPosition: No assigned Checkout"));
     }
 }
 
@@ -149,17 +153,14 @@ bool ACashierAI::IsCheckoutAvailable(ACheckout* Checkout) const
 void ACashierAI::FindAndMoveToCheckout()
 {
     ACheckout* AvailableCheckout = FindAvailableCheckout(GetWorld());
-
     if (AvailableCheckout)
     {
-        ClaimCheckout(AvailableCheckout);
         MoveToCheckout(AvailableCheckout);
-        ShowFloatingText("", false);
     }
     else
     {
-        ShowFloatingText("I need an empty Register!", true);
-        GetWorldTimerManager().SetTimer(FindCheckoutTimerHandle, this, &ACashierAI::FindAndMoveToCheckout, 5.0f, false);
+        ShowFloatingText("No available checkout!", true);
+        //DebugLog(TEXT("No available checkout found"));
     }
 }
 
@@ -287,15 +288,16 @@ void ACashierAI::MoveTo(const FVector& Location)
 {
     if (AIController)
     {
-        UAIBlueprintHelperLibrary::SimpleMoveToLocation(AIController, Location);
+        // Use MoveToLocation with a small acceptance radius for precise movement
+        AIController->MoveToLocation(Location, 2.0f, false, true, false, false, nullptr, true);
     }
     else
     {
-        DebugLog(TEXT("AIController is null in ACashierAI::MoveTo"));
+        UE_LOG(LogTemp, Warning, TEXT("AIController is null in AAICustomerPawn::MoveTo"));
         InitializeAIController();
         if (AIController)
         {
-            UAIBlueprintHelperLibrary::SimpleMoveToLocation(AIController, Location);
+            AIController->MoveToLocation(Location, 2.0f, false, true, false, false, nullptr, true);
         }
     }
 }
@@ -335,3 +337,69 @@ ACheckout* ACashierAI::FindAvailableCheckout(UWorld* World)
     return nullptr;
 }
 
+void ACashierAI::CheckMovement()
+{
+    FVector CurrentLocation = GetActorLocation();
+    UE_LOG(LogTemp, Display, TEXT("[CashierAI] Current location: %s"), *CurrentLocation.ToString());
+
+    if (AIController)
+    {
+        EPathFollowingStatus::Type MovementStatus = AIController->GetMoveStatus();
+        FString StatusString;
+        switch (MovementStatus)
+        {
+        case EPathFollowingStatus::Idle:
+            StatusString = TEXT("Idle");
+            break;
+        case EPathFollowingStatus::Waiting:
+            StatusString = TEXT("Waiting");
+            break;
+        case EPathFollowingStatus::Paused:
+            StatusString = TEXT("Paused");
+            break;
+        case EPathFollowingStatus::Moving:
+            StatusString = TEXT("Moving");
+            break;
+        default:
+            StatusString = TEXT("Unknown");
+        }
+        UE_LOG(LogTemp, Display, TEXT("[CashierAI] Movement Status: %s"), *StatusString);
+
+        // If we're supposed to be moving but we're idle, try to move again
+        if (CurrentCheckout && MovementStatus == EPathFollowingStatus::Idle)
+        {
+            UE_LOG(LogTemp, Warning, TEXT("[CashierAI] Movement stopped, attempting to resume"));
+            MoveToCheckout(CurrentCheckout);
+        }
+    }
+    else
+    {
+        UE_LOG(LogTemp, Error, TEXT("[CashierAI] AIController is null in CheckMovement"));
+    }
+}
+
+void ACashierAI::OnFindPathQueryFinished(UEnvQueryInstanceBlueprintWrapper* QueryInstance, EEnvQueryStatus::Type QueryStatus)
+{
+    if (QueryStatus == EEnvQueryStatus::Success)
+    {
+        TArray<FVector> ResultLocations;
+        if (QueryInstance->GetQueryResultsAsLocations(ResultLocations) && ResultLocations.Num() > 0)
+        {
+            FVector ResultLocation = ResultLocations[0];
+            UAIBlueprintHelperLibrary::SimpleMoveToLocation(AIController, ResultLocation);
+            UE_LOG(LogTemp, Warning, TEXT("[CashierAI] EQS found path. Moving to location: %s"), *ResultLocation.ToString());
+        }
+        else
+        {
+            UE_LOG(LogTemp, Error, TEXT("[CashierAI] EQS query succeeded but returned no valid locations."));
+        }
+    }
+    else
+    {
+        UE_LOG(LogTemp, Error, TEXT("[CashierAI] EQS query failed. Falling back to simple move."));
+        if (CurrentCheckout)
+        {
+            UAIBlueprintHelperLibrary::SimpleMoveToLocation(AIController, CurrentCheckout->GetCashierPosition());
+        }
+    }
+}
