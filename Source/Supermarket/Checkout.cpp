@@ -234,28 +234,44 @@ void ACheckout::PlaceItemsOnCounter()
             AProduct* Product = ItemsOnCounter[ItemIndex];
             if (Product)
             {
-                // Calculate the position on the grid aligned with GridStartPoint's negative Y direction
+                // Calculate the position on the grid aligned with GridStartPoint
                 FVector ItemLocation = GridOrigin +
-                    RightVector * X * GridSpacing.X +             // Use RightVector for X spacing
-                    ForwardVector * -Y * GridSpacing.Y;           // Use negative ForwardVector for Y spacing
+                    RightVector * X * GridSpacing.X +
+                    ForwardVector * Y * GridSpacing.Y;
 
-                // Get the product's mesh bounds
+                // Get the product's mesh
                 UStaticMeshComponent* ProductMesh = Product->FindComponentByClass<UStaticMeshComponent>();
                 if (ProductMesh)
                 {
-                    FVector MeshBounds = ProductMesh->Bounds.BoxExtent;
+                    // Get the original (unscaled) bounds of the mesh
+                    FVector OriginalBounds = ProductMesh->GetStaticMesh()->GetBoundingBox().GetSize();
 
-                    // Adjust the Z position to place the bottom of the product on the grid
-                    ItemLocation.Z += MeshBounds.Z;
+                    // Get the current scale of the product
+                    FVector CurrentScale = Product->GetActorScale3D();
 
-                    // Set the product's location and rotation
-                    Product->SetActorLocation(ItemLocation);
+                    // Calculate the actual size of the product after scaling
+                    FVector ActualSize = OriginalBounds * CurrentScale;
+
+                    // Calculate the offset to align the bottom center of the product with the gizmo
+                    FVector BottomCenterOffset = FVector(0, 0, ActualSize.Z * 0.5f);
+
+                    // Set the product's location, aligning its bottom center with the calculated grid point
+                    Product->SetActorLocation(ItemLocation + BottomCenterOffset);
                     Product->SetActorRotation(StandingRotation);
 
                     // Ensure the product is visible and has collision enabled
                     Product->SetActorHiddenInGame(false);
                     Product->SetActorEnableCollision(true);
                     ProductMesh->SetVisibility(true);
+
+                    // Debug visualization
+                   // if (bDebugMode)
+                   // {
+                   //     DrawDebugPoint(GetWorld(), ItemLocation, 10.0f, FColor::Red, false, 5.0f);
+                   //     DrawDebugBox(GetWorld(), Product->GetActorLocation(), ActualSize * 0.5f, FColor::Green, false, 5.0f);
+                   //     UE_LOG(LogTemp, Display, TEXT("Product %d placed at %s, Actual Size: %s, Scale: %s"),
+                   //         ItemIndex, *Product->GetActorLocation().ToString(), *ActualSize.ToString(), *CurrentScale.ToString());
+                   // }
                 }
 
                 ItemIndex++;
@@ -267,7 +283,6 @@ void ACheckout::PlaceItemsOnCounter()
 void ACheckout::MoveNextItemToScanPosition()
 {
     DebugLog(TEXT("MoveNextItemToScanPosition called"));
-
     if (ItemsOnCounter.Num() > 0)
     {
         AProduct* NextItem = ItemsOnCounter[0];
@@ -279,21 +294,36 @@ void ACheckout::MoveNextItemToScanPosition()
             UStaticMeshComponent* ProductMesh = NextItem->FindComponentByClass<UStaticMeshComponent>();
             if (ProductMesh)
             {
-                FVector MeshBounds = ProductMesh->Bounds.BoxExtent;
-                FVector BottomOffset = FVector(0, 0, +MeshBounds.Z);
-                EndLocation += BottomOffset;
+                // Get the original (unscaled) bounds of the mesh
+                FVector OriginalBounds = ProductMesh->GetStaticMesh()->GetBoundingBox().GetSize();
+
+                // Get the current scale of the product
+                FVector CurrentScale = NextItem->GetActorScale3D();
+
+                // Calculate the actual size of the product after scaling
+                FVector ActualSize = OriginalBounds * CurrentScale;
+
+                // Adjust end location to align the bottom center of the product with the ScanPoint
+                EndLocation += FVector::UpVector * (ActualSize.Z * 0.5f);
+
+                float Distance = FVector::Dist(StartLocation, EndLocation);
+                float MoveSpeed = CurrentCashier ? CurrentCashier->GetInterpSpeed() : ItemMoveSpeed;
+                float Duration = Distance / MoveSpeed;
+
+                DebugLog(FString::Printf(TEXT("Moving item to scan position. Start: %s, End: %s, Speed: %f, Duration: %f, ActualSize: %s"),
+                    *StartLocation.ToString(), *EndLocation.ToString(), MoveSpeed, Duration, *ActualSize.ToString()));
+
+                FTimerDelegate TimerDelegate;
+                TimerDelegate.BindUFunction(this, FName("UpdateItemPosition"), NextItem, StartLocation, EndLocation, 0.0f, Duration);
+                GetWorld()->GetTimerManager().SetTimer(MoveItemTimerHandle, TimerDelegate, 0.016f, true);
+
+               
             }
-
-            float Distance = FVector::Dist(StartLocation, EndLocation);
-            float MoveSpeed = CurrentCashier ? CurrentCashier->GetInterpSpeed() : ItemMoveSpeed;
-            float Duration = Distance / MoveSpeed;
-
-            DebugLog(FString::Printf(TEXT("Moving item to scan position. Start: %s, End: %s, Speed: %f, Duration: %f"),
-                *StartLocation.ToString(), *EndLocation.ToString(), MoveSpeed, Duration));
-
-            FTimerDelegate TimerDelegate;
-            TimerDelegate.BindUFunction(this, FName("UpdateItemPosition"), NextItem, StartLocation, EndLocation, 0.0f, Duration);
-            GetWorld()->GetTimerManager().SetTimer(MoveItemTimerHandle, TimerDelegate, 0.016f, true);
+            else
+            {
+                DebugLog(TEXT("Product mesh not found. Cannot move item."));
+                ScanNextItem();
+            }
         }
     }
     else
@@ -523,14 +553,13 @@ void ACheckout::RemoveScannedItem()
     if (ItemsOnCounter.Num() > 0)
     {
         AProduct* ScannedItem = ItemsOnCounter[0];
-        ItemsOnCounter.RemoveAt(0);
+        ItemsOnCounter.RemoveAt(0);  // Remove from the start of the array
 
         if (ScannedItem)
         {
             ScannedItem->SetActorHiddenInGame(true);
             ScannedItem->SetActorEnableCollision(false);
 
-            // If the product has a mesh component, make sure it's hidden
             UStaticMeshComponent* ProductMesh = ScannedItem->FindComponentByClass<UStaticMeshComponent>();
             if (ProductMesh)
             {
