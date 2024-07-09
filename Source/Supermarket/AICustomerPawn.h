@@ -69,6 +69,7 @@ public:
     void SetAssignedParkingSpace(AParkingSpace* ParkingSpace) { AssignedParkingSpace = ParkingSpace; }
     void CheckReachedParkingSpace();
     void NotifyParkingSpaceAndDestroy();
+  
 protected:
 
     UPROPERTY()

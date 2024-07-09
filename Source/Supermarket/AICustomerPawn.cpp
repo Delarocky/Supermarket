@@ -928,7 +928,7 @@ void AAICustomerPawn::CheckReachedAccessPoint()
 
 void AAICustomerPawn::CheckReachedParkingSpace()
 {
-    if (FVector::Dist(GetActorLocation(), InitialSpawnLocation) < 100.0f) // Adjust this distance as needed
+    if (FVector::Dist(GetActorLocation(), InitialSpawnLocation) < 200.0f) // Adjust this distance as needed
     {
         GetWorldTimerManager().ClearTimer(LeaveStoreTimerHandle);
         NotifyParkingSpaceAndDestroy();
@@ -943,3 +943,4 @@ void AAICustomerPawn::NotifyParkingSpaceAndDestroy()
     }
     Destroy();
 }
+

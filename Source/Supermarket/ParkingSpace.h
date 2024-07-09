@@ -30,6 +30,7 @@ public:
     UFUNCTION(BlueprintCallable, Category = "Parking")
     void CustomerReturned(AActor* Customer);
 
+
 private:
     UPROPERTY(VisibleAnywhere, Category = "Components")
     UStaticMeshComponent* ParkingSpaceMesh;
