@@ -72,3 +72,4 @@ void AProduct::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEven
     }
 }
 #endif
+

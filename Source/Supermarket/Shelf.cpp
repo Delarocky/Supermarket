@@ -49,6 +49,8 @@ AShelf::AShelf()
         InvalidPlacementMaterial = InvalidMat.Object;
     }
 
+    StockingSpline = CreateDefaultSubobject<USplineComponent>(TEXT("StockingSpline"));
+    StockingSpline->SetupAttachment(RootComponent);
 }
 
 
@@ -237,7 +239,6 @@ void AShelf::StartStockingShelf(TSubclassOf<AProduct> ProductToStock)
     {
         if (!ProductClass || Products.Num() == 0)
         {
-            // If the shelf is empty or has no product class set, allow stocking with the new product
             ProductClass = ProductToStock;
             bIsStocking = true;
             ContinueStocking();
@@ -245,14 +246,12 @@ void AShelf::StartStockingShelf(TSubclassOf<AProduct> ProductToStock)
         }
         else if (ProductClass == ProductToStock)
         {
-            // If the product type matches the current shelf product, allow stocking
             bIsStocking = true;
             ContinueStocking();
             UE_LOG(LogTemp, Display, TEXT("Continuing to stock shelf with existing product type: %s"), *ProductClass->GetName());
         }
         else
         {
-            // If trying to stock a different product type on a non-empty shelf, prevent it
             UE_LOG(LogTemp, Warning, TEXT("Cannot stock different product type. Shelf is dedicated to %s"), *ProductClass->GetName());
         }
     }
@@ -360,44 +359,155 @@ void AShelf::ContinueStocking()
         return;
     }
 
-    int32 currentProductCount = Products.Num();
-    if (currentProductCount < MaxProducts)
+    if (Products.Num() < MaxProducts && ProductBox->GetProductCount() > 0)
     {
-        int32 row = currentProductCount / 5;
-        int32 column = currentProductCount % 5;
-
-        FVector RelativeLocation = FVector(
-            column * ProductSpacing.X,
-            row * ProductSpacing.Y,
-            ProductSpacing.Z
-        );
-
-        if (AddProduct(RelativeLocation))
+        if (!CurrentMovingProduct) // Only start moving a new product if there isn't one already moving
         {
-            // If product was added successfully, continue stocking after a short delay
-            GetWorld()->GetTimerManager().SetTimer(ContinuousStockingTimerHandle, this, &AShelf::ContinueStocking, 0.3f, false);
-        }
-        else
-        {
-            // If failed to add product, stop stocking
-            UE_LOG(LogTemp, Warning, TEXT("Failed to add product. Stopping stocking process."));
-            bIsStocking = false;
+            AProduct* NextProduct = ProductBox->GetNextProduct(); // Get the next product without removing it
+            if (NextProduct)
+            {
+                UpdateStockingSpline();
+                MoveProductAlongSpline(NextProduct);
+            }
+            else
+            {
+                bIsStocking = false;
+            }
         }
     }
     else
     {
-        // Shelf is full, stop stocking
-        UE_LOG(LogTemp, Display, TEXT("Shelf is full. Stopping stocking process."));
         bIsStocking = false;
     }
 }
 
-bool AShelf::GetNextProductLocation(FVector& OutLocation) const
+FVector AShelf::GetNextProductLocation() const
 {
-    if (Products.Num() > 0)
+    int32 currentProductCount = Products.Num();
+    int32 row = currentProductCount / 5;
+    int32 column = currentProductCount % 5;
+
+    FVector RelativeLocation = FVector(
+        column * ProductSpacing.X,
+        row * ProductSpacing.Y,
+        ProductSpacing.Z
+    );
+
+    return ProductSpawnPoint->GetComponentLocation() +
+        ProductSpawnPoint->GetComponentRotation().RotateVector(RelativeLocation);
+}
+
+void AShelf::UpdateStockingSpline()
+{
+    if (!StockingSpline || !ProductBox) return;
+
+    StockingSpline->ClearSplinePoints();
+
+    // Get the next product from the box without removing it
+    AProduct* NextProduct = ProductBox->GetNextProduct();
+    if (!NextProduct) return;
+
+    // Start point (product's current location in the box)
+    FVector StartPoint = NextProduct->GetActorLocation();
+    StockingSpline->AddSplinePoint(StartPoint, ESplineCoordinateSpace::World);
+
+    // Mid point (arc above the shelf)
+    FVector EndPoint = GetNextProductLocation();
+    FVector MidPoint = (StartPoint + EndPoint) * 0.5f + FVector(0, 0, 50);
+    StockingSpline->AddSplinePoint(MidPoint, ESplineCoordinateSpace::World);
+
+    // End point (next product location on the shelf)
+    StockingSpline->AddSplinePoint(EndPoint, ESplineCoordinateSpace::World);
+}
+
+void AShelf::MoveProductAlongSpline(AProduct* Product)
+{
+    if (!Product || !StockingSpline) return;
+
+    CurrentMovingProduct = Product;
+    SplineProgress = 0.0f;
+
+    // Remove the product from the box
+    if (ProductBox)
     {
-        OutLocation = Products.Last()->GetActorLocation();
-        return true;
+        ProductBox->RemoveProduct();
     }
-    return false;
+
+    // Detach the product from any parent
+    Product->DetachFromActor(FDetachmentTransformRules::KeepWorldTransform);
+
+    // Start the movement timer
+    GetWorld()->GetTimerManager().SetTimer(ProductMovementTimer, this, &AShelf::UpdateProductPosition, 0.016f, true);
+}
+
+void AShelf::UpdateProductPosition()
+{
+    if (!CurrentMovingProduct || !StockingSpline) return;
+
+    SplineProgress += 0.06f; // Adjust this value to control speed
+
+    if (SplineProgress >= 1.0f)
+    {
+        // Movement complete
+        GetWorld()->GetTimerManager().ClearTimer(ProductMovementTimer);
+        FinalizeProductPlacement(CurrentMovingProduct);
+    }
+    else
+    {
+        FVector NewLocation = StockingSpline->GetLocationAtTime(SplineProgress, ESplineCoordinateSpace::World);
+
+        // Keep the product's original up vector (assuming Z is up)
+        FVector UpVector = FVector::UpVector;
+
+        // Get the product's forward vector (direction of movement)
+        FVector ForwardVector = StockingSpline->GetDirectionAtTime(SplineProgress, ESplineCoordinateSpace::World);
+        ForwardVector.Z = 0; // Ensure it's parallel to the ground
+        ForwardVector.Normalize();
+
+        // Calculate the right vector
+        FVector RightVector = FVector::CrossProduct(ForwardVector, UpVector);
+
+        // Construct the rotation matrix
+        FRotator NewRotation = UKismetMathLibrary::MakeRotationFromAxes(ForwardVector, RightVector, UpVector);
+
+        CurrentMovingProduct->SetActorLocation(NewLocation);
+        CurrentMovingProduct->SetActorRotation(NewRotation);
+    }
+}
+
+void AShelf::FinalizeProductPlacement(AProduct* Product)
+{
+    if (!Product || !ProductSpawnPoint) return;
+
+    FVector FinalLocation = GetNextProductLocation();
+    FRotator FinalRotation = ProductSpawnPoint->GetComponentRotation();
+
+    UStaticMeshComponent* ProductMesh = Product->FindComponentByClass<UStaticMeshComponent>();
+    if (ProductMesh)
+    {
+        // Get the original (unscaled) bounds of the mesh
+        FVector OriginalBounds = ProductMesh->GetStaticMesh()->GetBoundingBox().GetSize();
+
+        // Get the current scale of the product
+        FVector CurrentScale = Product->GetActorScale3D();
+
+        // Calculate the actual size of the product after scaling
+        FVector ActualSize = OriginalBounds * CurrentScale;
+
+        // Calculate the offset to align the bottom center of the product with the spawn point
+        FVector BottomCenterOffset = FVector(0, 0, ActualSize.Z * 0.5f);
+
+        // Adjust the final location to place the product's bottom center at the spawn point
+        FinalLocation += ProductSpawnPoint->GetComponentRotation().RotateVector(BottomCenterOffset);
+    }
+
+    Product->SetActorLocation(FinalLocation);
+    Product->SetActorRotation(FinalRotation);
+    Product->AttachToComponent(ProductSpawnPoint, FAttachmentTransformRules::KeepWorldTransform);
+    Products.Add(Product);
+
+    
+
+    CurrentMovingProduct = nullptr;
+    ContinueStocking();
 }

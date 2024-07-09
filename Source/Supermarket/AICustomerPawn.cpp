@@ -337,7 +337,8 @@ void AAICustomerPawn::DetermineShelfPosition()
 
     // Get the product's location instead of the shelf's location
     FVector ProductLocation;
-    if (CurrentShelf->GetNextProductLocation(ProductLocation))
+    ProductLocation = CurrentShelf->GetNextProductLocation();
+    if (ProductLocation != FVector::ZeroVector)
     {
         // Calculate the height difference between the AI's eye level and the product
         float HeightDifference = ProductLocation.Z - AIEyeLocation.Z;

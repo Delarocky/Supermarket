@@ -283,3 +283,12 @@ void AProductBox::AttachToComponent(USceneComponent* Parent)
         }
     }
 }
+
+AProduct* AProductBox::GetNextProduct() const
+{
+    if (Products.Num() > 0)
+    {
+        return Products.Last();
+    }
+    return nullptr;
+}

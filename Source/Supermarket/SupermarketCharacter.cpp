@@ -69,7 +69,7 @@ ASupermarketCharacter::ASupermarketCharacter()
 
     // Create tablet mesh
     TabletMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("TabletMesh"));
-    TabletMesh->SetupAttachment(GetMesh(), "hand_r"); // Attach to right hand
+    //TabletMesh->SetupAttachment(GetMesh(), "hand_r"); // Attach to right hand
     TabletMesh->SetVisibility(false);
 
     // Set default values for tablet transform

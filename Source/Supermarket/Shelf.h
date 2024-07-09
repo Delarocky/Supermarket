@@ -7,6 +7,7 @@
 #include "Components/StaticMeshComponent.h"
 #include "Components/SceneComponent.h"
 #include "Product.h"
+#include "Components/SplineComponent.h"
 #include "ProductBox.h"
 #include "Shelf.generated.h"
 
@@ -90,7 +91,18 @@ public:
     FVector AccessPoint3Offset;
 
     UFUNCTION(BlueprintCallable, Category = "Shelf")
-    bool GetNextProductLocation(FVector& OutLocation) const;
+    FVector GetNextProductLocation() const;
+
+    UFUNCTION(BlueprintCallable, Category = "Shelf")
+    void UpdateStockingSpline();
+
+    UFUNCTION(BlueprintCallable, Category = "Shelf")
+    void MoveProductAlongSpline(AProduct* Product);
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
+    USplineComponent* StockingSpline;
+    void FinalizeProductPlacement(AProduct* Product);
+    void UpdateProductPosition();
+
 protected:
     virtual void BeginPlay() override;
 
@@ -125,4 +137,7 @@ private:
 
     UPROPERTY()
     UMaterialInterface* InvalidPlacementMaterial;
+    FTimerHandle ProductMovementTimer;
+    AProduct* CurrentMovingProduct;
+    float SplineProgress;
 };

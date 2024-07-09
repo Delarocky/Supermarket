@@ -73,6 +73,8 @@ public:
 
     UFUNCTION(BlueprintCallable, Category = "Attachment")
     void AttachToComponent(USceneComponent* Parent);
+    UFUNCTION(BlueprintCallable, Category = "Product Box")
+    AProduct* GetNextProduct() const;
 protected:
     virtual void BeginPlay() override;
 
