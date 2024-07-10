@@ -444,7 +444,7 @@ void AShelf::UpdateProductPosition()
 {
     if (!CurrentMovingProduct || !StockingSpline) return;
 
-    SplineProgress += 0.06f; // Adjust this value to control speed
+    SplineProgress += 0.08f; // Adjust this value to control speed
 
     if (SplineProgress >= 1.0f)
     {
