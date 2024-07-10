@@ -103,6 +103,11 @@ public:
     void FinalizeProductPlacement(AProduct* Product);
     void UpdateProductPosition();
 
+    UFUNCTION(BlueprintCallable, Category = "Shelf")
+    int32 GetCurrentStock() const;
+
+    UFUNCTION(BlueprintCallable, Category = "Shelf")
+    int32 GetMaxStock() const;
 protected:
     virtual void BeginPlay() override;
 
@@ -140,4 +145,5 @@ private:
     FTimerHandle ProductMovementTimer;
     AProduct* CurrentMovingProduct;
     float SplineProgress;
+
 };

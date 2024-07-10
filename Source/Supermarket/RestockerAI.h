@@ -91,4 +91,15 @@ private:
     void HandleEmptyBox();
     void FindNewBoxWithSameProduct();
     void CheckRestockProgress();
+    float RotationSpeed;
+    float CurrentRotationAlpha;
+    void UpdateRotation(float DeltaTime);
+    void DropCurrentBox();
+    UFUNCTION()
+    void FindNextShelfForCurrentProduct();
+    UFUNCTION()
+    bool IsShelfSufficientlyStocked(AShelf* Shelf);
+
+    UPROPERTY()
+    TArray<AShelf*> CheckedShelves;
 };

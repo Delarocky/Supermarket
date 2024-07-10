@@ -11,7 +11,8 @@ ARestockerAI::ARestockerAI()
     PrimaryActorTick.bCanEverTick = true;
     CurrentState = ERestockerState::Idle;
     bIsHoldingProductBox = false;
-   
+    RotationSpeed = 10.0f; // Adjust this value to control rotation speed (higher = faster)
+    CurrentRotationAlpha = 0.0f;
 }
 
 void ARestockerAI::BeginPlay()
@@ -33,6 +34,11 @@ void ARestockerAI::Tick(float DeltaTime)
     {
         StartRestocking();
     }
+
+    if (bIsRotating)
+    {
+        UpdateRotation(DeltaTime);
+    }
 }
 
 void ARestockerAI::StartRestocking()
@@ -43,7 +49,8 @@ void ARestockerAI::StartRestocking()
         return;
     }
 
-    //UE_LOG(LogTemp, Display, TEXT("RestockerAI: Starting restocking process"));
+    UE_LOG(LogTemp, Display, TEXT("RestockerAI: Starting restocking process"));
+    CheckedShelves.Empty();
     FindShelfToRestock();
 }
 
@@ -52,12 +59,10 @@ void ARestockerAI::FindShelfToRestock()
     TArray<AActor*> FoundShelves;
     UGameplayStatics::GetAllActorsOfClass(GetWorld(), AShelf::StaticClass(), FoundShelves);
 
-    //UE_LOG(LogTemp, Display, TEXT("RestockerAI: Found %d shelves"), FoundShelves.Num());
-
     for (AActor* Actor : FoundShelves)
     {
         AShelf* Shelf = Cast<AShelf>(Actor);
-        if (Shelf && !Shelf->IsFullyStocked() && Shelf->GetCurrentProductClass() != nullptr)
+        if (Shelf && !IsShelfSufficientlyStocked(Shelf) && Shelf->GetCurrentProductClass() != nullptr && !CheckedShelves.Contains(Shelf))
         {
             TargetShelf = Shelf;
             UE_LOG(LogTemp, Display, TEXT("RestockerAI: Found shelf to restock: %s"), *Shelf->GetName());
@@ -66,7 +71,7 @@ void ARestockerAI::FindShelfToRestock()
         }
     }
 
-    //UE_LOG(LogTemp, Display, TEXT("RestockerAI: No shelf needs restocking, staying idle"));
+    UE_LOG(LogTemp, Display, TEXT("RestockerAI: No shelf needs restocking, staying idle"));
     SetState(ERestockerState::Idle);
 }
 
@@ -97,8 +102,10 @@ void ARestockerAI::FindProductBox()
         }
     }
 
-    UE_LOG(LogTemp, Warning, TEXT("RestockerAI: No matching product box found, staying idle"));
-    SetState(ERestockerState::Idle);
+    UE_LOG(LogTemp, Warning, TEXT("RestockerAI: No matching product box found for shelf %s"), *TargetShelf->GetName());
+    CheckedShelves.Add(TargetShelf);
+    TargetShelf = nullptr;
+    FindShelfToRestock(); // Try to find another shelf to restock
 }
 
 void ARestockerAI::MoveToTarget(AActor* Target)
@@ -131,11 +138,12 @@ void ARestockerAI::PickUpProductBox()
     {
         bIsHoldingProductBox = true;
 
-        // Disable physics on the product box
+        // Disable physics and collision on the product box
         UPrimitiveComponent* PrimitiveComponent = Cast<UPrimitiveComponent>(TargetProductBox->GetRootComponent());
         if (PrimitiveComponent)
         {
             PrimitiveComponent->SetSimulatePhysics(false);
+            PrimitiveComponent->SetCollisionEnabled(ECollisionEnabled::NoCollision);
         }
 
         // Attach the product box to the AI
@@ -296,10 +304,13 @@ void ARestockerAI::TurnToFaceTarget()
         Direction.Z = 0;  // We don't want to pitch up or down
         TargetRotation = Direction.Rotation();
 
+        // Reset the rotation alpha
+        CurrentRotationAlpha = 0.0f;
+
         bIsRotating = true;
 
-        // Start a timer to check rotation progress
-        GetWorld()->GetTimerManager().SetTimer(RotationTimerHandle, this, &ARestockerAI::OnRotationComplete, 0.01f, true);
+        // Instead of using a timer, we'll update the rotation in the Tick function
+        SetActorTickEnabled(true);
     }
     else
     {
@@ -387,7 +398,8 @@ void ARestockerAI::FindNewBoxWithSameProduct()
         }
     }
 
-    UE_LOG(LogTemp, Display, TEXT("RestockerAI: No more boxes with the same product, starting over"));
+    UE_LOG(LogTemp, Display, TEXT("RestockerAI: No more boxes with the same product, moving on to next task"));
+    TargetShelf = nullptr;
     SetState(ERestockerState::Idle);
     StartRestocking();
 }
@@ -405,7 +417,17 @@ void ARestockerAI::HandleEmptyBox()
     bIsHoldingProductBox = false;
     TargetProductBox = nullptr;
 
-    FindNewBoxWithSameProduct();
+    if (TargetShelf && !TargetShelf->IsFullyStocked())
+    {
+        FindNewBoxWithSameProduct();
+    }
+    else
+    {
+        UE_LOG(LogTemp, Display, TEXT("RestockerAI: Moving on to next task"));
+        TargetShelf = nullptr;
+        SetState(ERestockerState::Idle);
+        StartRestocking();
+    }
 }
 
 void ARestockerAI::CheckRestockProgress()
@@ -414,7 +436,7 @@ void ARestockerAI::CheckRestockProgress()
     {
         RemainingProducts = TargetProductBox->GetProductCountt();
 
-        if (TargetShelf->IsFullyStocked() || RemainingProducts == 0)
+        if (IsShelfSufficientlyStocked(TargetShelf) || RemainingProducts == 0)
         {
             GetWorld()->GetTimerManager().ClearTimer(RestockTimerHandle);
 
@@ -422,11 +444,10 @@ void ARestockerAI::CheckRestockProgress()
             {
                 HandleEmptyBox();
             }
-            else
+            else if (IsShelfSufficientlyStocked(TargetShelf))
             {
-                UE_LOG(LogTemp, Display, TEXT("RestockerAI: Shelf fully stocked, looking for new shelf"));
-                SetState(ERestockerState::Idle);
-                StartRestocking();
+                // Look for another shelf that needs the same product
+                FindNextShelfForCurrentProduct();
             }
         }
     }
@@ -436,4 +457,82 @@ void ARestockerAI::CheckRestockProgress()
         SetState(ERestockerState::Idle);
         StartRestocking();
     }
+}
+
+void ARestockerAI::UpdateRotation(float DeltaTime)
+{
+    if (bIsRotating)
+    {
+        CurrentRotationAlpha += DeltaTime * RotationSpeed;
+
+        if (CurrentRotationAlpha >= 1.0f)
+        {
+            // Rotation complete
+            SetActorRotation(TargetRotation);
+            bIsRotating = false;
+            OnRotationComplete();
+        }
+        else
+        {
+            // Interpolate rotation
+            FRotator NewRotation = FMath::RInterpTo(GetActorRotation(), TargetRotation, DeltaTime, RotationSpeed);
+            SetActorRotation(NewRotation);
+        }
+    }
+}
+
+void ARestockerAI::DropCurrentBox()
+{
+    if (bIsHoldingProductBox && TargetProductBox)
+    {
+        UE_LOG(LogTemp, Display, TEXT("RestockerAI: Dropping current box"));
+        TargetProductBox->DetachFromActor(FDetachmentTransformRules::KeepWorldTransform);
+        UPrimitiveComponent* PrimitiveComponent = Cast<UPrimitiveComponent>(TargetProductBox->GetRootComponent());
+        if (PrimitiveComponent)
+        {
+            PrimitiveComponent->SetSimulatePhysics(true);
+            PrimitiveComponent->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
+        }
+        bIsHoldingProductBox = false;
+        TargetProductBox = nullptr;
+    }
+}
+
+void ARestockerAI::FindNextShelfForCurrentProduct()
+{
+    TArray<AActor*> FoundShelves;
+    UGameplayStatics::GetAllActorsOfClass(GetWorld(), AShelf::StaticClass(), FoundShelves);
+
+    for (AActor* Actor : FoundShelves)
+    {
+        AShelf* Shelf = Cast<AShelf>(Actor);
+        if (Shelf && !IsShelfSufficientlyStocked(Shelf) && Shelf->GetCurrentProductClass() == CurrentProductClass)
+        {
+            TargetShelf = Shelf;
+            UE_LOG(LogTemp, Display, TEXT("RestockerAI: Found another shelf for current product: %s"), *Shelf->GetName());
+            SetState(ERestockerState::MovingToShelf);
+            MoveToTarget(TargetShelf);
+            return;
+        }
+    }
+
+    // If no shelf needs the current product, drop the box and start over
+    UE_LOG(LogTemp, Display, TEXT("RestockerAI: No more shelves need current product, dropping box and starting over"));
+    DropCurrentBox();
+    SetState(ERestockerState::Idle);
+    StartRestocking();
+}
+
+bool ARestockerAI::IsShelfSufficientlyStocked(AShelf* Shelf)
+{
+    if (!Shelf)
+    {
+        return true;
+    }
+
+    int32 CurrentStock = Shelf->GetCurrentStock();
+    int32 MaxStock = Shelf->GetMaxStock();
+
+    // Consider the shelf sufficiently stocked if it has at most 2 items less than the maximum
+    return (MaxStock - CurrentStock) <= 2;
 }

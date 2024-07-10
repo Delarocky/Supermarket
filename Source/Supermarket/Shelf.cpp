@@ -511,3 +511,13 @@ void AShelf::FinalizeProductPlacement(AProduct* Product)
     CurrentMovingProduct = nullptr;
     ContinueStocking();
 }
+
+int32 AShelf::GetCurrentStock() const
+{
+    return Products.Num();
+}
+
+int32 AShelf::GetMaxStock() const
+{
+    return MaxProducts;
+}
