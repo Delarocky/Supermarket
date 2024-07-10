@@ -1449,3 +1449,8 @@ void ASupermarketCharacter::CreateAndShowStoreStatusWidget()
         UE_LOG(LogTemp, Error, TEXT("StoreStatusWidgetClass is not set"));
     }
 }
+
+bool ASupermarketCharacter::IsHoldingProductBox(AProductBox* Box) const
+{
+    return HeldProductBox == Box;
+}

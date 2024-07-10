@@ -75,6 +75,8 @@ public:
     void AttachToComponent(USceneComponent* Parent);
     UFUNCTION(BlueprintCallable, Category = "Product Box")
     AProduct* GetNextProduct() const;
+    UFUNCTION(BlueprintCallable, Category = "Product Box")
+    int32 GetProductCountt() const;
 protected:
     virtual void BeginPlay() override;
 

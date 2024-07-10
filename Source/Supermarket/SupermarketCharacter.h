@@ -334,6 +334,8 @@ public:
     FCriticalSection StoreStatusLock;
     void SetInitialSpawnLocation(const FVector& Location) { InitialSpawnLocation = Location; }
     void SetAssignedParkingSpace(AParkingSpace* ParkingSpace) { AssignedParkingSpace = ParkingSpace; }
+    UFUNCTION(BlueprintCallable, Category = "Interaction")
+    bool IsHoldingProductBox(AProductBox* Box) const;
 private:
     /** Timer handle for camera transition */
     FTimerHandle CameraTransitionTimerHandle;

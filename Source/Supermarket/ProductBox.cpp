@@ -292,3 +292,8 @@ AProduct* AProductBox::GetNextProduct() const
     }
     return nullptr;
 }
+
+int32 AProductBox::GetProductCountt() const
+{
+    return Products.Num();
+}

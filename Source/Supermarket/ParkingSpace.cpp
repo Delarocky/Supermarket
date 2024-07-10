@@ -29,8 +29,8 @@ AParkingSpace::AParkingSpace()
     SpawnPoint4 = CreateDefaultSubobject<USceneComponent>(TEXT("SpawnPoint4"));
     SpawnPoint4->SetupAttachment(CarMesh);
 
-    SpawnChance = 0.5f;
-    SpawnInterval = 10.0f;
+    SpawnChance = 0.1f;
+    SpawnInterval = 1.0f;
     bIsOccupied = false;
     SpawnedCustomersCount = 0;
     ReturnedCustomersCount = 0;
@@ -66,7 +66,7 @@ void AParkingSpace::TrySpawnCar()
         bIsOccupied = true;
         CarMesh->SetVisibility(true);
         FTimerHandle CustomerSpawnTimerHandle;
-        GetWorldTimerManager().SetTimer(CustomerSpawnTimerHandle, this, &AParkingSpace::SpawnCustomers, 3.0f, false);
+        GetWorldTimerManager().SetTimer(CustomerSpawnTimerHandle, this, &AParkingSpace::SpawnCustomers, 1.0f, false);
     }
 }
 
