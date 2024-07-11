@@ -45,11 +45,11 @@ void ARestockerAI::StartRestocking()
 {
     if (CurrentState != ERestockerState::Idle)
     {
-        UE_LOG(LogTemp, Warning, TEXT("RestockerAI: Attempted to start restocking while not idle. Current state: %s"), *GetStateName(CurrentState));
+        //UE_LOG(LogTemp, Warning, TEXT("RestockerAI: Attempted to start restocking while not idle. Current state: %s"), *GetStateName(CurrentState));
         return;
     }
 
-    UE_LOG(LogTemp, Display, TEXT("RestockerAI: Starting restocking process"));
+    //UE_LOG(LogTemp, Display, TEXT("RestockerAI: Starting restocking process"));
     CheckedShelves.Empty();
     FindShelfToRestock();
 }
@@ -65,13 +65,13 @@ void ARestockerAI::FindShelfToRestock()
         if (Shelf && !IsShelfSufficientlyStocked(Shelf) && Shelf->GetCurrentProductClass() != nullptr && !CheckedShelves.Contains(Shelf))
         {
             TargetShelf = Shelf;
-            UE_LOG(LogTemp, Display, TEXT("RestockerAI: Found shelf to restock: %s"), *Shelf->GetName());
+            //UE_LOG(LogTemp, Display, TEXT("RestockerAI: Found shelf to restock: %s"), *Shelf->GetName());
             FindProductBox();
             return;
         }
     }
 
-    UE_LOG(LogTemp, Display, TEXT("RestockerAI: No shelf needs restocking, staying idle"));
+    //UE_LOG(LogTemp, Display, TEXT("RestockerAI: No shelf needs restocking, staying idle"));
     SetState(ERestockerState::Idle);
 }
 
@@ -87,7 +87,7 @@ void ARestockerAI::FindProductBox()
     TArray<AActor*> FoundProductBoxes;
     UGameplayStatics::GetAllActorsOfClass(GetWorld(), AProductBox::StaticClass(), FoundProductBoxes);
 
-    UE_LOG(LogTemp, Display, TEXT("RestockerAI: Found %d product boxes"), FoundProductBoxes.Num());
+    //UE_LOG(LogTemp, Display, TEXT("RestockerAI: Found %d product boxes"), FoundProductBoxes.Num());
 
     for (AActor* Actor : FoundProductBoxes)
     {
@@ -95,14 +95,14 @@ void ARestockerAI::FindProductBox()
         if (ProductBox && ProductBox->GetProductClass() == TargetShelf->GetCurrentProductClass() && !IsBoxHeldByPlayer(ProductBox))
         {
             TargetProductBox = ProductBox;
-            UE_LOG(LogTemp, Display, TEXT("RestockerAI: Found matching product box: %s"), *ProductBox->GetName());
+            //UE_LOG(LogTemp, Display, TEXT("RestockerAI: Found matching product box: %s"), *ProductBox->GetName());
             SetState(ERestockerState::MovingToProductBox);
             MoveToTarget(TargetProductBox);
             return;
         }
     }
 
-    UE_LOG(LogTemp, Warning, TEXT("RestockerAI: No matching product box found for shelf %s"), *TargetShelf->GetName());
+    //UE_LOG(LogTemp, Warning, TEXT("RestockerAI: No matching product box found for shelf %s"), *TargetShelf->GetName());
     CheckedShelves.Add(TargetShelf);
     TargetShelf = nullptr;
     FindShelfToRestock(); // Try to find another shelf to restock
