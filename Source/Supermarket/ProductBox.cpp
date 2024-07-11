@@ -24,7 +24,7 @@ AProductBox::AProductBox()
 void AProductBox::BeginPlay()
 {
     Super::BeginPlay();
-
+    /*
     if (ProductClass)
     {
         FillBox(ProductClass);
@@ -32,7 +32,7 @@ void AProductBox::BeginPlay()
     else
     {
         UE_LOG(LogTemp, Warning, TEXT("ProductClass is not set in BeginPlay for ProductBox %s"), *GetName());
-    }
+    }*/
 }
 
 void AProductBox::FillBox(TSubclassOf<AProduct> ProductToFill)

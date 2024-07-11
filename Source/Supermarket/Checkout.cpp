@@ -285,7 +285,7 @@ void ACheckout::MoveNextItemToScanPosition()
     DebugLog(TEXT("MoveNextItemToScanPosition called"));
     if (ItemsOnCounter.Num() > 0)
     {
-        AProduct* NextItem = ItemsOnCounter[0];
+        AProduct* NextItem = ItemsOnCounter.Last();  // Get the last item instead of the first
         if (NextItem)
         {
             FVector StartLocation = NextItem->GetActorLocation();
@@ -360,7 +360,7 @@ void ACheckout::ScanNextItem()
 
     if (CurrentItemIndex < ProductsToScan.Num())
     {
-        AProduct* ProductToScan = ProductsToScan[CurrentItemIndex];
+        AProduct* ProductToScan = ProductsToScan.Last();  // Get the last product instead of using CurrentItemIndex
         if (ProductToScan)
         {
             DebugLog(FString::Printf(TEXT("Scanning product: %s"), *ProductToScan->GetProductName()));
@@ -553,8 +553,8 @@ void ACheckout::RemoveScannedItem()
 {
     if (ItemsOnCounter.Num() > 0)
     {
-        AProduct* ScannedItem = ItemsOnCounter[0];
-        ItemsOnCounter.RemoveAt(0);  // Remove from the start of the array
+        AProduct* ScannedItem = ItemsOnCounter.Last();  // Get the last item
+        ItemsOnCounter.RemoveAt(ItemsOnCounter.Num() - 1);  // Remove the last item
 
         if (ScannedItem)
         {
