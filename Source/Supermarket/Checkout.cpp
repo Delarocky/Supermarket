@@ -487,11 +487,13 @@ void ACheckout::UpdateQueue()
             }
 
             CustomersInQueue[i]->MoveTo(TargetLocation);
+
+            // Set the customer's target rotation, but don't rotate yet
             SetCustomerTargetRotation(CustomersInQueue[i], i);
-            DebugLog(FString::Printf(TEXT("Customer %d moved to position %s"), i, *TargetLocation.ToString()));
         }
     }
 
+    // Start the rotation update process
     StartRotationUpdate();
 
     if (CustomersInQueue.Num() > 0 && QueuePositions.Num() > 0)
@@ -504,17 +506,9 @@ void ACheckout::UpdateQueue()
             FVector CustomerLocation = FrontCustomer->GetActorLocation();
             float DistanceToCheckout = FVector::Dist(CustomerLocation, CheckoutLocation);
 
-            DebugLog(FString::Printf(TEXT("Front customer distance to checkout: %f"), DistanceToCheckout));
-
             if (DistanceToCheckout <= ProcessingDistance && CanProcessCustomers())
             {
-                DebugLog(TEXT("Processing front customer"));
                 ProcessCustomer(FrontCustomer);
-            }
-            else
-            {
-                DebugLog(FString::Printf(TEXT("Front customer not ready for processing. Distance: %f, Can Process: %s"),
-                    DistanceToCheckout, CanProcessCustomers() ? TEXT("Yes") : TEXT("No")));
             }
         }
     }
@@ -581,12 +575,23 @@ void ACheckout::UpdateCustomerRotations()
 
         if (Customer)
         {
-            FRotator CurrentRotation = Customer->GetActorRotation();
-            FRotator NewRotation = FMath::RInterpTo(CurrentRotation, TargetRotation, GetWorld()->GetDeltaSeconds(), RotationSpeed);
-            Customer->SetActorRotation(NewRotation);
+            FVector CustomerLocation = Customer->GetActorLocation();
+            FVector QueuePosition = QueuePositions[CustomersInQueue.Find(Customer)]->GetComponentLocation();
 
-            // Check if this customer has reached its target rotation
-            if (!NewRotation.Equals(TargetRotation, 1.0f))
+            // Only rotate if the customer is close to their queue position
+            if (FVector::Dist(CustomerLocation, QueuePosition) < 130.0f)
+            {
+                FRotator CurrentRotation = Customer->GetActorRotation();
+                FRotator NewRotation = FMath::RInterpTo(CurrentRotation, TargetRotation, GetWorld()->GetDeltaSeconds(), RotationSpeed);
+                Customer->SetActorRotation(NewRotation);
+
+                // Check if this customer has reached its target rotation
+                if (!NewRotation.Equals(TargetRotation, 1.0f))
+                {
+                    AllCustomersRotated = false;
+                }
+            }
+            else
             {
                 AllCustomersRotated = false;
             }
