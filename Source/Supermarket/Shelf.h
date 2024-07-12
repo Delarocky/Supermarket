@@ -108,6 +108,12 @@ public:
 
     UFUNCTION(BlueprintCallable, Category = "Shelf")
     int32 GetMaxStock() const;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Shelf")
+    FVector ProductOffsetOnShelf;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Shelf")
+    int32 MaxProductsOnShelf;
+
 protected:
     virtual void BeginPlay() override;
 

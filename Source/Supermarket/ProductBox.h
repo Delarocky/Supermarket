@@ -77,6 +77,9 @@ public:
     AProduct* GetNextProduct() const;
     UFUNCTION(BlueprintCallable, Category = "Product Box")
     int32 GetProductCountt() const;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Product Box")
+    FVector ProductOffsetInBox;
 protected:
     virtual void BeginPlay() override;
 

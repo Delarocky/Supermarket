@@ -104,38 +104,43 @@ void AProductBox::ArrangeProducts()
         return;
     }
 
+    // Get the product data from the first product
+    AProduct* FirstProduct = Products[0];
+    if (!FirstProduct) return;
+    FProductData ProductData = FirstProduct->GetProductData();
+
     // Get the bounds of the first product to use as a reference
     FVector ProductExtent = FVector::ZeroVector;
-    if (Products[0])
+    UStaticMeshComponent* MeshComponent = FirstProduct->FindComponentByClass<UStaticMeshComponent>();
+    if (MeshComponent)
     {
-        UStaticMeshComponent* MeshComponent = Products[0]->FindComponentByClass<UStaticMeshComponent>();
-        if (MeshComponent)
-        {
-            ProductExtent = MeshComponent->Bounds.BoxExtent;
-        }
+        ProductExtent = MeshComponent->Bounds.BoxExtent;
     }
 
     // Use the ProductSpawnPoint's location as the starting point
     FVector SpawnStart = ProductSpawnPoint->GetComponentLocation();
     FRotator SpawnRotation = ProductSpawnPoint->GetComponentRotation();
 
-    // Calculate the offset to move the bottom right corner to the spawn point
+    // Calculate the offset to move the bottom center to the spawn point
     FVector CornerOffset = FVector(+ProductExtent.X, +ProductExtent.Y, +ProductExtent.Z);
+
+    // Apply the ProductOffsetInBox to the spawn start
+    SpawnStart += SpawnRotation.RotateVector(ProductOffsetInBox);
 
     UE_LOG(LogTemp, Display, TEXT("Starting product arrangement at %s with rotation %s"),
         *SpawnStart.ToString(), *SpawnRotation.ToString());
 
     int32 ProductIndex = 0;
-    for (int32 Z = 0; Z < GridSize.Z && ProductIndex < Products.Num(); ++Z)
+    for (int32 Z = 0; Z < ProductData.BoxGridSize.Z && ProductIndex < Products.Num(); ++Z)
     {
-        for (int32 Y = 0; Y < GridSize.Y && ProductIndex < Products.Num(); ++Y)
+        for (int32 Y = 0; Y < ProductData.BoxGridSize.Y && ProductIndex < Products.Num(); ++Y)
         {
-            for (int32 X = 0; X < GridSize.X && ProductIndex < Products.Num(); ++X)
+            for (int32 X = 0; X < ProductData.BoxGridSize.X && ProductIndex < Products.Num(); ++X)
             {
                 FVector Offset = FVector(
-                    X * (ProductSpacing.X + 2 * ProductExtent.X),
-                    Y * (ProductSpacing.Y + 2 * ProductExtent.Y),
-                    Z * (ProductSpacing.Z + 2 * ProductExtent.Z)
+                    X * (ProductData.BoxGridSpacing.X + 2 * ProductExtent.X),
+                    Y * (ProductData.BoxGridSpacing.Y + 2 * ProductExtent.Y),
+                    Z * (ProductData.BoxGridSpacing.Z + 2 * ProductExtent.Z)
                 );
 
                 // Apply the corner offset and the rotation of the ProductSpawnPoint to the offset
@@ -145,6 +150,9 @@ void AProductBox::ArrangeProducts()
                 // Set the world location and rotation of the product
                 Products[ProductIndex]->SetActorLocationAndRotation(ProductLocation, SpawnRotation);
 
+                // Apply the product scale
+                Products[ProductIndex]->SetActorScale3D(ProductData.Scale);
+
                 UE_LOG(LogTemp, Verbose, TEXT("Placed product %d at %s"), ProductIndex, *ProductLocation.ToString());
 
                 ProductIndex++;
@@ -153,7 +161,7 @@ void AProductBox::ArrangeProducts()
     }
 
     UE_LOG(LogTemp, Display, TEXT("Arranged %d products in a %s grid with spacing %s"),
-        ProductIndex, *GridSize.ToString(), *ProductSpacing.ToString());
+        ProductIndex, *ProductData.BoxGridSize.ToString(), *ProductData.BoxGridSpacing.ToString());
 }
 
 void AProductBox::AttachToCamera(UCameraComponent* Camera)

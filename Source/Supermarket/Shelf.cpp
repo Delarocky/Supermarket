@@ -158,8 +158,12 @@ void AShelf::InitializeShelf()
 {
     if (bStartFullyStocked && ProductClass)
     {
-        // Stock the shelf to its maximum capacity
-        while (Products.Num() < MaxProducts)
+        // Update ProductSpawnPoint based on ProductOffsetOnShelf
+        ProductSpawnPoint->SetRelativeLocation(ProductOffsetOnShelf);
+
+        // Stock the shelf to its maximum capacity or MaxProductsOnShelf, whichever is smaller
+        int32 StockLimit = FMath::Min(MaxProducts, MaxProductsOnShelf);
+        while (Products.Num() < StockLimit)
         {
             int32 currentProductCount = Products.Num();
             int32 row = currentProductCount / 5;  // Assuming 5 products per row
@@ -168,12 +172,12 @@ void AShelf::InitializeShelf()
             FVector RelativeLocation = FVector(
                 column * ProductSpacing.X,
                 row * ProductSpacing.Y,
-                ProductSpacing.Z  // Height above the shelf
+                0  // Height is now handled by ProductSpawnPoint
             );
 
             AddProduct(RelativeLocation);
         }
-        UE_LOG(LogTemp, Display, TEXT("Shelf %s: Initialized as fully stocked with %d products"), *GetName(), Products.Num());
+        UE_LOG(LogTemp, Display, TEXT("Shelf %s: Initialized with %d products"), *GetName(), Products.Num());
     }
     else
     {
@@ -183,7 +187,7 @@ void AShelf::InitializeShelf()
 
 bool AShelf::AddProduct(const FVector& RelativeLocation)
 {
-    if (Products.Num() < MaxProducts && ProductClass && ProductBox)
+    if (Products.Num() < FMath::Min(MaxProducts, MaxProductsOnShelf) && ProductClass && ProductBox)
     {
         // Check if the ProductBox has the correct product type
         if (ProductBox->GetProductClass() != ProductClass)
