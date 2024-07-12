@@ -209,7 +209,7 @@ void AProductBox::Tick(float DeltaTime)
     }
 }
 
-AProductBox* AProductBox::SpawnProductBox(UObject* WorldContextObject, TSubclassOf<AProductBox> ProductBoxClass, TSubclassOf<AProduct> ProductToSpawn, int32 Quantity, FVector SpawnLocation, FVector Spacing, FIntVector Grid)
+AProductBox* AProductBox::SpawnProductBox(UObject* WorldContextObject, TSubclassOf<AProductBox> ProductBoxClass, TSubclassOf<AProduct> ProductToSpawn, FVector SpawnLocation)
 {
     if (!WorldContextObject || !ProductBoxClass || !ProductToSpawn)
     {
@@ -231,32 +231,29 @@ AProductBox* AProductBox::SpawnProductBox(UObject* WorldContextObject, TSubclass
     if (NewProductBox)
     {
         NewProductBox->SetProductClass(ProductToSpawn);
-        NewProductBox->MaxProducts = FMath::Clamp(Quantity, 1, Grid.X * Grid.Y * Grid.Z);
-        NewProductBox->ProductSpacing = Spacing;
-        NewProductBox->GridSize = Grid;
 
-        if (NewProductBox->BoxMesh)
+        // Get the product data from the product class
+        if (AProduct* ProductCDO = ProductToSpawn.GetDefaultObject())
         {
-            NewProductBox->BoxMesh->SetWorldScale3D(FVector(1.0f));
+            FProductData ProductData = ProductCDO->GetProductData();
+
+            // Set up the product box using the product data
+            NewProductBox->MaxProducts = ProductData.MaxProductsInBox;
+            NewProductBox->ProductSpacing = ProductData.BoxGridSpacing;
+            NewProductBox->GridSize = ProductData.BoxGridSize;
+
+            if (NewProductBox->BoxMesh)
+            {
+                NewProductBox->BoxMesh->SetWorldScale3D(FVector(1.0f));
+            }
+
+            NewProductBox->FillBox(ProductToSpawn);
+
+            UE_LOG(LogTemp, Display, TEXT("Spawned ProductBox with %d %s at location %s"),
+                NewProductBox->GetProductCount(),
+                *ProductToSpawn->GetName(),
+                *SpawnLocation.ToString());
         }
-
-        // Log the ProductSpawnPoint location for debugging
-        if (NewProductBox->ProductSpawnPoint)
-        {
-            FVector SpawnPointWorldLocation = NewProductBox->ProductSpawnPoint->GetComponentLocation();
-            FRotator SpawnPointWorldRotation = NewProductBox->ProductSpawnPoint->GetComponentRotation();
-            UE_LOG(LogTemp, Display, TEXT("ProductSpawnPoint world location: %s, rotation: %s"),
-                *SpawnPointWorldLocation.ToString(), *SpawnPointWorldRotation.ToString());
-        }
-
-        NewProductBox->FillBox(ProductToSpawn);
-
-        UE_LOG(LogTemp, Display, TEXT("Spawned ProductBox with %d %s at location %s, Spacing: %s, Grid: %s"),
-            NewProductBox->GetProductCount(),
-            *ProductToSpawn->GetName(),
-            *SpawnLocation.ToString(),
-            *Spacing.ToString(),
-            *Grid.ToString());
     }
     else
     {

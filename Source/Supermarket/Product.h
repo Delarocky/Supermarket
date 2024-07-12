@@ -10,18 +10,71 @@ struct FProductData
 {
     GENERATED_BODY()
 
-    UPROPERTY(EditAnywhere, BlueprintReadWrite)
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Product Info")
     FString Name;
 
-    UPROPERTY(EditAnywhere, BlueprintReadWrite)
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Product Info")
     float Price;
 
-    UPROPERTY(EditAnywhere, BlueprintReadWrite)
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Product Info")
     FVector Scale;
 
-      FProductData() : Name(""), Price(0.0f), Scale(FVector(1.0f, 1.0f, 1.0f)) {}
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Product Box")
+    FIntVector BoxGridSize;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Product Box")
+    FVector BoxGridSpacing;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Product Box")
+    FVector ProductOffsetInBox;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Product Box")
+    int32 MaxProductsInBox;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Shelf")
+    FIntVector ShelfGridSize;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Shelf")
+    FVector ShelfGridSpacing;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Shelf")
+    FVector ProductOffsetOnShelf;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Shelf")
+    int32 MaxProductsOnShelf;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Product Box")
+    TSubclassOf<class AProductBox> ProductBoxClass;
+
+    FProductData()
+        : Name("")
+        , Price(0.0f)
+        , Scale(FVector(1.0f, 1.0f, 1.0f))
+        , BoxGridSize(FIntVector(1, 1, 1))
+        , BoxGridSpacing(FVector(20.0f, 20.0f, 20.0f))
+        , ProductOffsetInBox(FVector::ZeroVector)
+        , MaxProductsInBox(20)
+        , ShelfGridSize(FIntVector(5, 3, 1))
+        , ShelfGridSpacing(FVector(20.0f, 20.0f, 20.0f))
+        , ProductOffsetOnShelf(FVector::ZeroVector)
+        , MaxProductsOnShelf(15)
+        , ProductBoxClass(nullptr)
+    {}
+
     FProductData(const FString& InName, float InPrice, const FVector& InScale)
-        : Name(InName), Price(InPrice), Scale(InScale) {}
+        : Name(InName)
+        , Price(InPrice)
+        , Scale(InScale)
+        , BoxGridSize(FIntVector(1, 1, 1))
+        , BoxGridSpacing(FVector(20.0f, 20.0f, 20.0f))
+        , ProductOffsetInBox(FVector::ZeroVector)
+        , MaxProductsInBox(20)
+        , ShelfGridSize(FIntVector(5, 3, 1))
+        , ShelfGridSpacing(FVector(20.0f, 20.0f, 20.0f))
+        , ProductOffsetOnShelf(FVector::ZeroVector)
+        , MaxProductsOnShelf(15)
+        , ProductBoxClass(nullptr)
+    {}
 };
 
 UCLASS(BlueprintType, Blueprintable)
