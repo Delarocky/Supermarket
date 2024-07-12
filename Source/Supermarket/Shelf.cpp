@@ -415,12 +415,30 @@ void AShelf::UpdateStockingSpline()
     FVector StartPoint = NextProduct->GetActorLocation();
     StockingSpline->AddSplinePoint(StartPoint, ESplineCoordinateSpace::World);
 
-    // Mid point (arc above the shelf)
+    // Calculate the end point (center of where the product will land on the shelf)
     FVector EndPoint = GetNextProductLocation();
-    FVector MidPoint = (StartPoint + EndPoint) * 0.5f + FVector(0, 0, 50);
-    StockingSpline->AddSplinePoint(MidPoint, ESplineCoordinateSpace::World);
 
-    // End point (next product location on the shelf)
+    // Adjust EndPoint to be at the center of the product
+    UStaticMeshComponent* ProductMesh = NextProduct->FindComponentByClass<UStaticMeshComponent>();
+    if (ProductMesh)
+    {
+        // Get the original (unscaled) bounds of the mesh
+        FVector OriginalBounds = ProductMesh->GetStaticMesh()->GetBoundingBox().GetSize();
+
+        // Get the current scale of the product
+        FVector CurrentScale = NextProduct->GetActorScale3D();
+
+        // Calculate the actual size of the product after scaling
+        FVector ActualSize = OriginalBounds * CurrentScale;
+
+        // Adjust the end point to be at the center of the product
+        EndPoint += ProductSpawnPoint->GetComponentRotation().RotateVector(FVector(0, 0, ActualSize.Z * 0.5f));
+    }
+
+    // Mid point (arc above the shelf)
+    FVector MidPoint = (StartPoint + EndPoint) * 0.5f + FVector(0, 0, 50);
+
+    StockingSpline->AddSplinePoint(MidPoint, ESplineCoordinateSpace::World);
     StockingSpline->AddSplinePoint(EndPoint, ESplineCoordinateSpace::World);
 }
 
