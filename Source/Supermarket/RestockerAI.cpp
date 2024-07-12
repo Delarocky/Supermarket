@@ -45,11 +45,11 @@ void ARestockerAI::StartRestocking()
 {
     if (CurrentState != ERestockerState::Idle)
     {
-        //UE_LOG(LogTemp, Warning, TEXT("RestockerAI: Attempted to start restocking while not idle. Current state: %s"), *GetStateName(CurrentState));
+        ////UE_LOG(LogTemp, Warning, TEXT("RestockerAI: Attempted to start restocking while not idle. Current state: %s"), *GetStateName(CurrentState));
         return;
     }
 
-    //UE_LOG(LogTemp, Display, TEXT("RestockerAI: Starting restocking process"));
+    ////UE_LOG(LogTemp, Display, TEXT("RestockerAI: Starting restocking process"));
     CheckedShelves.Empty();
     FindShelfToRestock();
 }
@@ -65,13 +65,13 @@ void ARestockerAI::FindShelfToRestock()
         if (Shelf && !IsShelfSufficientlyStocked(Shelf) && Shelf->GetCurrentProductClass() != nullptr && !CheckedShelves.Contains(Shelf))
         {
             TargetShelf = Shelf;
-            //UE_LOG(LogTemp, Display, TEXT("RestockerAI: Found shelf to restock: %s"), *Shelf->GetName());
+            ////UE_LOG(LogTemp, Display, TEXT("RestockerAI: Found shelf to restock: %s"), *Shelf->GetName());
             FindProductBox();
             return;
         }
     }
 
-    //UE_LOG(LogTemp, Display, TEXT("RestockerAI: No shelf needs restocking, staying idle"));
+    ////UE_LOG(LogTemp, Display, TEXT("RestockerAI: No shelf needs restocking, staying idle"));
     SetState(ERestockerState::Idle);
 }
 
@@ -79,7 +79,7 @@ void ARestockerAI::FindProductBox()
 {
     if (!TargetShelf)
     {
-        UE_LOG(LogTemp, Error, TEXT("RestockerAI: TargetShelf is null in FindProductBox"));
+        //UE_LOG(LogTemp, Error, TEXT("RestockerAI: TargetShelf is null in FindProductBox"));
         SetState(ERestockerState::Idle);
         return;
     }
@@ -87,7 +87,7 @@ void ARestockerAI::FindProductBox()
     TArray<AActor*> FoundProductBoxes;
     UGameplayStatics::GetAllActorsOfClass(GetWorld(), AProductBox::StaticClass(), FoundProductBoxes);
 
-    //UE_LOG(LogTemp, Display, TEXT("RestockerAI: Found %d product boxes"), FoundProductBoxes.Num());
+    ////UE_LOG(LogTemp, Display, TEXT("RestockerAI: Found %d product boxes"), FoundProductBoxes.Num());
 
     for (AActor* Actor : FoundProductBoxes)
     {
@@ -95,14 +95,14 @@ void ARestockerAI::FindProductBox()
         if (ProductBox && ProductBox->GetProductClass() == TargetShelf->GetCurrentProductClass() && !IsBoxHeldByPlayer(ProductBox))
         {
             TargetProductBox = ProductBox;
-            //UE_LOG(LogTemp, Display, TEXT("RestockerAI: Found matching product box: %s"), *ProductBox->GetName());
+            ////UE_LOG(LogTemp, Display, TEXT("RestockerAI: Found matching product box: %s"), *ProductBox->GetName());
             SetState(ERestockerState::MovingToProductBox);
             MoveToTarget(TargetProductBox);
             return;
         }
     }
 
-    //UE_LOG(LogTemp, Warning, TEXT("RestockerAI: No matching product box found for shelf %s"), *TargetShelf->GetName());
+    ////UE_LOG(LogTemp, Warning, TEXT("RestockerAI: No matching product box found for shelf %s"), *TargetShelf->GetName());
     CheckedShelves.Add(TargetShelf);
     TargetShelf = nullptr;
     FindShelfToRestock(); // Try to find another shelf to restock
@@ -119,15 +119,15 @@ void ARestockerAI::MoveToTarget(AActor* Target)
         }
         else
         {
-            UE_LOG(LogTemp, Display, TEXT("RestockerAI: Moving to target: %s"), *Target->GetName());
+            //UE_LOG(LogTemp, Display, TEXT("RestockerAI: Moving to target: %s"), *Target->GetName());
             AIController->MoveToActor(Target, 50.0f); // 50.0f is the acceptance radius
         }
     }
     else
     {
-        UE_LOG(LogTemp, Error, TEXT("RestockerAI: Failed to move to target. AIController: %s, Target: %s"),
-            AIController ? TEXT("Valid") : TEXT("Invalid"),
-            Target ? TEXT("Valid") : TEXT("Invalid"));
+        //UE_LOG(LogTemp, Error, TEXT("RestockerAI: Failed to move to target. AIController: %s, Target: %s"),
+        //    AIController ? TEXT("Valid") : TEXT("Invalid"),
+        //    Target ? TEXT("Valid") : TEXT("Invalid"));
         SetState(ERestockerState::Idle);
     }
 }
@@ -158,13 +158,13 @@ void ARestockerAI::PickUpProductBox()
         RemainingProducts = TargetProductBox->GetProductCountt();
         CurrentProductClass = TargetProductBox->GetProductClass();
 
-        UE_LOG(LogTemp, Display, TEXT("RestockerAI: Picked up product box: %s with %d products"), *TargetProductBox->GetName(), RemainingProducts);
+        //UE_LOG(LogTemp, Display, TEXT("RestockerAI: Picked up product box: %s with %d products"), *TargetProductBox->GetName(), RemainingProducts);
         SetState(ERestockerState::MovingToShelf);
         MoveToTarget(TargetShelf);
     }
     else
     {
-        UE_LOG(LogTemp, Error, TEXT("RestockerAI: Failed to pick up product box, TargetProductBox is null"));
+        //UE_LOG(LogTemp, Error, TEXT("RestockerAI: Failed to pick up product box, TargetProductBox is null"));
         SetState(ERestockerState::Idle);
     }
 }
@@ -173,7 +173,7 @@ void ARestockerAI::RestockShelf()
 {
     if (TargetShelf && bIsHoldingProductBox && TargetProductBox)
     {
-        UE_LOG(LogTemp, Display, TEXT("RestockerAI: Restocking shelf: %s"), *TargetShelf->GetName());
+        //UE_LOG(LogTemp, Display, TEXT("RestockerAI: Restocking shelf: %s"), *TargetShelf->GetName());
         TargetShelf->SetProductBox(TargetProductBox);
         TargetShelf->StartStockingShelf(TargetProductBox->GetProductClass());
 
@@ -182,10 +182,10 @@ void ARestockerAI::RestockShelf()
     }
     else
     {
-        UE_LOG(LogTemp, Error, TEXT("RestockerAI: Failed to restock shelf. TargetShelf: %s, Holding ProductBox: %s, TargetProductBox: %s"),
-            TargetShelf ? TEXT("Valid") : TEXT("Invalid"),
-            bIsHoldingProductBox ? TEXT("Yes") : TEXT("No"),
-            TargetProductBox ? TEXT("Valid") : TEXT("Invalid"));
+        //UE_LOG(LogTemp, Error, TEXT("RestockerAI: Failed to restock shelf. TargetShelf: %s, Holding ProductBox: %s, TargetProductBox: %s"),
+        //    TargetShelf ? TEXT("Valid") : TEXT("Invalid"),
+        //   bIsHoldingProductBox ? TEXT("Yes") : TEXT("No"),
+        //    TargetProductBox ? TEXT("Valid") : TEXT("Invalid"));
         SetState(ERestockerState::Idle);
         StartRestocking();
     }
@@ -193,36 +193,36 @@ void ARestockerAI::RestockShelf()
 
 void ARestockerAI::OnMoveCompleted(FAIRequestID RequestID, EPathFollowingResult::Type Result)
 {
-    UE_LOG(LogTemp, Display, TEXT("RestockerAI: Move completed with result: %d"), static_cast<int32>(Result));
+    //UE_LOG(LogTemp, Display, TEXT("RestockerAI: Move completed with result: %d"), static_cast<int32>(Result));
 
     if (Result == EPathFollowingResult::Success)
     {
         switch (CurrentState)
         {
         case ERestockerState::MovingToProductBox:
-            UE_LOG(LogTemp, Display, TEXT("RestockerAI: Reached product box, picking up"));
+            //UE_LOG(LogTemp, Display, TEXT("RestockerAI: Reached product box, picking up"));
             PickUpProductBox();
             break;
         case ERestockerState::MovingToShelf:
             if (bIsHoldingProductBox && TargetProductBox && TargetProductBox->GetAttachParentActor() == this)
             {
-                UE_LOG(LogTemp, Display, TEXT("RestockerAI: Reached shelf, turning to face it"));
+                //UE_LOG(LogTemp, Display, TEXT("RestockerAI: Reached shelf, turning to face it"));
                 TurnToFaceTarget();
             }
             else
             {
-                UE_LOG(LogTemp, Warning, TEXT("RestockerAI: Reached shelf but not holding product box, returning to idle"));
+                //UE_LOG(LogTemp, Warning, TEXT("RestockerAI: Reached shelf but not holding product box, returning to idle"));
                 SetState(ERestockerState::Idle);
             }
             break;
         default:
-            UE_LOG(LogTemp, Warning, TEXT("RestockerAI: Move completed in unexpected state: %s"), *GetStateName(CurrentState));
+            //UE_LOG(LogTemp, Warning, TEXT("RestockerAI: Move completed in unexpected state: %s"), *GetStateName(CurrentState));
             break;
         }
     }
     else
     {
-        UE_LOG(LogTemp, Warning, TEXT("RestockerAI: Move failed, retrying"));
+        //UE_LOG(LogTemp, Warning, TEXT("RestockerAI: Move failed, retrying"));
         if (CurrentState == ERestockerState::MovingToProductBox || CurrentState == ERestockerState::MovingToShelf)
         {
             // Retry the move
@@ -244,7 +244,7 @@ void ARestockerAI::OnMoveCompleted(FAIRequestID RequestID, EPathFollowingResult:
 
 void ARestockerAI::SetState(ERestockerState NewState)
 {
-    //UE_LOG(LogTemp, Display, TEXT("RestockerAI: State changing from %s to %s"), *GetStateName(CurrentState), *GetStateName(NewState));
+    ////UE_LOG(LogTemp, Display, TEXT("RestockerAI: State changing from %s to %s"), *GetStateName(CurrentState), *GetStateName(NewState));
     CurrentState = NewState;
 }
 
@@ -271,7 +271,7 @@ void ARestockerAI::MoveToAccessPoint()
 {
     if (AIController)
     {
-        UE_LOG(LogTemp, Display, TEXT("RestockerAI: Moving to access point: %s"), *CurrentAccessPoint.ToString());
+        //UE_LOG(LogTemp, Display, TEXT("RestockerAI: Moving to access point: %s"), *CurrentAccessPoint.ToString());
         AIController->MoveToLocation(CurrentAccessPoint, 30.0f); // 50.0f is the acceptance radius
     }
 }
@@ -358,7 +358,7 @@ void ARestockerAI::CheckShelfStocked()
         TargetProductBox = nullptr;
         TargetShelf = nullptr;
 
-        UE_LOG(LogTemp, Display, TEXT("RestockerAI: Shelf fully stocked, starting over"));
+        //UE_LOG(LogTemp, Display, TEXT("RestockerAI: Shelf fully stocked, starting over"));
         SetState(ERestockerState::Idle);
         StartRestocking();
     }
@@ -391,14 +391,14 @@ void ARestockerAI::FindNewBoxWithSameProduct()
         if (ProductBox && ProductBox->GetProductClass() == CurrentProductClass && !IsBoxHeldByPlayer(ProductBox))
         {
             TargetProductBox = ProductBox;
-            UE_LOG(LogTemp, Display, TEXT("RestockerAI: Found new box with same product: %s"), *ProductBox->GetName());
+            //UE_LOG(LogTemp, Display, TEXT("RestockerAI: Found new box with same product: %s"), *ProductBox->GetName());
             SetState(ERestockerState::MovingToProductBox);
             MoveToTarget(TargetProductBox);
             return;
         }
     }
 
-    UE_LOG(LogTemp, Display, TEXT("RestockerAI: No more boxes with the same product, moving on to next task"));
+    //UE_LOG(LogTemp, Display, TEXT("RestockerAI: No more boxes with the same product, moving on to next task"));
     TargetShelf = nullptr;
     SetState(ERestockerState::Idle);
     StartRestocking();
@@ -406,7 +406,7 @@ void ARestockerAI::FindNewBoxWithSameProduct()
 
 void ARestockerAI::HandleEmptyBox()
 {
-    UE_LOG(LogTemp, Display, TEXT("RestockerAI: Product box is empty, disposing of it"));
+    //UE_LOG(LogTemp, Display, TEXT("RestockerAI: Product box is empty, disposing of it"));
 
     if (TargetProductBox)
     {
@@ -423,7 +423,7 @@ void ARestockerAI::HandleEmptyBox()
     }
     else
     {
-        UE_LOG(LogTemp, Display, TEXT("RestockerAI: Moving on to next task"));
+        //UE_LOG(LogTemp, Display, TEXT("RestockerAI: Moving on to next task"));
         TargetShelf = nullptr;
         SetState(ERestockerState::Idle);
         StartRestocking();
@@ -485,7 +485,7 @@ void ARestockerAI::DropCurrentBox()
 {
     if (bIsHoldingProductBox && TargetProductBox)
     {
-        UE_LOG(LogTemp, Display, TEXT("RestockerAI: Dropping current box"));
+        //UE_LOG(LogTemp, Display, TEXT("RestockerAI: Dropping current box"));
         TargetProductBox->DetachFromActor(FDetachmentTransformRules::KeepWorldTransform);
         UPrimitiveComponent* PrimitiveComponent = Cast<UPrimitiveComponent>(TargetProductBox->GetRootComponent());
         if (PrimitiveComponent)
@@ -509,7 +509,7 @@ void ARestockerAI::FindNextShelfForCurrentProduct()
         if (Shelf && !IsShelfSufficientlyStocked(Shelf) && Shelf->GetCurrentProductClass() == CurrentProductClass)
         {
             TargetShelf = Shelf;
-            UE_LOG(LogTemp, Display, TEXT("RestockerAI: Found another shelf for current product: %s"), *Shelf->GetName());
+            //UE_LOG(LogTemp, Display, TEXT("RestockerAI: Found another shelf for current product: %s"), *Shelf->GetName());
             SetState(ERestockerState::MovingToShelf);
             MoveToTarget(TargetShelf);
             return;
@@ -517,7 +517,7 @@ void ARestockerAI::FindNextShelfForCurrentProduct()
     }
 
     // If no shelf needs the current product, drop the box and start over
-    UE_LOG(LogTemp, Display, TEXT("RestockerAI: No more shelves need current product, dropping box and starting over"));
+    //UE_LOG(LogTemp, Display, TEXT("RestockerAI: No more shelves need current product, dropping box and starting over"));
     DropCurrentBox();
     SetState(ERestockerState::Idle);
     StartRestocking();

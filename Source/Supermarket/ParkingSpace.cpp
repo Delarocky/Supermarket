@@ -74,7 +74,7 @@ void AParkingSpace::SpawnCustomers()
 {
     if (!CustomerClass)
     {
-        UE_LOG(LogTemp, Error, TEXT("CustomerClass is not set in ParkingSpace!"));
+        //UE_LOG(LogTemp, Error, TEXT("CustomerClass is not set in ParkingSpace!"));
         return;
     }
 

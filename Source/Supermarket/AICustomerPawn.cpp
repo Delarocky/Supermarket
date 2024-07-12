@@ -29,7 +29,7 @@ AAICustomerPawn::AAICustomerPawn()
 void AAICustomerPawn::BeginPlay()
 {
     Super::BeginPlay();
-    UE_LOG(LogTemp, Display, TEXT("AI BeginPlay called"));
+    //UE_LOG(LogTemp, Display, TEXT("AI BeginPlay called"));
     InitializeAIController();
 }
 
@@ -38,7 +38,7 @@ FVector AAICustomerPawn::FindMostAccessiblePoint(const TArray<FVector>& Points)
     UNavigationSystemV1* NavSys = FNavigationSystem::GetCurrent<UNavigationSystemV1>(GetWorld());
     if (!NavSys)
     {
-        UE_LOG(LogTemp, Error, TEXT("Navigation system not found in FindMostAccessiblePoint"));
+        //UE_LOG(LogTemp, Error, TEXT("Navigation system not found in FindMostAccessiblePoint"));
         return Points[0]; // Return the first point if nav system is not available
     }
 
@@ -107,11 +107,11 @@ void AAICustomerPawn::InitializeAIController()
         AIController = Cast<AAIController>(GetController());
         if (AIController)
         {
-            UE_LOG(LogTemp, Display, TEXT("AIController set successfully"));
+            //UE_LOG(LogTemp, Display, TEXT("AIController set successfully"));
         }
         else
         {
-            UE_LOG(LogTemp, Error, TEXT("Failed to set AIController"));
+            //UE_LOG(LogTemp, Error, TEXT("Failed to set AIController"));
         }
     }
 }
@@ -131,11 +131,11 @@ void AAICustomerPawn::FinishShopping()
 
 void AAICustomerPawn::ChooseProduct()
 {
-   //UE_LOG(LogTemp, Display, TEXT("ChooseProduct called. Current Items: %d, Max Items: %d"), CurrentItems, MaxItems);
+   ////UE_LOG(LogTemp, Display, TEXT("ChooseProduct called. Current Items: %d, Max Items: %d"), CurrentItems, MaxItems);
 
     if (CurrentItems >= MaxItems)
     {
-        UE_LOG(LogTemp, Display, TEXT("Max items reached, going to checkout"));
+        //UE_LOG(LogTemp, Display, TEXT("Max items reached, going to checkout"));
         GoToCheckoutWhenDone();
         return;
     }
@@ -147,7 +147,7 @@ void AAICustomerPawn::ChooseProduct()
 
     if (!AIController)
     {
-        UE_LOG(LogTemp, Error, TEXT("AIController is null in ChooseProduct!"));
+        //UE_LOG(LogTemp, Error, TEXT("AIController is null in ChooseProduct!"));
         return;
     }
 
@@ -173,21 +173,21 @@ void AAICustomerPawn::ChooseProduct()
             }
             else
             {
-                UE_LOG(LogTemp, Error, TEXT("Failed to find valid navigation point for shelf access point. Choosing new product."));
+                //UE_LOG(LogTemp, Error, TEXT("Failed to find valid navigation point for shelf access point. Choosing new product."));
                 CurrentShelf = nullptr;
                 GetWorldTimerManager().SetTimer(RetryTimerHandle, this, &AAICustomerPawn::ChooseProduct, 1.0f, false);
             }
         }
         else
         {
-            UE_LOG(LogTemp, Error, TEXT("Navigation system not found. Choosing new product."));
+            //UE_LOG(LogTemp, Error, TEXT("Navigation system not found. Choosing new product."));
             CurrentShelf = nullptr;
             GetWorldTimerManager().SetTimer(RetryTimerHandle, this, &AAICustomerPawn::ChooseProduct, 1.0f, false);
         }
     }
     else
     {
-        //UE_LOG(LogTemp, Warning, TEXT("No accessible stocked shelves found. Waiting..."));
+        ////UE_LOG(LogTemp, Warning, TEXT("No accessible stocked shelves found. Waiting..."));
         GetWorldTimerManager().SetTimer(RetryTimerHandle, this, &AAICustomerPawn::ChooseProduct, 2.0f, false);
     }
 }
@@ -197,7 +197,7 @@ void AAICustomerPawn::PutCurrentProductInBag()
 {
     if (CurrentTargetProduct && ShoppingBag)
     {
-        UE_LOG(LogTemp, Display, TEXT("Putting product in bag: %s"), *CurrentTargetProduct->GetProductName());
+        //UE_LOG(LogTemp, Display, TEXT("Putting product in bag: %s"), *CurrentTargetProduct->GetProductName());
  
 
         // Add the product to the shopping bag
@@ -208,7 +208,7 @@ void AAICustomerPawn::PutCurrentProductInBag()
         CurrentTargetProduct->SetActorEnableCollision(false);
 
         CurrentItems++;
-        UE_LOG(LogTemp, Display, TEXT("Product added to bag. Current Items: %d"), CurrentItems);
+        //UE_LOG(LogTemp, Display, TEXT("Product added to bag. Current Items: %d"), CurrentItems);
 
         // Debug print the contents of the shopping bag
         ShoppingBag->DebugPrintContents();
@@ -219,7 +219,7 @@ void AAICustomerPawn::PutCurrentProductInBag()
         // Check if we've reached MaxItems
         if (CurrentItems >= MaxItems)
         {
-            UE_LOG(LogTemp, Display, TEXT("Max items reached, going to checkout"));
+            //UE_LOG(LogTemp, Display, TEXT("Max items reached, going to checkout"));
             GoToCheckoutWhenDone();
         }
         else
@@ -230,9 +230,9 @@ void AAICustomerPawn::PutCurrentProductInBag()
     }
     else
     {
-        UE_LOG(LogTemp, Error, TEXT("Failed to put product in bag. Product: %s, ShoppingBag: %s"),
-            CurrentTargetProduct ? TEXT("Valid") : TEXT("Invalid"),
-            ShoppingBag ? TEXT("Valid") : TEXT("Invalid"));
+        //UE_LOG(LogTemp, Error, TEXT("Failed to put product in bag. Product: %s, ShoppingBag: %s"),
+          //  CurrentTargetProduct ? TEXT("Valid") : TEXT("Invalid"),
+         //   ShoppingBag ? TEXT("Valid") : TEXT("Invalid"));
         // If we failed to put the product in the bag, try to choose another product
         ChooseProduct();
     }
@@ -254,13 +254,13 @@ void AAICustomerPawn::DetachAllItems()
                 Product->SetActorHiddenInGame(true);
                 Product->SetActorEnableCollision(false);
 
-                UE_LOG(LogTemp, Display, TEXT("Detached and hidden product: %s"), *Product->GetProductName());
+                //UE_LOG(LogTemp, Display, TEXT("Detached and hidden product: %s"), *Product->GetProductName());
             }
         }
     }
     else
     {
-        UE_LOG(LogTemp, Warning, TEXT("Shopping bag is null when trying to detach items"));
+        //UE_LOG(LogTemp, Warning, TEXT("Shopping bag is null when trying to detach items"));
     }
 
     // Clear the current target product
@@ -269,7 +269,7 @@ void AAICustomerPawn::DetachAllItems()
         CurrentTargetProduct->DetachFromActor(FDetachmentTransformRules::KeepWorldTransform);
         CurrentTargetProduct->SetActorHiddenInGame(true);
         CurrentTargetProduct->SetActorEnableCollision(false);
-        UE_LOG(LogTemp, Display, TEXT("Detached and hidden current target product: %s"), *CurrentTargetProduct->GetProductName());
+        //UE_LOG(LogTemp, Display, TEXT("Detached and hidden current target product: %s"), *CurrentTargetProduct->GetProductName());
         CurrentTargetProduct = nullptr;
     }
 
@@ -282,8 +282,8 @@ void AAICustomerPawn::PickUpProduct()
     AProduct* PickedProduct = CurrentShelf->RemoveNextProduct();
     if (PickedProduct)
     {
-        UE_LOG(LogTemp, Display, TEXT("Picked up product %s from shelf %s. Total products: %d/%d"),
-            *PickedProduct->GetProductName(), *CurrentShelf->GetName(), CurrentItems + 1, MaxItems);
+        //UE_LOG(LogTemp, Display, TEXT("Picked up product %s from shelf %s. Total products: %d/%d"),
+         //   *PickedProduct->GetProductName(), *CurrentShelf->GetName(), CurrentItems + 1, MaxItems);
 
         // Store the product's current transform
         FTransform OriginalTransform = PickedProduct->GetActorTransform();
@@ -308,14 +308,14 @@ void AAICustomerPawn::PickUpProduct()
         // Set the CurrentTargetProduct
         CurrentTargetProduct = PickedProduct;
 
-        UE_LOG(LogTemp, Display, TEXT("Starting product interpolation for %s"), *PickedProduct->GetProductName());
+        //UE_LOG(LogTemp, Display, TEXT("Starting product interpolation for %s"), *PickedProduct->GetProductName());
         
        
         StartProductInterpolation();
     }
     else
     {
-        UE_LOG(LogTemp, Warning, TEXT("Failed to pick up product from shelf %s"), *CurrentShelf->GetName());
+        //UE_LOG(LogTemp, Warning, TEXT("Failed to pick up product from shelf %s"), *CurrentShelf->GetName());
         LowerArm();
         ChooseProduct();
     }
@@ -325,7 +325,7 @@ void AAICustomerPawn::DetermineShelfPosition()
 {
     if (!CurrentShelf)
     {
-        UE_LOG(LogTemp, Warning, TEXT("No current shelf set"));
+        //UE_LOG(LogTemp, Warning, TEXT("No current shelf set"));
         return;
     }
 
@@ -353,22 +353,22 @@ void AAICustomerPawn::DetermineShelfPosition()
         if (HeightDifference < LowThreshold)
         {
             bKneelDown = true;
-            UE_LOG(LogTemp, Display, TEXT("Product is low, kneeling down. Height difference: %f"), HeightDifference);
+            //UE_LOG(LogTemp, Display, TEXT("Product is low, kneeling down. Height difference: %f"), HeightDifference);
         }
         else if (HeightDifference > HighThreshold)
         {
             bReachUp = true;
-            UE_LOG(LogTemp, Display, TEXT("Product is high, reaching up. Height difference: %f"), HeightDifference);
+            //UE_LOG(LogTemp, Display, TEXT("Product is high, reaching up. Height difference: %f"), HeightDifference);
         }
         else
         {
             bRaiseArm = true;
-            UE_LOG(LogTemp, Display, TEXT("Product is at waist level, normal grab. Height difference: %f"), HeightDifference);
+            //UE_LOG(LogTemp, Display, TEXT("Product is at waist level, normal grab. Height difference: %f"), HeightDifference);
         }
     }
     else
     {
-        UE_LOG(LogTemp, Warning, TEXT("Unable to get next product location from shelf"));
+        //UE_LOG(LogTemp, Warning, TEXT("Unable to get next product location from shelf"));
         bRaiseArm = true; // Default to normal grab if we can't determine product location
     }
 }
@@ -394,7 +394,7 @@ void AAICustomerPawn::StartProductInterpolation()
     }
     else
     {
-        UE_LOG(LogTemp, Warning, TEXT("No product to interpolate"));
+        //UE_LOG(LogTemp, Warning, TEXT("No product to interpolate"));
         
     }
 }
@@ -444,7 +444,7 @@ void AAICustomerPawn::PutProductInBag(AProduct* Product)
 {
     if (Product && ShoppingBag)
     {
-        UE_LOG(LogTemp, Display, TEXT("Putting product in bag: %s"), *Product->GetProductName());
+        //UE_LOG(LogTemp, Display, TEXT("Putting product in bag: %s"), *Product->GetProductName());
 
 
         // Remove the product from the shelf
@@ -453,12 +453,12 @@ void AAICustomerPawn::PutProductInBag(AProduct* Product)
             AProduct* RemovedProduct = CurrentShelf->RemoveNextProduct();
             if (RemovedProduct != Product)
             {
-                UE_LOG(LogTemp, Warning, TEXT("Removed product does not match the expected product"));
+                //UE_LOG(LogTemp, Warning, TEXT("Removed product does not match the expected product"));
             }
         }
         else
         {
-            UE_LOG(LogTemp, Warning, TEXT("CurrentShelf is null when trying to remove product"));
+            //UE_LOG(LogTemp, Warning, TEXT("CurrentShelf is null when trying to remove product"));
         }
 
         Product->DetachFromActor(FDetachmentTransformRules::KeepWorldTransform);
@@ -469,7 +469,7 @@ void AAICustomerPawn::PutProductInBag(AProduct* Product)
         Product->SetActorEnableCollision(false);
 
         CurrentItems++;
-        UE_LOG(LogTemp, Display, TEXT("Product added to bag. Current Items: %d"), CurrentItems);
+        //UE_LOG(LogTemp, Display, TEXT("Product added to bag. Current Items: %d"), CurrentItems);
 
         // Debug print the contents of the shopping bag
         ShoppingBag->DebugPrintContents();
@@ -477,7 +477,7 @@ void AAICustomerPawn::PutProductInBag(AProduct* Product)
         // Check if we've reached MaxItems
         if (CurrentItems >= MaxItems)
         {
-            UE_LOG(LogTemp, Display, TEXT("Max items reached, going to checkout"));
+            //UE_LOG(LogTemp, Display, TEXT("Max items reached, going to checkout"));
             GoToCheckoutWhenDone();
         }
         else
@@ -488,9 +488,9 @@ void AAICustomerPawn::PutProductInBag(AProduct* Product)
     }
     else
     {
-        UE_LOG(LogTemp, Error, TEXT("Failed to put product in bag. Product: %s, ShoppingBag: %s"),
-            Product ? TEXT("Valid") : TEXT("Invalid"),
-            ShoppingBag ? TEXT("Valid") : TEXT("Invalid"));
+        //UE_LOG(LogTemp, Error, TEXT("Failed to put product in bag. Product: %s, ShoppingBag: %s"),
+        //    Product ? TEXT("Valid") : TEXT("Invalid"),
+        //    ShoppingBag ? TEXT("Valid") : TEXT("Invalid"));
         // If we failed to put the product in the bag, try to choose another product
         ChooseProduct();
     }
@@ -498,7 +498,7 @@ void AAICustomerPawn::PutProductInBag(AProduct* Product)
 
 void AAICustomerPawn::GoToCheckoutWhenDone()
 {
-    UE_LOG(LogTemp, Display, TEXT("AI is heading to checkout. Detaching all items."));
+    //UE_LOG(LogTemp, Display, TEXT("AI is heading to checkout. Detaching all items."));
 
     // Detach all items from the character
     DetachAllItems();
@@ -521,26 +521,26 @@ void AAICustomerPawn::RetryEnterCheckoutQueue()
         if (ChosenCheckout && ChosenCheckout->TryEnterQueue(this))
         {
             CurrentCheckout = ChosenCheckout;
-            UE_LOG(LogTemp, Display, TEXT("AI entered checkout queue after %d attempts"), RetryCount + 1);
+            //UE_LOG(LogTemp, Display, TEXT("AI entered checkout queue after %d attempts"), RetryCount + 1);
         }
         else
         {
             RetryCount++;
-            UE_LOG(LogTemp, Warning, TEXT("AI couldn't enter checkout queue, retrying in %.1f seconds. Attempt %d"),
-                RetryDelay, RetryCount + 1);
+            //UE_LOG(LogTemp, Warning, TEXT("AI couldn't enter checkout queue, retrying in %.1f seconds. Attempt %d"),
+            //    RetryDelay, RetryCount + 1);
             GetWorldTimerManager().SetTimer(RetryTimerHandle, this, &AAICustomerPawn::RetryEnterCheckoutQueue, RetryDelay, false);
         }
     }
     else
     {
-        UE_LOG(LogTemp, Warning, TEXT("No checkouts found in the level. Retrying in %.1f seconds."), RetryDelay);
+        //UE_LOG(LogTemp, Warning, TEXT("No checkouts found in the level. Retrying in %.1f seconds."), RetryDelay);
         GetWorldTimerManager().SetTimer(RetryTimerHandle, this, &AAICustomerPawn::RetryEnterCheckoutQueue, RetryDelay, false);
     }
 }
 
 void AAICustomerPawn::DebugShoppingState()
 {
-    UE_LOG(LogTemp, Display, TEXT("AI Shopping State - Current Items: %d, Max Items: %d"), CurrentItems, MaxItems);
+    //UE_LOG(LogTemp, Display, TEXT("AI Shopping State - Current Items: %d, Max Items: %d"), CurrentItems, MaxItems);
 }
 
 void AAICustomerPawn::MoveTo(const FVector& Location)
@@ -552,7 +552,7 @@ void AAICustomerPawn::MoveTo(const FVector& Location)
     }
     else
     {
-        UE_LOG(LogTemp, Warning, TEXT("AIController is null in AAICustomerPawn::MoveTo"));
+        //UE_LOG(LogTemp, Warning, TEXT("AIController is null in AAICustomerPawn::MoveTo"));
         InitializeAIController();
         if (AIController)
         {
@@ -567,7 +567,7 @@ void AAICustomerPawn::LeaveCheckout()
     {
         CurrentCheckout->CustomerLeft(this);
         CurrentCheckout = nullptr;
-        UE_LOG(LogTemp, Display, TEXT("AI left checkout"));
+        //UE_LOG(LogTemp, Display, TEXT("AI left checkout"));
     }
 
     // Reset shopping state
@@ -584,7 +584,7 @@ void AAICustomerPawn::GoToCheckout()
     InitializeAIController();
     if (!AIController)
     {
-        UE_LOG(LogTemp, Error, TEXT("AIController is null in GoToCheckout!"));
+        //UE_LOG(LogTemp, Error, TEXT("AIController is null in GoToCheckout!"));
         return;
     }
 
@@ -607,23 +607,23 @@ void AAICustomerPawn::GoToCheckout()
 
                 if (bAIOnNavMesh && bCheckoutOnNavMesh)
                 {
-                    UE_LOG(LogTemp, Display, TEXT("Attempting to move to checkout"));
+                    //UE_LOG(LogTemp, Display, TEXT("Attempting to move to checkout"));
                     UAIBlueprintHelperLibrary::SimpleMoveToLocation(AIController, CheckoutNavLocation.Location);
                 }
                 else
                 {
-                    UE_LOG(LogTemp, Error, TEXT("AI or Checkout not on NavMesh"));
+                    //UE_LOG(LogTemp, Error, TEXT("AI or Checkout not on NavMesh"));
                 }
             }
             else
             {
-                UE_LOG(LogTemp, Error, TEXT("Navigation system is not available"));
+                //UE_LOG(LogTemp, Error, TEXT("Navigation system is not available"));
             }
         }
     }
     else
     {
-        UE_LOG(LogTemp, Warning, TEXT("No checkouts found in the level"));
+        //UE_LOG(LogTemp, Warning, TEXT("No checkouts found in the level"));
     }
 }
 
@@ -651,7 +651,7 @@ void AAICustomerPawn::CheckShoppingComplete()
 
     if (!bAnyValidProductsLeft)
     {
-        UE_LOG(LogTemp, Display, TEXT("No more products to pick up. Going to checkout."));
+        //UE_LOG(LogTemp, Display, TEXT("No more products to pick up. Going to checkout."));
         GoToCheckoutWhenDone();
     }
     else
@@ -667,7 +667,7 @@ void AAICustomerPawn::CheckReachedShelf()
     AAIController* AIControllerInstance = Cast<AAIController>(ControllerInstance);
     if (!AIControllerInstance)
     {
-        UE_LOG(LogTemp, Error, TEXT("AIController is null in CheckReachedShelf"));
+        //UE_LOG(LogTemp, Error, TEXT("AIController is null in CheckReachedShelf"));
         GetWorldTimerManager().ClearTimer(CheckReachedShelfTimerHandle);
         ChooseProduct();
         return;
@@ -676,12 +676,12 @@ void AAICustomerPawn::CheckReachedShelf()
     if (AIControllerInstance->GetMoveStatus() == EPathFollowingStatus::Idle)
     {
         GetWorldTimerManager().ClearTimer(CheckReachedShelfTimerHandle);
-        UE_LOG(LogTemp, Display, TEXT("AI reached shelf. Turning to face shelf."));
+        //UE_LOG(LogTemp, Display, TEXT("AI reached shelf. Turning to face shelf."));
         TurnToFaceShelf();
     }
     else if (GetWorldTimerManager().GetTimerElapsed(CheckReachedShelfTimerHandle) > 15.0f)
     {
-        UE_LOG(LogTemp, Warning, TEXT("Failed to reach shelf after 15 seconds, choosing a new one"));
+        //UE_LOG(LogTemp, Warning, TEXT("Failed to reach shelf after 15 seconds, choosing a new one"));
         GetWorldTimerManager().ClearTimer(CheckReachedShelfTimerHandle);
         CurrentShelf = nullptr;
         ChooseProduct();
@@ -692,7 +692,7 @@ void AAICustomerPawn::TurnToFaceShelf()
 {
     if (!CurrentShelf)
     {
-        UE_LOG(LogTemp, Warning, TEXT("AI %s: Cannot turn to face shelf, CurrentShelf is null"), *GetName());
+        //UE_LOG(LogTemp, Warning, TEXT("AI %s: Cannot turn to face shelf, CurrentShelf is null"), *GetName());
         ChooseProduct();
         return;
     }
@@ -715,7 +715,7 @@ void AAICustomerPawn::TurnToFaceShelf()
     // Check if the AI is already facing the shelf within 10 degrees
     if (FMath::Abs(DeltaRotation.Yaw) <= 10.0f)
     {
-        UE_LOG(LogTemp, Display, TEXT("AI %s: Already facing the shelf within 10 degrees"), *GetName());
+        //UE_LOG(LogTemp, Display, TEXT("AI %s: Already facing the shelf within 10 degrees"), *GetName());
         TryPickUpProduct();
         return;
     }
@@ -732,7 +732,7 @@ void AAICustomerPawn::TryPickUpProduct()
 {
     if (!CurrentShelf || CurrentShelf->GetProductCount() == 0)
     {
-        UE_LOG(LogTemp, Warning, TEXT("No current shelf or shelf is empty"));
+        //UE_LOG(LogTemp, Warning, TEXT("No current shelf or shelf is empty"));
         CurrentShelf = nullptr;
         ResetFailedNavigationAttempts();
         ChooseProduct();
@@ -760,7 +760,7 @@ void AAICustomerPawn::TryPickUpProduct()
     }
     else
     {
-        UE_LOG(LogTemp, Warning, TEXT("AI is not close enough to an access point. Attempting to navigate."));
+        //UE_LOG(LogTemp, Warning, TEXT("AI is not close enough to an access point. Attempting to navigate."));
         FVector NearestAccessPoint = FindMostAccessiblePoint(AccessPoints);
 
         // Use AIController to move to the access point
@@ -771,7 +771,7 @@ void AAICustomerPawn::TryPickUpProduct()
         }
         else
         {
-            UE_LOG(LogTemp, Error, TEXT("AIController is null. Cannot navigate to access point."));
+            //UE_LOG(LogTemp, Error, TEXT("AIController is null. Cannot navigate to access point."));
             ResetFailedNavigationAttempts();
             ChooseProduct();
         }
@@ -787,7 +787,7 @@ AShelf* AAICustomerPawn::FindRandomStockedShelf()
     UNavigationSystemV1* NavSys = FNavigationSystem::GetCurrent<UNavigationSystemV1>(GetWorld());
     if (!NavSys)
     {
-        UE_LOG(LogTemp, Error, TEXT("Navigation system not found"));
+        //UE_LOG(LogTemp, Error, TEXT("Navigation system not found"));
         return nullptr;
     }
 
@@ -844,7 +844,7 @@ FVector AAICustomerPawn::GetRandomLocationInStore()
 
 void AAICustomerPawn::LeaveStore()
 {
-    UE_LOG(LogTemp, Display, TEXT("AI is returning to the parking space"));
+    //UE_LOG(LogTemp, Display, TEXT("AI is returning to the parking space"));
 
     if (AIController)
     {
@@ -855,14 +855,14 @@ void AAICustomerPawn::LeaveStore()
     }
     else
     {
-        UE_LOG(LogTemp, Error, TEXT("AIController is null in LeaveStore!"));
+        //UE_LOG(LogTemp, Error, TEXT("AIController is null in LeaveStore!"));
         NotifyParkingSpaceAndDestroy();
     }
 }
 
 void AAICustomerPawn::DestroyAI()
 {
-    UE_LOG(LogTemp, Display, TEXT("AI has left the store and is being destroyed"));
+    //UE_LOG(LogTemp, Display, TEXT("AI has left the store and is being destroyed"));
     Destroy();
 }
 
@@ -880,7 +880,7 @@ void AAICustomerPawn::CheckReachedAccessPoint()
     AAIController* AIControllerInstance = Cast<AAIController>(ControllerInstance);
     if (!AIControllerInstance)
     {
-        UE_LOG(LogTemp, Error, TEXT("AIController is null in CheckReachedAccessPoint"));
+        //UE_LOG(LogTemp, Error, TEXT("AIController is null in CheckReachedAccessPoint"));
         GetWorldTimerManager().ClearTimer(RetryPickUpTimerHandle);
         ResetFailedNavigationAttempts();
         ChooseProduct();
@@ -907,11 +907,11 @@ void AAICustomerPawn::CheckReachedAccessPoint()
 
         // If we're here, we didn't reach an access point
         FailedNavigationAttempts++;
-        UE_LOG(LogTemp, Warning, TEXT("Failed to reach access point. Attempt %d of %d"), FailedNavigationAttempts, MaxFailedNavigationAttempts);
+        //UE_LOG(LogTemp, Warning, TEXT("Failed to reach access point. Attempt %d of %d"), FailedNavigationAttempts, MaxFailedNavigationAttempts);
 
         if (FailedNavigationAttempts >= MaxFailedNavigationAttempts)
         {
-            UE_LOG(LogTemp, Warning, TEXT("Max navigation attempts reached. Choosing new product."));
+            //UE_LOG(LogTemp, Warning, TEXT("Max navigation attempts reached. Choosing new product."));
             GetWorldTimerManager().ClearTimer(RetryPickUpTimerHandle);
             CurrentShelf = nullptr;
             ResetFailedNavigationAttempts();

@@ -139,7 +139,7 @@ void ACashierAI::DebugLog(const FString& Message)
 {
     if (bDebugMode)
     {
-        UE_LOG(LogTemp, Display, TEXT("[CashierAI] %s"), *Message);
+        //UE_LOG(LogTemp, Display, TEXT("[CashierAI] %s"), *Message);
         GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Cyan, FString::Printf(TEXT("[CashierAI] %s"), *Message));
     }
 }
@@ -293,7 +293,7 @@ void ACashierAI::MoveTo(const FVector& Location)
     }
     else
     {
-        UE_LOG(LogTemp, Warning, TEXT("AIController is null in AAICustomerPawn::MoveTo"));
+        //UE_LOG(LogTemp, Warning, TEXT("AIController is null in AAICustomerPawn::MoveTo"));
         InitializeAIController();
         if (AIController)
         {
@@ -340,7 +340,7 @@ ACheckout* ACashierAI::FindAvailableCheckout(UWorld* World)
 void ACashierAI::CheckMovement()
 {
     FVector CurrentLocation = GetActorLocation();
-    UE_LOG(LogTemp, Display, TEXT("[CashierAI] Current location: %s"), *CurrentLocation.ToString());
+    //UE_LOG(LogTemp, Display, TEXT("[CashierAI] Current location: %s"), *CurrentLocation.ToString());
 
     if (AIController)
     {
@@ -363,18 +363,18 @@ void ACashierAI::CheckMovement()
         default:
             StatusString = TEXT("Unknown");
         }
-        UE_LOG(LogTemp, Display, TEXT("[CashierAI] Movement Status: %s"), *StatusString);
+        //UE_LOG(LogTemp, Display, TEXT("[CashierAI] Movement Status: %s"), *StatusString);
 
         // If we're supposed to be moving but we're idle, try to move again
         if (CurrentCheckout && MovementStatus == EPathFollowingStatus::Idle)
         {
-            UE_LOG(LogTemp, Warning, TEXT("[CashierAI] Movement stopped, attempting to resume"));
+            //UE_LOG(LogTemp, Warning, TEXT("[CashierAI] Movement stopped, attempting to resume"));
             MoveToCheckout(CurrentCheckout);
         }
     }
     else
     {
-        UE_LOG(LogTemp, Error, TEXT("[CashierAI] AIController is null in CheckMovement"));
+        //UE_LOG(LogTemp, Error, TEXT("[CashierAI] AIController is null in CheckMovement"));
     }
 }
 
@@ -387,16 +387,16 @@ void ACashierAI::OnFindPathQueryFinished(UEnvQueryInstanceBlueprintWrapper* Quer
         {
             FVector ResultLocation = ResultLocations[0];
             UAIBlueprintHelperLibrary::SimpleMoveToLocation(AIController, ResultLocation);
-            UE_LOG(LogTemp, Warning, TEXT("[CashierAI] EQS found path. Moving to location: %s"), *ResultLocation.ToString());
+            //UE_LOG(LogTemp, Warning, TEXT("[CashierAI] EQS found path. Moving to location: %s"), *ResultLocation.ToString());
         }
         else
         {
-            UE_LOG(LogTemp, Error, TEXT("[CashierAI] EQS query succeeded but returned no valid locations."));
+            //UE_LOG(LogTemp, Error, TEXT("[CashierAI] EQS query succeeded but returned no valid locations."));
         }
     }
     else
     {
-        UE_LOG(LogTemp, Error, TEXT("[CashierAI] EQS query failed. Falling back to simple move."));
+        //UE_LOG(LogTemp, Error, TEXT("[CashierAI] EQS query failed. Falling back to simple move."));
         if (CurrentCheckout)
         {
             UAIBlueprintHelperLibrary::SimpleMoveToLocation(AIController, CurrentCheckout->GetCashierPosition());

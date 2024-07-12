@@ -95,7 +95,7 @@ ASupermarketCharacter::ASupermarketCharacter()
     TabletCameraRotation = FRotator(-60.f, 0.f, 0.f); // Look down at 60 degree angle
     TabletCameraFOV = 50.f;
     bCameraRotationEnabled = true;
-    UE_LOG(LogTemp, Display, TEXT("Initial TabletCameraRotation set to: %s"), *TabletCameraRotation.ToString());
+    //UE_LOG(LogTemp, Display, TEXT("Initial TabletCameraRotation set to: %s"), *TabletCameraRotation.ToString());
 
     // Initialize camera transition properties
     CameraTransitionTime = 0.5f;
@@ -185,20 +185,20 @@ void ASupermarketCharacter::BeginPlay()
             HighlightVolume->bUnbound = true;
             HighlightVolume->Settings.bOverride_DynamicGlobalIlluminationMethod = true;
             HighlightVolume->Settings.DynamicGlobalIlluminationMethod = EDynamicGlobalIlluminationMethod::Lumen;
-            UE_LOG(LogTemp, Log, TEXT("HighlightVolume created successfully"));
+            //UE_LOG(LogTemp, Log, TEXT("HighlightVolume created successfully"));
         }
         else
         {
-            UE_LOG(LogTemp, Error, TEXT("Failed to create HighlightVolume"));
+            //UE_LOG(LogTemp, Error, TEXT("Failed to create HighlightVolume"));
         }
     }
     else if (HighlightVolume)
     {
-        UE_LOG(LogTemp, Warning, TEXT("HighlightVolume already exists"));
+        //UE_LOG(LogTemp, Warning, TEXT("HighlightVolume already exists"));
     }
     else
     {
-        UE_LOG(LogTemp, Error, TEXT("Invalid World context"));
+        //UE_LOG(LogTemp, Error, TEXT("Invalid World context"));
     }
 
     
@@ -268,7 +268,7 @@ void ASupermarketCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInp
     }
     else
     {
-        UE_LOG(LogTemplateCharacter, Error, TEXT("'%s' Failed to find an Enhanced Input Component! This template is built to use the Enhanced Input system. If you intend to use the legacy system, then you will need to update this C++ file."), *GetNameSafe(this));
+        //UE_LOG(LogTemplateCharacter, Error, TEXT("'%s' Failed to find an Enhanced Input Component! This template is built to use the Enhanced Input system. If you intend to use the legacy system, then you will need to update this C++ file."), *GetNameSafe(this));
     }
 }
 
@@ -395,10 +395,10 @@ void ASupermarketCharacter::StartCameraTransition(bool bToTabletView)
         }
 
         // Log for debugging
-        UE_LOG(LogTemp, Log, TEXT("Starting camera transition. To Tablet: %s, Start Rotation: %s, Target Rotation: %s"),
-            bToTabletView ? TEXT("True") : TEXT("False"),
-            *StartCameraRotation.ToString(),
-            *TargetCameraRotation.ToString());
+        //UE_LOG(LogTemp, Log, TEXT("Starting camera transition. To Tablet: %s, Start Rotation: %s, Target Rotation: %s"),
+        //    bToTabletView ? TEXT("True") : TEXT("False"),
+        //    *StartCameraRotation.ToString(),
+       //     *TargetCameraRotation.ToString());
 
         // Activate the appropriate camera immediately
         FirstPersonCameraComponent->SetActive(!bToTabletView);
@@ -431,7 +431,7 @@ void ASupermarketCharacter::UpdateCameraTransition()
         }
 
         // Log for debugging
-        //UE_LOG(LogTemp, Log, TEXT("Updating camera transition. Alpha: %f, New Rotation: %s"),
+        ////UE_LOG(LogTemp, Log, TEXT("Updating camera transition. Alpha: %f, New Rotation: %s"),
            // SmoothedAlpha, *NewRotation.ToString());
 
         if (Alpha >= 1.0f)
@@ -446,8 +446,8 @@ void ASupermarketCharacter::UpdateCameraTransition()
             }
 
             // Log for debugging
-            UE_LOG(LogTemp, Log, TEXT("Camera transition complete. Tablet mode: %s, Final Rotation: %s"),
-                bIsTabletMode ? TEXT("True") : TEXT("False"), *TargetCameraRotation.ToString());
+            //UE_LOG(LogTemp, Log, TEXT("Camera transition complete. Tablet mode: %s, Final Rotation: %s"),
+            //    bIsTabletMode ? TEXT("True") : TEXT("False"), *TargetCameraRotation.ToString());
         }
     }
 }
@@ -798,7 +798,7 @@ void ASupermarketCharacter::OnTabletClickInput()
 {
     if (bIsTabletMode)
     {
-        UE_LOG(LogTemp, Log, TEXT("Tablet click input detected"));
+        //UE_LOG(LogTemp, Log, TEXT("Tablet click input detected"));
 
         APlayerController* PC = Cast<APlayerController>(GetController());
         if (PC)
@@ -806,7 +806,7 @@ void ASupermarketCharacter::OnTabletClickInput()
             FVector2D MousePosition;
             if (PC->GetMousePosition(MousePosition.X, MousePosition.Y))
             {
-                UE_LOG(LogTemp, Log, TEXT("Mouse Position: %s"), *MousePosition.ToString());
+                //UE_LOG(LogTemp, Log, TEXT("Mouse Position: %s"), *MousePosition.ToString());
                 OnTabletClicked(MousePosition);
             }
         }
@@ -824,43 +824,43 @@ void ASupermarketCharacter::UpdateProductBoxTransform()
 
 void ASupermarketCharacter::CreateMoneyDisplayWidget()
 {
-    UE_LOG(LogTemp, Log, TEXT("CreateMoneyDisplayWidget function started"));
+    //UE_LOG(LogTemp, Log, TEXT("CreateMoneyDisplayWidget function started"));
 
     if (APlayerController* PC = Cast<APlayerController>(GetController()))
     {
-        UE_LOG(LogTemp, Log, TEXT("PlayerController found"));
+        //UE_LOG(LogTemp, Log, TEXT("PlayerController found"));
 
         // Load the widget class
         TSubclassOf<UUserWidget> MoneyWidgetClass = LoadClass<UUserWidget>(nullptr, TEXT("/Game/WBP_MoneyDisplay.WBP_MoneyDisplay_C"));
 
         if (MoneyWidgetClass)
         {
-            UE_LOG(LogTemp, Log, TEXT("MoneyWidgetClass loaded successfully"));
+            //UE_LOG(LogTemp, Log, TEXT("MoneyWidgetClass loaded successfully"));
 
             // Create the widget
             MoneyDisplayWidget = CreateWidget<UMoneyDisplayWidget>(PC, MoneyWidgetClass);
 
             if (MoneyDisplayWidget)
             {
-                UE_LOG(LogTemp, Log, TEXT("MoneyDisplayWidget created successfully"));
+                //UE_LOG(LogTemp, Log, TEXT("MoneyDisplayWidget created successfully"));
 
                 // Add the widget to the viewport
                 MoneyDisplayWidget->AddToViewport();
-                UE_LOG(LogTemp, Log, TEXT("MoneyDisplayWidget added to viewport"));
+                //UE_LOG(LogTemp, Log, TEXT("MoneyDisplayWidget added to viewport"));
             }
             else
             {
-                UE_LOG(LogTemp, Error, TEXT("Failed to create MoneyDisplayWidget"));
+                //UE_LOG(LogTemp, Error, TEXT("Failed to create MoneyDisplayWidget"));
             }
         }
         else
         {
-            UE_LOG(LogTemp, Error, TEXT("Failed to load MoneyWidgetClass"));
+            //UE_LOG(LogTemp, Error, TEXT("Failed to load MoneyWidgetClass"));
         }
     }
     else
     {
-        UE_LOG(LogTemp, Error, TEXT("PlayerController not found"));
+        //UE_LOG(LogTemp, Error, TEXT("PlayerController not found"));
     }
 }
 
@@ -1043,7 +1043,7 @@ void ASupermarketCharacter::ToggleObjectMovement()
         SelectedObject = GetActorUnderCursor();
         if (SelectedObject)
         {
-            UE_LOG(LogTemp, Display, TEXT("Selected object: %s"), *SelectedObject->GetName());
+            //UE_LOG(LogTemp, Display, TEXT("Selected object: %s"), *SelectedObject->GetName());
             InitialObjectPosition = SelectedObject->GetActorLocation();
 
             APlayerController* PC = Cast<APlayerController>(GetController());
@@ -1057,7 +1057,7 @@ void ASupermarketCharacter::ToggleObjectMovement()
     {
         if (SelectedObject)
         {
-            UE_LOG(LogTemp, Display, TEXT("Placed object: %s"), *SelectedObject->GetName());
+            //UE_LOG(LogTemp, Display, TEXT("Placed object: %s"), *SelectedObject->GetName());
         }
         SelectedObject = nullptr;
     }
@@ -1068,7 +1068,7 @@ void ASupermarketCharacter::RotateObjectLeft()
     if (bIsBuildModeActive && SelectedObject)
     {
         SelectedObject->AddActorWorldRotation(FRotator(0, -RotationAngle, 0));
-        UE_LOG(LogTemp, Display, TEXT("Rotated object left: %s"), *SelectedObject->GetName());
+        //UE_LOG(LogTemp, Display, TEXT("Rotated object left: %s"), *SelectedObject->GetName());
     }
 }
 
@@ -1077,7 +1077,7 @@ void ASupermarketCharacter::RotateObjectRight()
     if (bIsBuildModeActive && SelectedObject)
     {
         SelectedObject->AddActorWorldRotation(FRotator(0, RotationAngle, 0));
-        UE_LOG(LogTemp, Display, TEXT("Rotated object right: %s"), *SelectedObject->GetName());
+        //UE_LOG(LogTemp, Display, TEXT("Rotated object right: %s"), *SelectedObject->GetName());
     }
 }
 
@@ -1116,7 +1116,7 @@ void ASupermarketCharacter::MoveSelectedObject()
     UCameraComponent* CameraComponent = BuildModeCamera->FindComponentByClass<UCameraComponent>();
     if (!CameraComponent)
     {
-        UE_LOG(LogTemp, Error, TEXT("Camera component not found in BuildModeCamera"));
+        //UE_LOG(LogTemp, Error, TEXT("Camera component not found in BuildModeCamera"));
         return;
     }
 
@@ -1145,7 +1145,7 @@ void ASupermarketCharacter::MoveSelectedObject()
             SelectedObject->SetActorLocation(ClampedLocation);
         }
 
-        UE_LOG(LogTemp, Verbose, TEXT("Moving object to: %s"), *NewLocation.ToString());
+        //UE_LOG(LogTemp, Verbose, TEXT("Moving object to: %s"), *NewLocation.ToString());
     }
 }
 
@@ -1181,7 +1181,7 @@ void ASupermarketCharacter::HighlightHoveredObject(AActor* HoveredActor)
                 MeshComponent->SetCustomDepthStencilValue(1); // Make sure this value matches your post-process material
             }
         }
-        UE_LOG(LogTemp, Verbose, TEXT("Highlighting object: %s"), *HoveredActor->GetName());
+        //UE_LOG(LogTemp, Verbose, TEXT("Highlighting object: %s"), *HoveredActor->GetName());
     }
 
     LastHighlightedActor = HoveredActor;
@@ -1402,7 +1402,7 @@ void ASupermarketCharacter::ToggleStoreStatus()
     {
         bool bCurrentStatus = StoreManager->IsStoreOpen();
         StoreManager->SetStoreOpen(!bCurrentStatus);
-        UE_LOG(LogTemp, Display, TEXT("Store status toggled. Now %s"), StoreManager->IsStoreOpen() ? TEXT("OPEN") : TEXT("CLOSED"));
+        //UE_LOG(LogTemp, Display, TEXT("Store status toggled. Now %s"), StoreManager->IsStoreOpen() ? TEXT("OPEN") : TEXT("CLOSED"));
 
         // Update the widget if it exists
         if (StoreStatusWidget)
@@ -1412,7 +1412,7 @@ void ASupermarketCharacter::ToggleStoreStatus()
     }
     else
     {
-        UE_LOG(LogTemp, Warning, TEXT("StoreManager not found. Cannot toggle store status."));
+        //UE_LOG(LogTemp, Warning, TEXT("StoreManager not found. Cannot toggle store status."));
     }
 }
 
@@ -1432,21 +1432,21 @@ void ASupermarketCharacter::CreateAndShowStoreStatusWidget()
             if (StoreStatusWidget)
             {
                 StoreStatusWidget->AddToViewport();
-                UE_LOG(LogTemp, Display, TEXT("Store Status Widget added to viewport"));
+                //UE_LOG(LogTemp, Display, TEXT("Store Status Widget added to viewport"));
             }
             else
             {
-                UE_LOG(LogTemp, Error, TEXT("Failed to create Store Status Widget"));
+                //UE_LOG(LogTemp, Error, TEXT("Failed to create Store Status Widget"));
             }
         }
         else
         {
-            UE_LOG(LogTemp, Error, TEXT("PlayerController not found"));
+            //UE_LOG(LogTemp, Error, TEXT("PlayerController not found"));
         }
     }
     else
     {
-        UE_LOG(LogTemp, Error, TEXT("StoreStatusWidgetClass is not set"));
+        //UE_LOG(LogTemp, Error, TEXT("StoreStatusWidgetClass is not set"));
     }
 }
 
