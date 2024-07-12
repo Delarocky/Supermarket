@@ -187,12 +187,12 @@ void AShelf::InitializeShelf()
 
 bool AShelf::AddProduct(const FVector& RelativeLocation)
 {
-    if (Products.Num() < FMath::Min(MaxProducts, MaxProductsOnShelf) && ProductClass && ProductBox)
+    if (Products.Num() < MaxProducts && ProductClass && ProductBox && ProductSpawnPoint)
     {
         // Check if the ProductBox has the correct product type
         if (ProductBox->GetProductClass() != ProductClass)
         {
-            //UE_LOG(LogTemp, Warning, TEXT("Product in box does not match shelf's product type"));
+            UE_LOG(LogTemp, Warning, TEXT("Product in box does not match shelf's product type"));
             return false;
         }
 
@@ -200,24 +200,29 @@ bool AShelf::AddProduct(const FVector& RelativeLocation)
         AProduct* NewProduct = ProductBox->RemoveProduct();
         if (!NewProduct)
         {
-            //UE_LOG(LogTemp, Warning, TEXT("Failed to remove product from ProductBox"));
+            UE_LOG(LogTemp, Warning, TEXT("Failed to remove product from ProductBox"));
             return false;
         }
 
-        FVector SpawnLocation = ProductSpawnPoint->GetComponentLocation() +
-            ProductSpawnPoint->GetComponentRotation().RotateVector(RelativeLocation);
+        // Get the ProductSpawnPoint's transform
+        FVector SpawnLocation = ProductSpawnPoint->GetComponentLocation();
+        FRotator SpawnRotation = ProductSpawnPoint->GetComponentRotation();
 
-        // Set the new location for the product
+        // Apply the product offset and grid position
+        FVector TotalOffset = ProductOffsetOnShelf + RelativeLocation;
+        SpawnLocation += SpawnRotation.RotateVector(TotalOffset);
+
+        // Set the new location and rotation for the product
         NewProduct->SetActorLocation(SpawnLocation);
-        NewProduct->SetActorRotation(ProductSpawnPoint->GetComponentRotation());
+        NewProduct->SetActorRotation(SpawnRotation);
 
-        // Adjust the product's position based on its mesh
+        // Adjust the product's position based on its mesh to align with the bottom
         UStaticMeshComponent* ProductMesh = NewProduct->FindComponentByClass<UStaticMeshComponent>();
         if (ProductMesh)
         {
             FVector MeshBounds = ProductMesh->Bounds.BoxExtent;
             FVector BottomOffset = FVector(0, 0, MeshBounds.Z);
-            FVector AdjustedLocation = SpawnLocation + BottomOffset;
+            FVector AdjustedLocation = SpawnLocation + SpawnRotation.RotateVector(BottomOffset);
             NewProduct->SetActorLocation(AdjustedLocation);
         }
 
@@ -228,7 +233,7 @@ bool AShelf::AddProduct(const FVector& RelativeLocation)
         NewProduct->SetActorHiddenInGame(false);
         NewProduct->SetActorEnableCollision(true);
 
-        //UE_LOG(LogTemp, Display, TEXT("Added product to shelf. Total products: %d"), Products.Num());
+        UE_LOG(LogTemp, Display, TEXT("Added product to shelf. Total products: %d"), Products.Num());
 
         return true;
     }
@@ -237,27 +242,39 @@ bool AShelf::AddProduct(const FVector& RelativeLocation)
 }
 
 
-void AShelf::StartStockingShelf(TSubclassOf<AProduct> ProductToStock)
+bool AShelf::StartStockingShelf(TSubclassOf<AProduct> ProductToStock)
 {
-    if (!bIsStocking && ProductToStock)
+    if (!ProductToStock)
     {
-        if (!ProductClass || Products.Num() == 0)
-        {
-            ProductClass = ProductToStock;
-            bIsStocking = true;
-            ContinueStocking();
-            //UE_LOG(LogTemp, Display, TEXT("Started stocking shelf with new product type: %s"), *ProductClass->GetName());
-        }
-        else if (ProductClass == ProductToStock)
-        {
-            bIsStocking = true;
-            ContinueStocking();
-            //UE_LOG(LogTemp, Display, TEXT("Continuing to stock shelf with existing product type: %s"), *ProductClass->GetName());
-        }
-        else
-        {
-            //UE_LOG(LogTemp, Warning, TEXT("Cannot stock different product type. Shelf is dedicated to %s"), *ProductClass->GetName());
-        }
+        UE_LOG(LogTemp, Warning, TEXT("Invalid ProductToStock provided"));
+        return false;
+    }
+
+    if (bIsStocking)
+    {
+        UE_LOG(LogTemp, Warning, TEXT("Shelf is already being stocked"));
+        return false;
+    }
+
+    // Check if the shelf is empty or if the current product matches the new product
+    if (Products.Num() == 0 || ProductClass == ProductToStock)
+    {
+        // Set the current product and update shelf settings
+        SetCurrentProduct(ProductToStock);
+
+        // Set the ProductClass and start stocking
+        ProductClass = ProductToStock;
+        bIsStocking = true;
+        ContinueStocking();
+
+        UE_LOG(LogTemp, Display, TEXT("Started stocking shelf with product type: %s"), *ProductClass->GetName());
+        return true;
+    }
+    else
+    {
+        UE_LOG(LogTemp, Warning, TEXT("Cannot stock different product type. Shelf is not empty and dedicated to %s"),
+            ProductClass ? *ProductClass->GetName() : TEXT("None"));
+        return false;
     }
 }
 
@@ -387,19 +404,10 @@ void AShelf::ContinueStocking()
 
 FVector AShelf::GetNextProductLocation() const
 {
-    int32 currentProductCount = Products.Num();
-    int32 row = currentProductCount / 5;
-    int32 column = currentProductCount % 5;
-
-    FVector RelativeLocation = FVector(
-        column * ProductSpacing.X,
-        row * ProductSpacing.Y,
-        ProductSpacing.Z
-    );
-
     return ProductSpawnPoint->GetComponentLocation() +
-        ProductSpawnPoint->GetComponentRotation().RotateVector(RelativeLocation);
+        ProductSpawnPoint->GetComponentRotation().RotateVector(CalculateProductPosition(Products.Num()));
 }
+
 
 void AShelf::UpdateStockingSpline()
 {
@@ -501,25 +509,18 @@ void AShelf::FinalizeProductPlacement(AProduct* Product)
 {
     if (!Product || !ProductSpawnPoint) return;
 
-    FVector FinalLocation = GetNextProductLocation();
+    FVector RelativeLocation = CalculateProductPosition(Products.Num());
+    FVector FinalLocation = ProductSpawnPoint->GetComponentLocation() +
+        ProductSpawnPoint->GetComponentRotation().RotateVector(RelativeLocation);
     FRotator FinalRotation = ProductSpawnPoint->GetComponentRotation();
 
     UStaticMeshComponent* ProductMesh = Product->FindComponentByClass<UStaticMeshComponent>();
     if (ProductMesh)
     {
-        // Get the original (unscaled) bounds of the mesh
         FVector OriginalBounds = ProductMesh->GetStaticMesh()->GetBoundingBox().GetSize();
-
-        // Get the current scale of the product
         FVector CurrentScale = Product->GetActorScale3D();
-
-        // Calculate the actual size of the product after scaling
         FVector ActualSize = OriginalBounds * CurrentScale;
-
-        // Calculate the offset to align the bottom center of the product with the spawn point
         FVector BottomCenterOffset = FVector(0, 0, ActualSize.Z * 0.5f);
-
-        // Adjust the final location to place the product's bottom center at the spawn point
         FinalLocation += ProductSpawnPoint->GetComponentRotation().RotateVector(BottomCenterOffset);
     }
 
@@ -527,8 +528,6 @@ void AShelf::FinalizeProductPlacement(AProduct* Product)
     Product->SetActorRotation(FinalRotation);
     Product->AttachToComponent(ProductSpawnPoint, FAttachmentTransformRules::KeepWorldTransform);
     Products.Add(Product);
-
-    
 
     CurrentMovingProduct = nullptr;
     ContinueStocking();
@@ -542,4 +541,90 @@ int32 AShelf::GetCurrentStock() const
 int32 AShelf::GetMaxStock() const
 {
     return MaxProducts;
+}
+
+void AShelf::SetCurrentProduct(TSubclassOf<AProduct> NewProductClass)
+{
+    if (NewProductClass != CurrentProductClass)
+    {
+        CurrentProductClass = NewProductClass;
+        UpdateShelfSettings();
+    }
+}
+
+void AShelf::UpdateShelfSettings()
+{
+    if (CurrentProductClass)
+    {
+        if (FProductShelfSettings* Settings = ProductSettings.Find(CurrentProductClass))
+        {
+            ApplyProductSettings(*Settings);
+        }
+        else
+        {
+            UE_LOG(LogTemp, Warning, TEXT("No settings found for product class %s. Using default settings."), *CurrentProductClass->GetName());
+            // Apply default settings if no specific settings are found
+            ApplyProductSettings(FProductShelfSettings());
+        }
+    }
+}
+
+void AShelf::ApplyProductSettings(const FProductShelfSettings& Settings)
+{
+    ProductSpacing = Settings.ProductSpacing;
+    ProductOffsetOnShelf = Settings.ProductOffset;
+    MaxProducts = Settings.MaxProducts;
+
+    // Update grid size
+    GridSize = Settings.GridSize;
+
+    // Update ProductSpawnPoint location based on the new offset
+    if (ProductSpawnPoint)
+    {
+        ProductSpawnPoint->SetRelativeLocation(ProductOffsetOnShelf);
+    }
+
+    // Recalculate max products based on grid size
+    int32 TotalGridSize = GridSize.X * GridSize.Y * GridSize.Z;
+    MaxProducts = FMath::Min(MaxProducts, TotalGridSize);
+
+    // Rearrange existing products based on new settings
+    RearrangeProducts();
+
+    // Remove excess products if the new max is lower than the current count
+    while (Products.Num() > MaxProducts)
+    {
+        AProduct* RemovedProduct = Products.Pop();
+        if (RemovedProduct)
+        {
+            RemovedProduct->Destroy();
+        }
+    }
+
+    UpdateProductSpawnPointRotation();
+}
+
+FVector AShelf::CalculateProductPosition(int32 Index) const
+{
+    int32 X = Index % GridSize.X;
+    int32 Y = (Index / GridSize.X) % GridSize.Y;
+    int32 Z = Index / (GridSize.X * GridSize.Y);
+
+    return FVector(
+        X * ProductSpacing.X,
+        Y * ProductSpacing.Y,
+        Z * ProductSpacing.Z
+    );
+}
+
+void AShelf::RearrangeProducts()
+{
+    for (int32 i = 0; i < Products.Num(); ++i)
+    {
+        if (Products[i])
+        {
+            FVector NewRelativeLocation = CalculateProductPosition(i);
+            Products[i]->SetActorRelativeLocation(NewRelativeLocation);
+        }
+    }
 }

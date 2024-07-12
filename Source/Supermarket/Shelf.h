@@ -11,7 +11,30 @@
 #include "ProductBox.h"
 #include "Shelf.generated.h"
 
+USTRUCT(BlueprintType)
+struct FProductShelfSettings
+{
+    GENERATED_BODY()
 
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Product Settings")
+    FVector ProductSpacing;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Product Settings")
+    FIntVector GridSize;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Product Settings")
+    FVector ProductOffset;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Product Settings")
+    int32 MaxProducts;
+
+    FProductShelfSettings()
+        : ProductSpacing(20.0f, 20.0f, 2.67071f)
+        , GridSize(5, 3, 1)
+        , ProductOffset(0.0f, 0.0f, 0.0f)
+        , MaxProducts(15)
+    {}
+};
 
 UCLASS()
 class SUPERMARKET_API AShelf : public AActor
@@ -60,7 +83,7 @@ public:
     FVector GetAccessPointLocation() const;
 
     UFUNCTION(BlueprintCallable, Category = "Shelf")
-    void StartStockingShelf(TSubclassOf<AProduct> ProductToStock);
+    bool StartStockingShelf(TSubclassOf<AProduct> ProductToStock);
     UFUNCTION(BlueprintCallable, Category = "Shelf")
     TSubclassOf<AProduct> GetCurrentProductClass() const { return ProductClass; }
     UFUNCTION(BlueprintCallable, Category = "Shelf")
@@ -114,6 +137,17 @@ public:
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Shelf")
     int32 MaxProductsOnShelf;
 
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Product Settings")
+    TMap<TSubclassOf<AProduct>, FProductShelfSettings> ProductSettings;
+
+    UFUNCTION(BlueprintCallable, Category = "Shelf")
+    void SetCurrentProduct(TSubclassOf<AProduct> NewProductClass);
+
+    UFUNCTION(BlueprintCallable, Category = "Shelf")
+    void UpdateShelfSettings();
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Shelf")
+    FIntVector GridSize;
 protected:
     virtual void BeginPlay() override;
 
@@ -151,5 +185,7 @@ private:
     FTimerHandle ProductMovementTimer;
     AProduct* CurrentMovingProduct;
     float SplineProgress;
-
+    void ApplyProductSettings(const FProductShelfSettings& Settings);
+    void RearrangeProducts();
+    FVector CalculateProductPosition(int32 Index) const;
 };
