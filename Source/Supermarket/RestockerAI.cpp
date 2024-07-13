@@ -59,35 +59,58 @@ void ARestockerAI::StartRestocking()
         return;
     }
 
-    if (bIsHoldingProductBox && TargetProductBox && TargetProductBox->GetProductCount() > 0)
+    // First, check if we're holding a box
+    if (bIsHoldingProductBox && TargetProductBox)
     {
-        // If we're holding a non-empty box, continue restocking
-        FindShelfToRestock();
-    }
-    else
-    {
-        // If we're not holding a box or it's empty, find a new shelf and storage rack
+        // Try to find a shelf that needs this product
         FindShelfToRestock();
         if (TargetShelf)
         {
+            SetState(ERestockerState::MovingToShelf);
+            MoveToTarget(TargetShelf);
+            return;
+        }
+
+        // If no shelf needs this product, try to replenish storage
+        if (ShouldReplenishStorageRack())
+        {
+            FindStorageRack();
+            return;
+        }
+
+        // If we can't restock or replenish, drop the box
+        DropCurrentBox();
+    }
+
+    // If we're not holding a box, look for shelves that need restocking
+    FindShelfToRestock();
+    if (TargetShelf)
+    {
+        // Try to find a suitable product box
+        FindProductBox();
+        if (TargetProductBox)
+        {
+            SetState(ERestockerState::MovingToProductBox);
+            MoveToTarget(TargetProductBox);
+            return;
+        }
+        else
+        {
+            // If no suitable box found, get one from storage
             AStorageRack* AppropriateRack = FindAppropriateStorageRack(TargetShelf->GetCurrentProductClass());
             if (AppropriateRack)
             {
                 TargetStorageRack = AppropriateRack;
                 SetState(ERestockerState::MovingToStorageRack);
                 MoveToStorageRack();
+                return;
             }
-            else
-            {
-                // If no appropriate storage rack, look for a product box
-                FindProductBox();
-            }
-        }
-        else
-        {
-            SetState(ERestockerState::Idle);
         }
     }
+
+    // If we reach here, there's nothing to do
+    UE_LOG(LogTemp, Display, TEXT("RestockerAI: No tasks to perform, idling"));
+    SetState(ERestockerState::Idle);
 }
 
 void ARestockerAI::FindShelfToRestock()
@@ -212,7 +235,7 @@ void ARestockerAI::MoveToTarget(AActor* Target)
 
 void ARestockerAI::PickUpProductBox()
 {
-    if (TargetProductBox)
+    if (TargetProductBox && !bIsHoldingProductBox)
     {
         bIsHoldingProductBox = true;
 
@@ -238,9 +261,12 @@ void ARestockerAI::PickUpProductBox()
     }
     else
     {
-        UE_LOG(LogTemp, Error, TEXT("RestockerAI: Failed to pick up product box: TargetProductBox is null"));
-        AbortCurrentTask();
+        UE_LOG(LogTemp, Error, TEXT("RestockerAI: Failed to pick up product box: TargetProductBox is null or already holding a box"));
     }
+
+    // After attempting to pick up the box, decide what to do next
+    SetState(ERestockerState::Idle);
+    StartRestocking();
 }
 
 void ARestockerAI::RestockShelf()
@@ -272,13 +298,13 @@ void ARestockerAI::OnMoveCompleted(FAIRequestID RequestID, EPathFollowingResult:
         switch (CurrentState)
         {
         case ERestockerState::MovingToProductBox:
-            if (TargetProductBox && IsProductBoxLocked(TargetProductBox) && !TargetProductBox->GetAttachParentActor())
+            if (TargetProductBox && !bIsHoldingProductBox)
             {
                 PickUpProductBox();
             }
             else
             {
-                UE_LOG(LogTemp, Warning, TEXT("Target product box is no longer valid, locked, or is attached to something"));
+                UE_LOG(LogTemp, Warning, TEXT("Target product box is no longer valid or AI is already holding a box"));
                 AbortCurrentTask();
             }
             break;
@@ -298,7 +324,14 @@ void ARestockerAI::OnMoveCompleted(FAIRequestID RequestID, EPathFollowingResult:
         case ERestockerState::MovingToStorageRack:
             if (TargetStorageRack)
             {
-                CreateProductBoxFromStorageRack();
+                if (bIsHoldingProductBox)
+                {
+                    ReplenishStorageRack();
+                }
+                else
+                {
+                    CreateProductBoxFromStorageRack();
+                }
             }
             else
             {
@@ -315,10 +348,11 @@ void ARestockerAI::OnMoveCompleted(FAIRequestID RequestID, EPathFollowingResult:
     }
     else
     {
-        UE_LOG(LogTemp, Warning, TEXT("Move failed, aborting current task"));
-        AbortCurrentTask();
+        UE_LOG(LogTemp, Warning, TEXT("Move failed in state %s, retrying..."), *GetStateName(CurrentState));
+        RetryMove();
     }
 }
+
 
 void ARestockerAI::SetState(ERestockerState NewState)
 {
@@ -520,7 +554,7 @@ void ARestockerAI::CheckRestockProgress()
 
             if (TargetProductBox->GetProductCount() == 0)
             {
-                // Box is empty, delete it and get a new one
+                // Box is empty, delete it and continue restocking
                 DeleteEmptyBox();
                 SetState(ERestockerState::Idle);
                 StartRestocking();
@@ -574,7 +608,7 @@ void ARestockerAI::DropCurrentBox()
 {
     if (bIsHoldingProductBox && TargetProductBox)
     {
-        //UE_LOGLogTemp, Display, TEXT("RestockerAI: Dropping current box"));
+        UE_LOG(LogTemp, Display, TEXT("RestockerAI: Dropping current box"));
         UnlockProductBox();
         ReleaseProductBox(TargetProductBox);
         TargetProductBox->DetachFromActor(FDetachmentTransformRules::KeepWorldTransform);
@@ -631,10 +665,7 @@ bool ARestockerAI::IsShelfSufficientlyStocked(AShelf* Shelf)
     return (MaxStock - CurrentStock) <= 2;
 }
 
-void ARestockerAI::RetryMove()
-{
-    StartRestocking();
-}
+
 
 void ARestockerAI::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
@@ -769,44 +800,20 @@ bool ARestockerAI::IsProductBoxLocked(AProductBox* ProductBox) const
 
 void ARestockerAI::AbortCurrentTask()
 {
-    if (bIsHoldingProductBox && TargetProductBox)
+    UE_LOG(LogTemp, Warning, TEXT("RestockerAI: Aborting current task"));
+
+    // Clear all targets
+    TargetProductBox = nullptr;
+    TargetShelf = nullptr;
+    TargetStorageRack = nullptr;
+
+    // If holding a box, drop it
+    if (bIsHoldingProductBox)
     {
-        if (TargetProductBox->GetProductCount() == 0)
-        {
-            // Delete the empty ProductBox
-            TargetProductBox->Destroy();
-        }
-        else
-        {
-            // Drop the product box only if it's not empty
-            TargetProductBox->DetachFromActor(FDetachmentTransformRules::KeepWorldTransform);
-            UPrimitiveComponent* PrimitiveComponent = Cast<UPrimitiveComponent>(TargetProductBox->GetRootComponent());
-            if (PrimitiveComponent)
-            {
-                PrimitiveComponent->SetSimulatePhysics(true);
-                PrimitiveComponent->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
-            }
-        }
-
-        // Release the ProductBox
-        UnlockProductBox();
-        ReleaseProductBox(TargetProductBox);
-
-        bIsHoldingProductBox = false;
-        TargetProductBox = nullptr;
+        DropCurrentBox();
     }
 
-    if (TargetShelf)
-    {
-        ReleaseShelf(TargetShelf);
-        TargetShelf = nullptr;
-    }
-
-    if (TargetStorageRack)
-    {
-        TargetStorageRack = nullptr;
-    }
-
+    // Reset state and start over
     SetState(ERestockerState::Idle);
     StartRestocking();
 }
@@ -998,8 +1005,152 @@ void ARestockerAI::DeleteEmptyBox()
     if (TargetProductBox)
     {
         UE_LOG(LogTemp, Display, TEXT("RestockerAI: Deleting empty product box"));
+
+        // Destroy all products associated with the box
+        TArray<AProduct*> ProductsToDestroy = TargetProductBox->GetProducts();
+        for (AProduct* Product : ProductsToDestroy)
+        {
+            if (Product)
+            {
+                Product->Destroy();
+            }
+        }
+
+        UnlockProductBox();
+        ReleaseProductBox(TargetProductBox);
         TargetProductBox->Destroy();
         TargetProductBox = nullptr;
         bIsHoldingProductBox = false;
     }
+}
+
+AProductBox* ARestockerAI::FindNearestProductBox()
+{
+    TArray<AActor*> FoundProductBoxes;
+    UGameplayStatics::GetAllActorsOfClass(GetWorld(), AProductBox::StaticClass(), FoundProductBoxes);
+
+    AProductBox* NearestBox = nullptr;
+    float NearestDistance = MAX_FLT;
+
+    for (AActor* Actor : FoundProductBoxes)
+    {
+        AProductBox* ProductBox = Cast<AProductBox>(Actor);
+        if (ProductBox && !ProductBox->GetAttachParentActor() && !IsBoxHeldByPlayer(ProductBox) && !IsProductBoxReserved(ProductBox))
+        {
+            float Distance = FVector::Dist(GetActorLocation(), ProductBox->GetActorLocation());
+            if (Distance < NearestDistance)
+            {
+                NearestBox = ProductBox;
+                NearestDistance = Distance;
+            }
+        }
+    }
+
+    return NearestBox;
+}
+
+void ARestockerAI::DropBox()
+{
+    if (bIsHoldingProductBox && TargetProductBox)
+    {
+        UE_LOG(LogTemp, Display, TEXT("RestockerAI: Dropping box"));
+        UnlockProductBox();
+        ReleaseProductBox(TargetProductBox);
+        TargetProductBox->DetachFromActor(FDetachmentTransformRules::KeepWorldTransform);
+        UPrimitiveComponent* PrimitiveComponent = Cast<UPrimitiveComponent>(TargetProductBox->GetRootComponent());
+        if (PrimitiveComponent)
+        {
+            PrimitiveComponent->SetSimulatePhysics(true);
+            PrimitiveComponent->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
+        }
+        bIsHoldingProductBox = false;
+        TargetProductBox = nullptr;
+    }
+
+    SetState(ERestockerState::Idle);
+    StartRestocking();
+}
+
+bool ARestockerAI::ShouldReplenishStorageRack()
+{
+    if (!TargetProductBox)
+    {
+        return false;
+    }
+
+    AStorageRack* MatchingRack = FindMatchingStorageRack(TargetProductBox->GetProductClass());
+    return MatchingRack && !IsStorageRackFull(MatchingRack);
+}
+
+bool ARestockerAI::IsStorageRackFull(AStorageRack* StorageRack)
+{
+    return StorageRack->GetAvailableSpace() == 0;
+}
+
+
+AStorageRack* ARestockerAI::FindMatchingStorageRack(TSubclassOf<AProduct> ProductType)
+{
+    TArray<AActor*> FoundStorageRacks;
+    UGameplayStatics::GetAllActorsOfClass(GetWorld(), AStorageRack::StaticClass(), FoundStorageRacks);
+
+    for (AActor* Actor : FoundStorageRacks)
+    {
+        AStorageRack* StorageRack = Cast<AStorageRack>(Actor);
+        if (StorageRack && StorageRack->ProductType == ProductType)
+        {
+            return StorageRack;
+        }
+    }
+
+    return nullptr;
+}
+
+void ARestockerAI::RetryMoveImpl()
+{
+    switch (CurrentState)
+    {
+    case ERestockerState::MovingToProductBox:
+        if (TargetProductBox)
+        {
+            MoveToTarget(TargetProductBox);
+        }
+        else
+        {
+            AbortCurrentTask();
+        }
+        break;
+
+    case ERestockerState::MovingToShelf:
+        if (TargetShelf)
+        {
+            MoveToTarget(TargetShelf);
+        }
+        else
+        {
+            AbortCurrentTask();
+        }
+        break;
+
+    case ERestockerState::MovingToStorageRack:
+        if (TargetStorageRack)
+        {
+            MoveToStorageRack();
+        }
+        else
+        {
+            AbortCurrentTask();
+        }
+        break;
+
+    default:
+        AbortCurrentTask();
+        break;
+    }
+}
+
+void ARestockerAI::RetryMove()
+{
+    // Wait a short time before retrying the move
+    FTimerHandle RetryTimerHandles;
+    GetWorldTimerManager().SetTimer(RetryTimerHandles, this, &ARestockerAI::RetryMoveImpl, 1.0f, false);
 }

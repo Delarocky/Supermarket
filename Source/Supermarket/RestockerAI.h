@@ -32,6 +32,8 @@ public:
     void OnRotationComplete();
     UFUNCTION(BlueprintCallable, Category = "Restocking")
     bool IsTargetingProductBox(AProductBox* ProductBox) const;
+
+
 protected:
     UPROPERTY()
     AAIController* AIController;
@@ -109,7 +111,7 @@ private:
     UPROPERTY()
     TArray<AShelf*> CheckedShelves;
     void RetryMove();
-
+    void RetryMoveImpl();
     static TMap<AShelf*, ARestockerAI*> ReservedShelves;
     static TMap<AProductBox*, ARestockerAI*> ReservedProductBoxes;
     static FCriticalSection ReservationLock;
@@ -165,4 +167,10 @@ private:
     AStorageRack* FindAppropriateStorageRack(TSubclassOf<AProduct> ProductType);
 
     void DeleteEmptyBox();
+
+    void DropBox();
+    bool ShouldReplenishStorageRack();
+    bool IsStorageRackFull(AStorageRack* StorageRack);
+    AProductBox* FindNearestProductBox();
+    AStorageRack* FindMatchingStorageRack(TSubclassOf<AProduct> ProductType);
 };

@@ -83,6 +83,8 @@ public:
 
     void FillBox(TSubclassOf<AProduct> ProductToFill, int32 Quantity);
     void MakeProductsVisible();
+    UFUNCTION(BlueprintCallable, Category = "Product Box")
+    const TArray<AProduct*>& GetProducts() const { return Products; }
 protected:
     virtual void BeginPlay() override;
 
