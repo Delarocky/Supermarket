@@ -488,7 +488,7 @@ void ACheckout::UpdateQueue()
 
             CustomersInQueue[i]->MoveTo(TargetLocation);
 
-            // Set the customer's target rotation, but don't rotate yet
+            // Set the customer's target rotation
             SetCustomerTargetRotation(CustomersInQueue[i], i);
         }
     }
@@ -517,7 +517,7 @@ void ACheckout::UpdateQueue()
 
 void ACheckout::SetCustomerTargetRotation(AAICustomerPawn* Customer, int32 CustomerIndex)
 {
-    if (!Customer || !CheckoutMesh)
+    if (!Customer || !QueuePositions.IsValidIndex(0))
         return;
 
     FRotator TargetRotation;
@@ -529,19 +529,17 @@ void ACheckout::SetCustomerTargetRotation(AAICustomerPawn* Customer, int32 Custo
         DirectionToCheckout.Z = 0; // Ignore height difference
         TargetRotation = DirectionToCheckout.Rotation();
     }
-    else if (CustomersInQueue.IsValidIndex(CustomerIndex - 1))
+    else
     {
-        // Other customers face the customer in front
-        AAICustomerPawn* CustomerInFront = CustomersInQueue[CustomerIndex - 1];
-        FVector DirectionToFront = CustomerInFront->GetActorLocation() - Customer->GetActorLocation();
-        DirectionToFront.Z = 0; // Ignore height difference
-        TargetRotation = DirectionToFront.Rotation();
+        // All other customers face the first queue position
+        FVector DirectionToFirstSpot = QueuePositions[0]->GetComponentLocation() - Customer->GetActorLocation();
+        DirectionToFirstSpot.Z = 0; // Ignore height difference
+        TargetRotation = DirectionToFirstSpot.Rotation();
     }
 
     // Store the target rotation for this customer
     CustomerTargetRotations.Add(Customer, TargetRotation);
 }
-
 
 void ACheckout::RemoveScannedItem()
 {
