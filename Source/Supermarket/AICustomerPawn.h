@@ -139,4 +139,6 @@ private:
     void ResetFailedNavigationAttempts() { FailedNavigationAttempts = 0; }
     FVector InitialSpawnLocation;
     AParkingSpace* AssignedParkingSpace;
+
+
 };

@@ -29,6 +29,8 @@ public:
 
     UFUNCTION()
     void OnRotationComplete();
+    UFUNCTION(BlueprintCallable, Category = "Restocking")
+    bool IsTargetingProductBox(AProductBox* ProductBox) const;
 protected:
     UPROPERTY()
     AAIController* AIController;
@@ -103,4 +105,34 @@ private:
     UPROPERTY()
     TArray<AShelf*> CheckedShelves;
     void RetryMove();
+
+    static TMap<AShelf*, ARestockerAI*> ReservedShelves;
+    static TMap<AProductBox*, ARestockerAI*> ReservedProductBoxes;
+    static FCriticalSection ReservationLock;
+
+    bool ReserveShelf(AShelf* Shelf);
+    void ReleaseShelf(AShelf* Shelf);
+    bool ReserveProductBox(AProductBox* ProductBox);
+    void ReleaseProductBox(AProductBox* ProductBox);
+    bool IsShelfReserved(AShelf* Shelf) const;
+    bool IsProductBoxReserved(AProductBox* ProductBox) const;
+
+    void ReleaseAllReservations();
+    UFUNCTION(BlueprintCallable, Category = "Restocking")
+    AProductBox* GetTargetProductBox() const { return TargetProductBox; }
+    virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
+
+    bool ReserveTargetProductBox(AProductBox* ProductBox);
+    void ReleaseTargetProductBox();
+    static TMap<AProductBox*, ARestockerAI*> TargetedProductBoxes;
+    static FCriticalSection TargetedProductBoxesLock;
+
+    static TMap<AProductBox*, ARestockerAI*> LockedProductBoxes;
+    static FCriticalSection LockedProductBoxesLock;
+
+    bool LockProductBox(AProductBox* ProductBox);
+    void UnlockProductBox();
+    bool IsProductBoxLocked(AProductBox* ProductBox) const;
+
+    void AbortCurrentTask();
 };
