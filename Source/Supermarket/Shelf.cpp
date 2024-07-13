@@ -574,24 +574,34 @@ void AShelf::ApplyProductSettings(const FProductShelfSettings& Settings)
     ProductSpacing = Settings.ProductSpacing;
     ProductOffsetOnShelf = Settings.ProductOffset;
     MaxProducts = Settings.MaxProducts;
-
-    // Update grid size
     GridSize = Settings.GridSize;
 
-    // Update ProductSpawnPoint location based on the new offset
     if (ProductSpawnPoint)
     {
         ProductSpawnPoint->SetRelativeLocation(ProductOffsetOnShelf);
     }
 
-    // Recalculate max products based on grid size
     int32 TotalGridSize = GridSize.X * GridSize.Y * GridSize.Z;
     MaxProducts = FMath::Min(MaxProducts, TotalGridSize);
 
-    // Rearrange existing products based on new settings
+    // Get the product's physical dimensions
+    if (CurrentProductClass)
+    {
+        AProduct* TempProduct = GetWorld()->SpawnActor<AProduct>(CurrentProductClass);
+        if (TempProduct)
+        {
+            UStaticMeshComponent* MeshComponent = TempProduct->FindComponentByClass<UStaticMeshComponent>();
+            if (MeshComponent)
+            {
+                FVector Bounds = MeshComponent->Bounds.BoxExtent * 2; // Full dimensions
+                ProductDimensions = Bounds;
+            }
+            TempProduct->Destroy();
+        }
+    }
+
     RearrangeProducts();
 
-    // Remove excess products if the new max is lower than the current count
     while (Products.Num() > MaxProducts)
     {
         AProduct* RemovedProduct = Products.Pop();
@@ -611,9 +621,9 @@ FVector AShelf::CalculateProductPosition(int32 Index) const
     int32 Z = Index / (GridSize.X * GridSize.Y);
 
     return FVector(
-        X * ProductSpacing.X,
-        Y * ProductSpacing.Y,
-        Z * ProductSpacing.Z
+        X * (ProductDimensions.X + ProductSpacing.X),
+        Y * (ProductDimensions.Y + ProductSpacing.Y),
+        Z * (ProductDimensions.Z + ProductSpacing.Z)
     );
 }
 

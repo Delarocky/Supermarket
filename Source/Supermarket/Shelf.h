@@ -148,6 +148,9 @@ public:
     void UpdateShelfSettings();
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Shelf")
     FIntVector GridSize;
+
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Product")
+    FVector ProductDimensions;
 protected:
     virtual void BeginPlay() override;
 
