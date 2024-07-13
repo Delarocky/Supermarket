@@ -123,11 +123,11 @@ void AShelf::UpdateProductSpawnPointRotation()
         ProductSpawnPoint->SetWorldRotation(NewRotation);
 
         // Optionally, log the new rotation for debugging
-        //UE_LOG(LogTemp, Log, TEXT("Updated ProductSpawnPoint rotation to: %s"), *NewRotation.ToString());
+        ////UE_LOGLogTemp, Log, TEXT("Updated ProductSpawnPoint rotation to: %s"), *NewRotation.ToString());
     }
     else
     {
-        //UE_LOG(LogTemp, Warning, TEXT("ShelfMesh or ProductSpawnPoint is null in UpdateProductSpawnPointRotation"));
+        ////UE_LOGLogTemp, Warning, TEXT("ShelfMesh or ProductSpawnPoint is null in UpdateProductSpawnPointRotation"));
     }
 }
 
@@ -177,11 +177,11 @@ void AShelf::InitializeShelf()
 
             AddProduct(RelativeLocation);
         }
-        //UE_LOG(LogTemp, Display, TEXT("Shelf %s: Initialized with %d products"), *GetName(), Products.Num());
+        ////UE_LOGLogTemp, Display, TEXT("Shelf %s: Initialized with %d products"), *GetName(), Products.Num());
     }
     else
     {
-        //UE_LOG(LogTemp, Display, TEXT("Shelf %s: Initialized without initial stock"), *GetName());
+        ////UE_LOGLogTemp, Display, TEXT("Shelf %s: Initialized without initial stock"), *GetName());
     }
 }
 
@@ -192,7 +192,7 @@ bool AShelf::AddProduct(const FVector& RelativeLocation)
         // Check if the ProductBox has the correct product type
         if (ProductBox->GetProductClass() != ProductClass)
         {
-            UE_LOG(LogTemp, Warning, TEXT("Product in box does not match shelf's product type"));
+           ////UE_LOGLogTemp, Warning, TEXT("Product in box does not match shelf's product type"));
             return false;
         }
 
@@ -200,7 +200,7 @@ bool AShelf::AddProduct(const FVector& RelativeLocation)
         AProduct* NewProduct = ProductBox->RemoveProduct();
         if (!NewProduct)
         {
-            UE_LOG(LogTemp, Warning, TEXT("Failed to remove product from ProductBox"));
+           ////UE_LOGLogTemp, Warning, TEXT("Failed to remove product from ProductBox"));
             return false;
         }
 
@@ -233,7 +233,7 @@ bool AShelf::AddProduct(const FVector& RelativeLocation)
         NewProduct->SetActorHiddenInGame(false);
         NewProduct->SetActorEnableCollision(true);
 
-        UE_LOG(LogTemp, Display, TEXT("Added product to shelf. Total products: %d"), Products.Num());
+       ////UE_LOGLogTemp, Display, TEXT("Added product to shelf. Total products: %d"), Products.Num());
 
         return true;
     }
@@ -246,13 +246,13 @@ bool AShelf::StartStockingShelf(TSubclassOf<AProduct> ProductToStock)
 {
     if (!ProductToStock)
     {
-        UE_LOG(LogTemp, Warning, TEXT("Invalid ProductToStock provided"));
+       ////UE_LOGLogTemp, Warning, TEXT("Invalid ProductToStock provided"));
         return false;
     }
 
     if (bIsStocking)
     {
-        UE_LOG(LogTemp, Warning, TEXT("Shelf is already being stocked"));
+       ////UE_LOGLogTemp, Warning, TEXT("Shelf is already being stocked"));
         return false;
     }
 
@@ -267,13 +267,13 @@ bool AShelf::StartStockingShelf(TSubclassOf<AProduct> ProductToStock)
         bIsStocking = true;
         ContinueStocking();
 
-        UE_LOG(LogTemp, Display, TEXT("Started stocking shelf with product type: %s"), *ProductClass->GetName());
+       ////UE_LOGLogTemp, Display, TEXT("Started stocking shelf with product type: %s"), *ProductClass->GetName());
         return true;
     }
     else
     {
-        UE_LOG(LogTemp, Warning, TEXT("Cannot stock different product type. Shelf is not empty and dedicated to %s"),
-            ProductClass ? *ProductClass->GetName() : TEXT("None"));
+       ////UE_LOGLogTemp, Warning, TEXT("Cannot stock different product type. Shelf is not empty and dedicated to %s"),
+       //     ProductClass ? *ProductClass->GetName() : TEXT("None"));
         return false;
     }
 }
@@ -337,7 +337,7 @@ bool AShelf::IsSpotEmpty(const FVector& RelativeLocation) const
         QueryParams
     );
 
-    //UE_LOG(LogTemp, Display, TEXT("IsSpotEmpty: Location %s is %s"), *WorldLocation.ToString(), bIsEmpty ? TEXT("empty") : TEXT("not empty"));
+    ////UE_LOGLogTemp, Display, TEXT("IsSpotEmpty: Location %s is %s"), *WorldLocation.ToString(), bIsEmpty ? TEXT("empty") : TEXT("not empty"));
 
     return bIsEmpty;
 }
@@ -357,7 +357,7 @@ AProduct* AShelf::RemoveNextProduct()
 
 int32 AShelf::GetProductCount() const
 {
-    ////UE_LOG(LogTemp, Display, TEXT("Shelf %s: Current product count: %d"), *GetName(), Products.Num());
+    //////UE_LOGLogTemp, Display, TEXT("Shelf %s: Current product count: %d"), *GetName(), Products.Num());
     return Products.Num();
 }
 
@@ -375,7 +375,7 @@ void AShelf::ContinueStocking()
 {
     if (!bIsStocking || !ProductClass || !ProductBox)
     {
-        //UE_LOG(LogTemp, Warning, TEXT("Cannot continue stocking. IsStocking: %d, ProductClass: %s, ProductBox: %s"),
+        ////UE_LOGLogTemp, Warning, TEXT("Cannot continue stocking. IsStocking: %d, ProductClass: %s, ProductBox: %s"),
         //    bIsStocking, ProductClass ? *ProductClass->GetName() : TEXT("None"), ProductBox ? TEXT("Valid") : TEXT("Invalid"));
         return;
     }
@@ -562,7 +562,7 @@ void AShelf::UpdateShelfSettings()
         }
         else
         {
-            UE_LOG(LogTemp, Warning, TEXT("No settings found for product class %s. Using default settings."), *CurrentProductClass->GetName());
+           ////UE_LOGLogTemp, Warning, TEXT("No settings found for product class %s. Using default settings."), *CurrentProductClass->GetName());
             // Apply default settings if no specific settings are found
             ApplyProductSettings(FProductShelfSettings());
         }

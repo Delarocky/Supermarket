@@ -31,7 +31,7 @@ void AProductBox::BeginPlay()
     }
     else
     {
-        //UE_LOG(LogTemp, Warning, TEXT("ProductClass is not set in BeginPlay for ProductBox %s"), *GetName());
+        //UE_LOGLogTemp, Warning, TEXT("ProductClass is not set in BeginPlay for ProductBox %s"), *GetName());
     }*/
 }
 
@@ -39,7 +39,7 @@ void AProductBox::FillBox(TSubclassOf<AProduct> ProductToFill)
 {
     if (!ProductToFill)
     {
-        //UE_LOG(LogTemp, Warning, TEXT("ProductToFill is not set for ProductBox"));
+        //UE_LOGLogTemp, Warning, TEXT("ProductToFill is not set for ProductBox"));
         return;
     }
 
@@ -47,7 +47,7 @@ void AProductBox::FillBox(TSubclassOf<AProduct> ProductToFill)
 
     if (!ProductClass)
     {
-        //UE_LOG(LogTemp, Warning, TEXT("ProductClass is not set for ProductBox"));
+        //UE_LOGLogTemp, Warning, TEXT("ProductClass is not set for ProductBox"));
         return;
     }
 
@@ -75,7 +75,7 @@ void AProductBox::FillBox(TSubclassOf<AProduct> ProductToFill)
         }
         else
         {
-            //UE_LOG(LogTemp, Warning, TEXT("Failed to spawn product for ProductBox"));
+            //UE_LOGLogTemp, Warning, TEXT("Failed to spawn product for ProductBox"));
             break;
         }
     }
@@ -100,7 +100,7 @@ void AProductBox::ArrangeProducts()
 {
     if (Products.Num() == 0 || !ProductSpawnPoint)
     {
-        //UE_LOG(LogTemp, Warning, TEXT("No products or ProductSpawnPoint is null in ArrangeProducts"));
+        //UE_LOGLogTemp, Warning, TEXT("No products or ProductSpawnPoint is null in ArrangeProducts"));
         return;
     }
 
@@ -127,8 +127,7 @@ void AProductBox::ArrangeProducts()
     // Apply the ProductOffsetInBox to the spawn start
     SpawnStart += SpawnRotation.RotateVector(ProductOffsetInBox);
 
-    //UE_LOG(LogTemp, Display, TEXT("Starting product arrangement at %s with rotation %s"),
-    //    *SpawnStart.ToString(), *SpawnRotation.ToString());
+    //UE_LOGLogTemp, Display, TEXT("Starting product arrangement at %s with rotation %s"), *SpawnStart.ToString(), *SpawnRotation.ToString());
 
     int32 ProductIndex = 0;
     for (int32 Z = 0; Z < ProductData.BoxGridSize.Z && ProductIndex < Products.Num(); ++Z)
@@ -153,15 +152,14 @@ void AProductBox::ArrangeProducts()
                 // Apply the product scale
                 Products[ProductIndex]->SetActorScale3D(ProductData.Scale);
 
-                //UE_LOG(LogTemp, Verbose, TEXT("Placed product %d at %s"), ProductIndex, *ProductLocation.ToString());
+                //UE_LOGLogTemp, Verbose, TEXT("Placed product %d at %s"), ProductIndex, *ProductLocation.ToString());
 
                 ProductIndex++;
             }
         }
     }
 
-    //UE_LOG(LogTemp, Display, TEXT("Arranged %d products in a %s grid with spacing %s"),
-    //    ProductIndex, *ProductData.BoxGridSize.ToString(), *ProductData.BoxGridSpacing.ToString());
+    //UE_LOGLogTemp, Display, TEXT("Arranged %d products in a %s grid with spacing %s"),ProductIndex, *ProductData.BoxGridSize.ToString(), *ProductData.BoxGridSpacing.ToString());
 }
 
 void AProductBox::AttachToCamera(UCameraComponent* Camera)
@@ -221,14 +219,14 @@ AProductBox* AProductBox::SpawnProductBox(UObject* WorldContextObject, TSubclass
 {
     if (!WorldContextObject || !ProductBoxClass || !ProductToSpawn)
     {
-        //UE_LOG(LogTemp, Error, TEXT("Invalid parameters in SpawnProductBox"));
+        //UE_LOGLogTemp, Error, TEXT("Invalid parameters in SpawnProductBox"));
         return nullptr;
     }
 
     UWorld* World = GEngine->GetWorldFromContextObject(WorldContextObject, EGetWorldErrorMode::LogAndReturnNull);
     if (!World)
     {
-        //UE_LOG(LogTemp, Error, TEXT("Invalid World in SpawnProductBox"));
+        //UE_LOGLogTemp, Error, TEXT("Invalid World in SpawnProductBox"));
         return nullptr;
     }
 
@@ -257,15 +255,12 @@ AProductBox* AProductBox::SpawnProductBox(UObject* WorldContextObject, TSubclass
 
             NewProductBox->FillBox(ProductToSpawn);
 
-            //UE_LOG(LogTemp, Display, TEXT("Spawned ProductBox with %d %s at location %s"),
-            //    NewProductBox->GetProductCount(),
-             //   *ProductToSpawn->GetName(),
-             //   *SpawnLocation.ToString());
+            //UE_LOGLogTemp, Display, TEXT("Spawned ProductBox with %d %s at location %s"),NewProductBox->GetProductCount(), *ProductToSpawn->GetName(), *SpawnLocation.ToString());
         }
     }
     else
     {
-        //UE_LOG(LogTemp, Error, TEXT("Failed to spawn ProductBox"));
+        //UE_LOGLogTemp, Error, TEXT("Failed to spawn ProductBox"));
     }
 
     return NewProductBox;

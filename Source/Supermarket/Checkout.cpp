@@ -269,7 +269,7 @@ void ACheckout::PlaceItemsOnCounter()
                    // {
                    //     DrawDebugPoint(GetWorld(), ItemLocation, 10.0f, FColor::Red, false, 5.0f);
                    //     DrawDebugBox(GetWorld(), Product->GetActorLocation(), ActualSize * 0.5f, FColor::Green, false, 5.0f);
-                   //     //UE_LOG(LogTemp, Display, TEXT("Product %d placed at %s, Actual Size: %s, Scale: %s"),
+                   //     //UE_LOGLogTemp, Display, TEXT("Product %d placed at %s, Actual Size: %s, Scale: %s"),
                    //         ItemIndex, *Product->GetActorLocation().ToString(), *ActualSize.ToString(), *CurrentScale.ToString());
                    // }
                 }
@@ -682,7 +682,7 @@ void ACheckout::DebugLog(const FString& Message)
 {
     if (bDebugMode)
     {
-        //UE_LOG(LogTemp, Display, TEXT("[ACheckout Debug] %s"), *Message);
+        //UE_LOGLogTemp, Display, TEXT("[ACheckout Debug] %s"), *Message);
 
         // You can also add on-screen debug messages here if needed
         // GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Yellow, Message);

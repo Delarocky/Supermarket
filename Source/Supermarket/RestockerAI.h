@@ -135,4 +135,13 @@ private:
     bool IsProductBoxLocked(AProductBox* ProductBox) const;
 
     void AbortCurrentTask();
+
+    FTimerHandle ShelfCheckTimerHandle;
+
+    UFUNCTION()
+    void PeriodicShelfCheck();
+
+    void StartPeriodicShelfCheck();
+    void StopPeriodicShelfCheck();
+    void ReleaseProductBox();
 };
