@@ -110,26 +110,38 @@ void ARestockerAI::FindProductBox()
 
 void ARestockerAI::MoveToTarget(AActor* Target)
 {
-    if (AIController && Target)
+    if (!AIController || !Target)
     {
-        if (AShelf* Shelf = Cast<AShelf>(Target))
-        {
-            CurrentAccessPoint = FindNearestAccessPoint(Shelf);
-            MoveToAccessPoint();
-        }
-        else
-        {
-            //UE_LOG(LogTemp, Display, TEXT("RestockerAI: Moving to target: %s"), *Target->GetName());
-            AIController->MoveToActor(Target, 50.0f); // 50.0f is the acceptance radius
-        }
+        UE_LOG(LogTemp, Error, TEXT("RestockerAI: Failed to move to target. AIController: %s, Target: %s"),
+            AIController ? TEXT("Valid") : TEXT("Invalid"),
+            Target ? TEXT("Valid") : TEXT("Invalid"));
+        SetState(ERestockerState::Idle);
+        return;
+    }
+
+    // Add a recursion guard
+    static int32 RecursionCount = 0;
+    if (RecursionCount > 5)
+    {
+        UE_LOG(LogTemp, Warning, TEXT("RestockerAI: Excessive recursion in MoveToTarget. Aborting."));
+        SetState(ERestockerState::Idle);
+        RecursionCount = 0;
+        return;
+    }
+    RecursionCount++;
+
+    if (AShelf* Shelf = Cast<AShelf>(Target))
+    {
+        CurrentAccessPoint = FindNearestAccessPoint(Shelf);
+        MoveToAccessPoint();
     }
     else
     {
-        //UE_LOG(LogTemp, Error, TEXT("RestockerAI: Failed to move to target. AIController: %s, Target: %s"),
-        //    AIController ? TEXT("Valid") : TEXT("Invalid"),
-        //    Target ? TEXT("Valid") : TEXT("Invalid"));
-        SetState(ERestockerState::Idle);
+        UE_LOG(LogTemp, Display, TEXT("RestockerAI: Moving to target: %s"), *Target->GetName());
+        AIController->MoveToActor(Target, 50.0f); // 50.0f is the acceptance radius
     }
+
+    RecursionCount--;
 }
 
 void ARestockerAI::PickUpProductBox()
@@ -193,52 +205,37 @@ void ARestockerAI::RestockShelf()
 
 void ARestockerAI::OnMoveCompleted(FAIRequestID RequestID, EPathFollowingResult::Type Result)
 {
-    //UE_LOG(LogTemp, Display, TEXT("RestockerAI: Move completed with result: %d"), static_cast<int32>(Result));
+    UE_LOG(LogTemp, Display, TEXT("RestockerAI: Move completed with result: %d"), static_cast<int32>(Result));
 
     if (Result == EPathFollowingResult::Success)
     {
+        // Handle successful move
         switch (CurrentState)
         {
         case ERestockerState::MovingToProductBox:
-            //UE_LOG(LogTemp, Display, TEXT("RestockerAI: Reached product box, picking up"));
             PickUpProductBox();
             break;
         case ERestockerState::MovingToShelf:
-            if (bIsHoldingProductBox && TargetProductBox && TargetProductBox->GetAttachParentActor() == this)
+            if (bIsHoldingProductBox)
             {
-                //UE_LOG(LogTemp, Display, TEXT("RestockerAI: Reached shelf, turning to face it"));
                 TurnToFaceTarget();
             }
             else
             {
-                //UE_LOG(LogTemp, Warning, TEXT("RestockerAI: Reached shelf but not holding product box, returning to idle"));
                 SetState(ERestockerState::Idle);
             }
             break;
         default:
-            //UE_LOG(LogTemp, Warning, TEXT("RestockerAI: Move completed in unexpected state: %s"), *GetStateName(CurrentState));
             break;
         }
     }
     else
     {
-        //UE_LOG(LogTemp, Warning, TEXT("RestockerAI: Move failed, retrying"));
-        if (CurrentState == ERestockerState::MovingToProductBox || CurrentState == ERestockerState::MovingToShelf)
-        {
-            // Retry the move
-            if (TargetProductBox && CurrentState == ERestockerState::MovingToProductBox)
-            {
-                MoveToTarget(TargetProductBox);
-            }
-            else if (TargetShelf && CurrentState == ERestockerState::MovingToShelf)
-            {
-                MoveToTarget(TargetShelf);
-            }
-        }
-        else
-        {
-            SetState(ERestockerState::Idle);
-        }
+        // Handle failed move
+        UE_LOG(LogTemp, Warning, TEXT("RestockerAI: Move failed, retrying"));
+        SetState(ERestockerState::Idle);
+        // Instead of calling MoveToTarget directly, schedule a retry
+        GetWorld()->GetTimerManager().SetTimer(RetryTimerHandle, this, &ARestockerAI::RetryMove, 1.0f, false);
     }
 }
 
@@ -535,4 +532,20 @@ bool ARestockerAI::IsShelfSufficientlyStocked(AShelf* Shelf)
 
     // Consider the shelf sufficiently stocked if it has at most 2 items less than the maximum
     return (MaxStock - CurrentStock) <= 2;
+}
+
+void ARestockerAI::RetryMove()
+{
+    if (CurrentState == ERestockerState::MovingToProductBox && TargetProductBox)
+    {
+        MoveToTarget(TargetProductBox);
+    }
+    else if (CurrentState == ERestockerState::MovingToShelf && TargetShelf)
+    {
+        MoveToTarget(TargetShelf);
+    }
+    else
+    {
+        SetState(ERestockerState::Idle);
+    }
 }

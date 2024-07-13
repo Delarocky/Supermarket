@@ -99,7 +99,8 @@ private:
     void FindNextShelfForCurrentProduct();
     UFUNCTION()
     bool IsShelfSufficientlyStocked(AShelf* Shelf);
-
+    FTimerHandle RetryTimerHandle;
     UPROPERTY()
     TArray<AShelf*> CheckedShelves;
+    void RetryMove();
 };
