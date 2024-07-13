@@ -31,17 +31,8 @@ struct FProductData
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Product Box")
     int32 MaxProductsInBox;
 
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Shelf")
-    FIntVector ShelfGridSize;
 
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Shelf")
-    FVector ShelfGridSpacing;
-
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Shelf")
-    FVector ProductOffsetOnShelf;
-
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Shelf")
-    int32 MaxProductsOnShelf;
+   
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Product Box")
     TSubclassOf<class AProductBox> ProductBoxClass;
@@ -54,10 +45,6 @@ struct FProductData
         , BoxGridSpacing(FVector(20.0f, 20.0f, 20.0f))
         , ProductOffsetInBox(FVector::ZeroVector)
         , MaxProductsInBox(20)
-        , ShelfGridSize(FIntVector(5, 3, 1))
-        , ShelfGridSpacing(FVector(20.0f, 20.0f, 20.0f))
-        , ProductOffsetOnShelf(FVector::ZeroVector)
-        , MaxProductsOnShelf(15)
         , ProductBoxClass(nullptr)
     {}
 
@@ -69,10 +56,6 @@ struct FProductData
         , BoxGridSpacing(FVector(20.0f, 20.0f, 20.0f))
         , ProductOffsetInBox(FVector::ZeroVector)
         , MaxProductsInBox(20)
-        , ShelfGridSize(FIntVector(5, 3, 1))
-        , ShelfGridSpacing(FVector(20.0f, 20.0f, 20.0f))
-        , ProductOffsetOnShelf(FVector::ZeroVector)
-        , MaxProductsOnShelf(15)
         , ProductBoxClass(nullptr)
     {}
 };
