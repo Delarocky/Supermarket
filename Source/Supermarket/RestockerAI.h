@@ -7,6 +7,7 @@
 #include "ProductBox.h"
 #include "AIController.h"
 #include "Navigation/PathFollowingComponent.h"
+#include "StorageRack.h"
 #include "RestockerAI.generated.h"
 
 class AAIController;
@@ -68,9 +69,12 @@ private:
         Idle,
         MovingToProductBox,
         MovingToShelf,
-        Restocking
+        Restocking,
+        MovingToStorageRack,
+        ReplenishingStorageRack,
+        ReturningToStorageRack
     };
-
+    
     ERestockerState CurrentState;
 
     void SetState(ERestockerState NewState);
@@ -144,4 +148,21 @@ private:
     void StartPeriodicShelfCheck();
     void StopPeriodicShelfCheck();
     void ReleaseProductBox();
+    UPROPERTY()
+    AStorageRack* TargetStorageRack;
+
+    UPROPERTY(EditAnywhere, Category = "AI")
+    float StorageRackSearchRadius;
+
+    // Add these new methods to the ARestockerAI class
+    void FindStorageRack();
+    void MoveToStorageRack();
+    void CreateProductBoxFromStorageRack();
+    void ReplenishStorageRack();
+    void ReturnToStorageRack();
+    AStorageRack* FindNearestStorageRack(TSubclassOf<AProduct> ProductType);
+
+    AStorageRack* FindAppropriateStorageRack(TSubclassOf<AProduct> ProductType);
+
+    void DeleteEmptyBox();
 };

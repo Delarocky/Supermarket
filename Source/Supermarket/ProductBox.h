@@ -80,6 +80,9 @@ public:
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Product Box")
     FVector ProductOffsetInBox;
+
+    void FillBox(TSubclassOf<AProduct> ProductToFill, int32 Quantity);
+    void MakeProductsVisible();
 protected:
     virtual void BeginPlay() override;
 

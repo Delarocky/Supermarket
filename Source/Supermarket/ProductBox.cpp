@@ -297,3 +297,75 @@ int32 AProductBox::GetProductCountt() const
 {
     return Products.Num();
 }
+
+void AProductBox::FillBox(TSubclassOf<AProduct> ProductToFill, int32 Quantity)
+{
+    if (!ProductToFill)
+    {
+        UE_LOG(LogTemp, Warning, TEXT("ProductBox: ProductToFill is not set"));
+        return;
+    }
+
+    SetProductClass(ProductToFill);
+
+    if (!ProductClass)
+    {
+        UE_LOG(LogTemp, Warning, TEXT("ProductBox: ProductClass is not set"));
+        return;
+    }
+
+    // Clear existing products
+    for (AProduct* Product : Products)
+    {
+        if (Product)
+        {
+            Product->Destroy();
+        }
+    }
+    Products.Empty();
+
+    UE_LOG(LogTemp, Log, TEXT("ProductBox: Filling box with product type %s. Quantity: %d"), *ProductClass->GetName(), Quantity);
+
+    // Fill the box with new products
+    for (int32 i = 0; i < Quantity && i < MaxProducts; ++i)
+    {
+        FActorSpawnParameters SpawnParams;
+        SpawnParams.Owner = this;
+        SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+        AProduct* NewProduct = GetWorld()->SpawnActor<AProduct>(ProductClass, GetActorLocation(), GetActorRotation(), SpawnParams);
+        if (NewProduct)
+        {
+            Products.Add(NewProduct);
+            NewProduct->AttachToComponent(RootComponent, FAttachmentTransformRules::KeepRelativeTransform);
+            NewProduct->SetActorHiddenInGame(true);
+            NewProduct->SetActorEnableCollision(false);
+        }
+        else
+        {
+            UE_LOG(LogTemp, Warning, TEXT("ProductBox: Failed to spawn product"));
+            break;
+        }
+    }
+
+    UE_LOG(LogTemp, Log, TEXT("ProductBox: Filled box with %d products"), Products.Num());
+
+    ArrangeProducts();
+}
+
+void AProductBox::MakeProductsVisible()
+{
+    for (AProduct* Product : Products)
+    {
+        if (Product)
+        {
+            Product->SetActorHiddenInGame(false);
+            Product->SetActorEnableCollision(true);
+
+            UStaticMeshComponent* MeshComponent = Product->FindComponentByClass<UStaticMeshComponent>();
+            if (MeshComponent)
+            {
+                MeshComponent->SetVisibility(true);
+            }
+        }
+    }
+}
