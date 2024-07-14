@@ -28,6 +28,8 @@
 #include "DrawDebugHelpers.h"
 #include "HAL/CriticalSection.h"
 #include "Kismet/GameplayStatics.h"
+#include "SceneBoxComponent.h"
+#include "Materials/MaterialInterface.h"
 #include "GameFramework/CharacterMovementComponent.h"
 
 FVector IntersectRayWithPlane(const FVector& RayOrigin, const FVector& RayDirection, const FPlane& Plane)
@@ -899,9 +901,7 @@ void ASupermarketCharacter::ToggleBuildMode()
                     FActorSpawnParameters SpawnParams;
                     SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
 
-                    // Set the spawn location to the player's position
                     FVector SpawnLocation = GetActorLocation();
-                    // You can adjust this offset if needed
                     SpawnLocation.Z += 1000.0f; // Raise the camera 1000 units above the player
 
                     FRotator SpawnRotation(-60.0f, 0.0f, 0.0f); // Default downward angle
@@ -910,7 +910,6 @@ void ASupermarketCharacter::ToggleBuildMode()
 
                     if (BuildModeCamera)
                     {
-                        // Set the pivot point to the player's location
                         BuildModeCamera->SetPivotLocation(GetActorLocation());
                     }
                 }
@@ -920,7 +919,6 @@ void ASupermarketCharacter::ToggleBuildMode()
                     PlayerController->SetViewTargetWithBlend(BuildModeCamera, 0.5f);
                 }
 
-                // Create and display the build mode widget
                 if (BuildModeWidgetClass && !BuildModeWidget)
                 {
                     BuildModeWidget = CreateWidget<UUserWidget>(GetWorld(), BuildModeWidgetClass);
@@ -944,7 +942,14 @@ void ASupermarketCharacter::ToggleBuildMode()
 
                 PlayerController->SetViewTargetWithBlend(this, 0.5f);
 
-                // Remove the build mode widget
+                // If an object is still being moved, reset it to its original position
+                if (bIsMovingObject && SelectedObject)
+                {
+                    ResetObjectToOriginalPosition();
+                    bIsMovingObject = false;
+                    SelectedObject = nullptr;
+                }
+
                 if (BuildModeWidget)
                 {
                     BuildModeWidget->RemoveFromParent();
@@ -1037,29 +1042,55 @@ void ASupermarketCharacter::ToggleObjectMovement()
 {
     if (!bIsBuildModeActive) return;
 
-    bIsMovingObject = !bIsMovingObject;
-    if (bIsMovingObject)
+    if (!bIsMovingObject)
     {
+        // Start moving an object
+        bIsMovingObject = true;
         SelectedObject = GetActorUnderCursor();
         if (SelectedObject)
         {
-           ////UE_LOGLogTemp, Display, TEXT("Selected object: %s"), *SelectedObject->GetName());
+            UE_LOG(LogTemp, Display, TEXT("Selected object: %s"), *SelectedObject->GetName());
             InitialObjectPosition = SelectedObject->GetActorLocation();
+            OriginalObjectRotation = SelectedObject->GetActorRotation();
+
+            // Store the original material
+            UStaticMeshComponent* MeshComponent = SelectedObject->FindComponentByClass<UStaticMeshComponent>();
+            if (MeshComponent)
+            {
+                OriginalMaterial = MeshComponent->GetMaterial(0);
+            }
 
             APlayerController* PC = Cast<APlayerController>(GetController());
             if (PC)
             {
                 PC->GetMousePosition(LastMousePosition.X, LastMousePosition.Y);
             }
+
+            // Start moving the object
+            StartObjectMovement();
+        }
+        else
+        {
+            bIsMovingObject = false;  // Reset if no object was selected
         }
     }
     else
     {
-        if (SelectedObject)
+        // Attempt to stop moving the object
+        if (bIsValidPlacement)
         {
-           ////UE_LOGLogTemp, Display, TEXT("Placed object: %s"), *SelectedObject->GetName());
+            // If the placement is valid, stop moving the object
+            UE_LOG(LogTemp, Display, TEXT("Placed object: %s"), *SelectedObject->GetName());
+            ApplyMaterialToActor(SelectedObject, OriginalMaterial);
+            bIsMovingObject = false;
+            SelectedObject = nullptr;
         }
-        SelectedObject = nullptr;
+        else
+        {
+            // If the placement is invalid, keep moving the object
+            UE_LOG(LogTemp, Warning, TEXT("Invalid placement. Object remains selected and moving."));
+            // Do not change bIsMovingObject or SelectedObject
+        }
     }
 }
 
@@ -1112,14 +1143,6 @@ void ASupermarketCharacter::MoveSelectedObject()
         return;
     }
 
-    // Get the camera component from BuildModeCamera
-    UCameraComponent* CameraComponent = BuildModeCamera->FindComponentByClass<UCameraComponent>();
-    if (!CameraComponent)
-    {
-       ////UE_LOGLogTemp, Error, TEXT("Camera component not found in BuildModeCamera"));
-        return;
-    }
-
     // Deproject screen space coordinate to world space
     FVector WorldPosition, WorldDirection;
     if (UGameplayStatics::DeprojectScreenToWorld(PC, MousePosition, WorldPosition, WorldDirection))
@@ -1134,18 +1157,27 @@ void ASupermarketCharacter::MoveSelectedObject()
         FVector NewLocation = IntersectionPoint;
         NewLocation.Z = InitialObjectPosition.Z;
 
-        // Move the object to the new location
-        SelectedObject->SetActorLocation(NewLocation);
+        // Clamp the position to the building area bounds
+        FVector ClampedLocation = ClampLocationToBuildingArea(NewLocation);
 
-        // Check if the new position is within the building area
-        if (!IsActorInBuildingArea(SelectedObject))
+        // Move the object to the new location
+        SelectedObject->SetActorLocation(ClampedLocation);
+
+        // Update the placement validity
+        UpdateObjectPlacement();
+
+        // Apply the appropriate material based on placement validity
+        ApplyMaterialToActor(SelectedObject, bIsValidPlacement ? ValidPlacementMaterial : InvalidPlacementMaterial);
+
+        // Debug visualization
+        if (GetWorld() && GetWorld()->IsPlayInEditor())
         {
-            // If outside, clamp the position to the building area bounds
-            FVector ClampedLocation = ClampLocationToBuildingArea(NewLocation);
-            SelectedObject->SetActorLocation(ClampedLocation);
+            FColor DebugColor = bIsValidPlacement ? FColor::Green : FColor::Red;
+            DrawDebugBox(GetWorld(), ClampedLocation, FVector(100, 100, 100), DebugColor, false, -1.0f, 0, 2.0f);
         }
 
-       ////UE_LOGLogTemp, Verbose, TEXT("Moving object to: %s"), *NewLocation.ToString());
+        UE_LOG(LogTemp, Verbose, TEXT("Moving object to: %s, Valid Placement: %s"),
+            *ClampedLocation.ToString(), bIsValidPlacement ? TEXT("True") : TEXT("False"));
     }
 }
 
@@ -1332,10 +1364,27 @@ void ASupermarketCharacter::UpdateObjectPosition()
 
 void ASupermarketCharacter::StopObjectMovement()
 {
-    bIsMovingObject = false;
-    SelectedObject = nullptr;
-}
+    if (!SelectedObject) return;
 
+    if (bIsValidPlacement)
+    {
+        // Finalize the object's position only if it's a valid placement
+        UE_LOG(LogTemp, Display, TEXT("Valid placement. Object placed at: %s"), *SelectedObject->GetActorLocation().ToString());
+
+        // Apply the original material back to the object
+        ApplyMaterialToActor(SelectedObject, OriginalMaterial);
+
+        bIsMovingObject = false;
+        SelectedObject = nullptr;
+    }
+    else
+    {
+        // If placement is invalid, keep the object attached to the mouse
+        UE_LOG(LogTemp, Warning, TEXT("Invalid placement. Object remains attached to mouse."));
+        // Do not reset bIsMovingObject or SelectedObject here
+        // The object will continue to move with the mouse in the next frame
+    }
+}
 void ASupermarketCharacter::StartObjectMovement()
 {
     if (!bIsBuildModeActive || !BuildModeCamera)
@@ -1356,6 +1405,8 @@ void ASupermarketCharacter::StartObjectMovement()
     }
 
     bIsMovingObject = true;
+    OriginalObjectPosition = SelectedObject->GetActorLocation();
+    OriginalObjectRotation = SelectedObject->GetActorRotation();
 
     // Store the initial hit point in world space
     InitialHitPoint = HitResult.ImpactPoint;
@@ -1366,6 +1417,16 @@ void ASupermarketCharacter::StartObjectMovement()
 
     // Store the initial object transform
     InitialObjectTransform = SelectedObject->GetActorTransform();
+
+    // Store the original material
+    UStaticMeshComponent* MeshComponent = SelectedObject->FindComponentByClass<UStaticMeshComponent>();
+    if (MeshComponent)
+    {
+        OriginalMaterial = MeshComponent->GetMaterial(0);
+    }
+
+    UE_LOG(LogTemp, Display, TEXT("Started moving object: %s from position: %s"),
+        *SelectedObject->GetName(), *OriginalObjectPosition.ToString());
 }
 
 
@@ -1453,4 +1514,64 @@ void ASupermarketCharacter::CreateAndShowStoreStatusWidget()
 bool ASupermarketCharacter::IsHoldingProductBox(AProductBox* Box) const
 {
     return HeldProductBox == Box;
+}
+
+
+void ASupermarketCharacter::ResetObjectToOriginalPosition()
+{
+    if (SelectedObject)
+    {
+        SelectedObject->SetActorLocation(OriginalObjectPosition);
+        SelectedObject->SetActorRotation(OriginalObjectRotation);
+        UE_LOG(LogTemp, Display, TEXT("Object reset to original position: %s"), *OriginalObjectPosition.ToString());
+
+        // Ensure we update the object's appearance
+        ApplyMaterialToActor(SelectedObject, OriginalMaterial);
+    }
+}
+
+void ASupermarketCharacter::UpdateObjectPlacement()
+{
+    if (!SelectedObject) return;
+
+    USceneBoxComponent* SceneBox = SelectedObject->FindComponentByClass<USceneBoxComponent>();
+    if (SceneBox)
+    {
+        bool bOverlapping = SceneBox->CheckOverlap();
+        bool bInBuildingArea = IsActorInBuildingArea(SelectedObject);
+        bIsValidPlacement = !bOverlapping && bInBuildingArea;
+
+        UE_LOG(LogTemp, Display, TEXT("UpdateObjectPlacement - Object: %s, Overlap: %s, In Building Area: %s, Valid Placement: %s"),
+            *SelectedObject->GetName(),
+            bOverlapping ? TEXT("True") : TEXT("False"),
+            bInBuildingArea ? TEXT("True") : TEXT("False"),
+            bIsValidPlacement ? TEXT("True") : TEXT("False"));
+
+        
+    }
+    else
+    {
+        bIsValidPlacement = IsActorInBuildingArea(SelectedObject);
+        UE_LOG(LogTemp, Warning, TEXT("SceneBox not found on selected object: %s"), *SelectedObject->GetName());
+    }
+
+    // Update the object's appearance based on placement validity
+    ApplyMaterialToActor(SelectedObject, bIsValidPlacement ? ValidPlacementMaterial : InvalidPlacementMaterial);
+}
+
+
+void ASupermarketCharacter::ApplyMaterialToActor(AActor* Actor, UMaterialInterface* Material)
+{
+    if (!Actor || !Material) return;
+
+    TArray<UStaticMeshComponent*> MeshComponents;
+    Actor->GetComponents<UStaticMeshComponent>(MeshComponents);
+
+    for (UStaticMeshComponent* MeshComponent : MeshComponents)
+    {
+        if (MeshComponent)
+        {
+            MeshComponent->SetMaterial(0, Material);
+        }
+    }
 }

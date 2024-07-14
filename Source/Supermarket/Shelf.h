@@ -151,6 +151,8 @@ public:
 
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Product")
     FVector ProductDimensions;
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
+    class USceneBoxComponent* PlacementBox;
 protected:
     virtual void BeginPlay() override;
 

@@ -254,6 +254,8 @@ protected:
     /** Tablet Screen Rotation */
  
     FRotator TabletScreenRotation;
+    UPROPERTY()
+    UMaterialInterface* OriginalMaterial;
 
 protected:
     // APawn interface
@@ -336,6 +338,11 @@ public:
     void SetAssignedParkingSpace(AParkingSpace* ParkingSpace) { AssignedParkingSpace = ParkingSpace; }
     UFUNCTION(BlueprintCallable, Category = "Interaction")
     bool IsHoldingProductBox(AProductBox* Box) const;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Build Mode")
+    UMaterialInterface* ValidPlacementMaterial;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Build Mode")
+    UMaterialInterface* InvalidPlacementMaterial;
 private:
     /** Timer handle for camera transition */
     FTimerHandle CameraTransitionTimerHandle;
@@ -421,4 +428,12 @@ private:
     AParkingSpace* AssignedParkingSpace;
     UPROPERTY()
     UStoreStatusWidget* StoreStatusWidget;
+
+    FVector OriginalObjectPosition;
+    FRotator OriginalObjectRotation;
+    bool bIsValidPlacement;
+
+    void UpdateObjectPlacement();
+    void ResetObjectToOriginalPosition();
+    void ApplyMaterialToActor(AActor* Actor, UMaterialInterface* Material);
 };
