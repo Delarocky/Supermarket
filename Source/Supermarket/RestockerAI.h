@@ -140,7 +140,9 @@ private:
 
     UFUNCTION()
     void PeriodicShelfCheck();
-
+   FTimerHandle ClearReservationsTimerHandle;
+   UFUNCTION()
+   void ClearUnattachedProductBoxReservations();
     void StartPeriodicShelfCheck();
     void StopPeriodicShelfCheck();
     void ReleaseProductBox();

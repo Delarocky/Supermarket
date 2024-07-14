@@ -4,6 +4,7 @@
 #include "NavigationSystem.h"
 #include "Kismet/GameplayStatics.h"
 #include "Kismet/KismetMathLibrary.h"
+#include "TimerManager.h"
 #include "SupermarketCharacter.h"
 
 TMap<AShelf*, ARestockerAI*> ARestockerAI::ReservedShelves;
@@ -33,6 +34,10 @@ void ARestockerAI::BeginPlay()
         AIController->ReceiveMoveCompleted.AddDynamic(this, &ARestockerAI::OnMoveCompleted);
     }
     StartPeriodicShelfCheck();
+
+    GetWorld()->GetTimerManager().SetTimer(ClearReservationsTimerHandle,
+        FTimerDelegate::CreateUObject(this, &ARestockerAI::ClearUnattachedProductBoxReservations),
+        15.0f, true);
 }
 
 void ARestockerAI::Tick(float DeltaTime)
@@ -635,6 +640,9 @@ void ARestockerAI::EndPlay(const EEndPlayReason::Type EndPlayReason)
     Super::EndPlay(EndPlayReason);
     StopPeriodicShelfCheck();
     ReleaseAllReservations();
+
+    // Clear the timer when the actor is destroyed
+    GetWorld()->GetTimerManager().ClearTimer(ClearReservationsTimerHandle);
 }
 
 
@@ -817,4 +825,27 @@ void ARestockerAI::PeriodicShelfCheck()
     {
         StartRestocking();
     }
+}
+
+void ARestockerAI::ClearUnattachedProductBoxReservations()
+{
+    TArray<AActor*> FoundProductBoxes;
+    UGameplayStatics::GetAllActorsOfClass(GWorld, AProductBox::StaticClass(), FoundProductBoxes);
+
+    FScopeLock Lock(&ReservationLock);
+    FScopeLock TargetLock(&TargetedProductBoxesLock);
+    FScopeLock LockLock(&LockedProductBoxesLock);
+
+    for (AActor* Actor : FoundProductBoxes)
+    {
+        AProductBox* ProductBox = Cast<AProductBox>(Actor);
+        if (ProductBox && !ProductBox->GetAttachParentActor())
+        {
+            ReservedProductBoxes.Remove(ProductBox);
+            TargetedProductBoxes.Remove(ProductBox);
+            LockedProductBoxes.Remove(ProductBox);
+        }
+    }
+
+    //UE_LOGLogTemp, Display, TEXT("Cleared reservations for unattached ProductBoxes"));
 }
