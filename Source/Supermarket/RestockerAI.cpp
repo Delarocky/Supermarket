@@ -35,9 +35,7 @@ void ARestockerAI::BeginPlay()
     }
     StartPeriodicShelfCheck();
 
-    GetWorld()->GetTimerManager().SetTimer(ClearReservationsTimerHandle,
-        FTimerDelegate::CreateUObject(this, &ARestockerAI::ClearUnattachedProductBoxReservations),
-        15.0f, true);
+    GetWorld()->GetTimerManager().SetTimer(ClearReservationsTimerHandle,FTimerDelegate::CreateUObject(this, &ARestockerAI::ClearUnattachedProductBoxReservations),15.0f, true);
 }
 
 void ARestockerAI::Tick(float DeltaTime)
@@ -491,8 +489,25 @@ void ARestockerAI::DropCurrentBox()
 {
     if (bIsHoldingProductBox && TargetProductBox)
     {
-        UE_LOG(LogTemp, Display, TEXT("RestockerAI: Dropping current box"));
+        UE_LOG(LogTemp, Display, TEXT("RestockerAI: Preparing to drop current box"));
+
+        // Clear all reservations for this product box
+        {
+            FScopeLock Lock(&ReservationLock);
+            FScopeLock TargetLock(&TargetedProductBoxesLock);
+            FScopeLock LockLock(&LockedProductBoxesLock);
+
+            ReservedProductBoxes.Remove(TargetProductBox);
+            TargetedProductBoxes.Remove(TargetProductBox);
+            LockedProductBoxes.Remove(TargetProductBox);
+        }
+
+        // Release the product box
         ReleaseProductBox(TargetProductBox);
+
+        UE_LOG(LogTemp, Display, TEXT("RestockerAI: All reservations cleared, now dropping box physically"));
+
+        // Now physically drop the box
         TargetProductBox->DetachFromActor(FDetachmentTransformRules::KeepWorldTransform);
         UPrimitiveComponent* PrimitiveComponent = Cast<UPrimitiveComponent>(TargetProductBox->GetRootComponent());
         if (PrimitiveComponent)
@@ -500,8 +515,11 @@ void ARestockerAI::DropCurrentBox()
             PrimitiveComponent->SetSimulatePhysics(true);
             PrimitiveComponent->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
         }
+
         bIsHoldingProductBox = false;
         TargetProductBox = nullptr;
+
+        UE_LOG(LogTemp, Display, TEXT("RestockerAI: Box fully dropped and available for others"));
     }
 }
 
