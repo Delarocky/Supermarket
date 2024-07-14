@@ -436,4 +436,5 @@ private:
     void UpdateObjectPlacement();
     void ResetObjectToOriginalPosition();
     void ApplyMaterialToActor(AActor* Actor, UMaterialInterface* Material);
+
 };

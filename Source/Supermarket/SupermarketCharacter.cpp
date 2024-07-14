@@ -1045,10 +1045,10 @@ void ASupermarketCharacter::ToggleObjectMovement()
     if (!bIsMovingObject)
     {
         // Start moving an object
-        bIsMovingObject = true;
         SelectedObject = GetActorUnderCursor();
         if (SelectedObject)
         {
+            bIsMovingObject = true;
             UE_LOG(LogTemp, Display, TEXT("Selected object: %s"), *SelectedObject->GetName());
             InitialObjectPosition = SelectedObject->GetActorLocation();
             OriginalObjectRotation = SelectedObject->GetActorRotation();
@@ -1060,18 +1060,24 @@ void ASupermarketCharacter::ToggleObjectMovement()
                 OriginalMaterial = MeshComponent->GetMaterial(0);
             }
 
+            // Calculate and store the click offset
             APlayerController* PC = Cast<APlayerController>(GetController());
             if (PC)
             {
-                PC->GetMousePosition(LastMousePosition.X, LastMousePosition.Y);
+                FVector WorldLocation, WorldDirection;
+                if (PC->DeprojectMousePositionToWorld(WorldLocation, WorldDirection))
+                {
+                    FVector IntersectionPoint = FMath::LinePlaneIntersection(
+                        WorldLocation,
+                        WorldLocation + WorldDirection * 10000.0f,
+                        FPlane(InitialObjectPosition, FVector::UpVector)
+                    );
+                    ClickOffset = InitialObjectPosition - IntersectionPoint;
+                }
             }
 
             // Start moving the object
             StartObjectMovement();
-        }
-        else
-        {
-            bIsMovingObject = false;  // Reset if no object was selected
         }
     }
     else
@@ -1089,7 +1095,6 @@ void ASupermarketCharacter::ToggleObjectMovement()
         {
             // If the placement is invalid, keep moving the object
             UE_LOG(LogTemp, Warning, TEXT("Invalid placement. Object remains selected and moving."));
-            // Do not change bIsMovingObject or SelectedObject
         }
     }
 }
@@ -1136,26 +1141,18 @@ void ASupermarketCharacter::MoveSelectedObject()
     APlayerController* PC = Cast<APlayerController>(GetController());
     if (!PC) return;
 
-    // Get mouse position in screen space
-    FVector2D MousePosition;
-    if (!PC->GetMousePosition(MousePosition.X, MousePosition.Y))
+    FVector WorldLocation, WorldDirection;
+    if (PC->DeprojectMousePositionToWorld(WorldLocation, WorldDirection))
     {
-        return;
-    }
+        FVector IntersectionPoint = FMath::LinePlaneIntersection(
+            WorldLocation,
+            WorldLocation + WorldDirection * 10000.0f,
+            FPlane(InitialObjectPosition, FVector::UpVector)
+        );
 
-    // Deproject screen space coordinate to world space
-    FVector WorldPosition, WorldDirection;
-    if (UGameplayStatics::DeprojectScreenToWorld(PC, MousePosition, WorldPosition, WorldDirection))
-    {
-        // Calculate the plane at the object's current height
-        FPlane ObjectMovementPlane(InitialObjectPosition, FVector::UpVector);
-
-        // Find the intersection point between the mouse ray and the movement plane
-        FVector IntersectionPoint = IntersectRayWithPlane(WorldPosition, WorldDirection, ObjectMovementPlane);
-
-        // Set the new location, maintaining the original Z position
-        FVector NewLocation = IntersectionPoint;
-        NewLocation.Z = InitialObjectPosition.Z;
+        // Apply the click offset to maintain the relative position
+        FVector NewLocation = IntersectionPoint + ClickOffset;
+        NewLocation.Z = InitialObjectPosition.Z; // Maintain the original height
 
         // Clamp the position to the building area bounds
         FVector ClampedLocation = ClampLocationToBuildingArea(NewLocation);
@@ -1231,7 +1228,7 @@ FVector ASupermarketCharacter::GetMouseWorldPosition()
             if (UGameplayStatics::DeprojectScreenToWorld(PlayerController, MousePosition, WorldLocation, WorldDirection))
             {
                 FVector Start = BuildModeCamera ? BuildModeCamera->GetActorLocation() : WorldLocation;
-                FVector End = Start + WorldDirection * 10000.0f;
+                FVector End = Start + WorldDirection * 20000.0f;
 
                 FHitResult HitResult;
                 FCollisionQueryParams CollisionParams;
@@ -1405,18 +1402,20 @@ void ASupermarketCharacter::StartObjectMovement()
     }
 
     bIsMovingObject = true;
-    OriginalObjectPosition = SelectedObject->GetActorLocation();
+    InitialObjectPosition = SelectedObject->GetActorLocation();
     OriginalObjectRotation = SelectedObject->GetActorRotation();
 
-    // Store the initial hit point in world space
-    InitialHitPoint = HitResult.ImpactPoint;
-
-    // Calculate and store the grab offset in object space
-    FVector LocalGrabOffset = SelectedObject->GetActorTransform().InverseTransformPosition(InitialHitPoint);
-    ClickOffset = LocalGrabOffset;
-
-    // Store the initial object transform
-    InitialObjectTransform = SelectedObject->GetActorTransform();
+    // Calculate and store the click offset
+    FVector WorldLocation, WorldDirection;
+    if (PlayerController->DeprojectMousePositionToWorld(WorldLocation, WorldDirection))
+    {
+        FVector IntersectionPoint = FMath::LinePlaneIntersection(
+            WorldLocation,
+            WorldLocation + WorldDirection * 10000.0f,
+            FPlane(InitialObjectPosition, FVector::UpVector)
+        );
+        ClickOffset = InitialObjectPosition - IntersectionPoint;
+    }
 
     // Store the original material
     UStaticMeshComponent* MeshComponent = SelectedObject->FindComponentByClass<UStaticMeshComponent>();
@@ -1426,9 +1425,8 @@ void ASupermarketCharacter::StartObjectMovement()
     }
 
     UE_LOG(LogTemp, Display, TEXT("Started moving object: %s from position: %s"),
-        *SelectedObject->GetName(), *OriginalObjectPosition.ToString());
+        *SelectedObject->GetName(), *InitialObjectPosition.ToString());
 }
-
 
 bool ASupermarketCharacter::CanObjectBeMoved(AActor* Actor)
 {
@@ -1575,3 +1573,4 @@ void ASupermarketCharacter::ApplyMaterialToActor(AActor* Actor, UMaterialInterfa
         }
     }
 }
+
