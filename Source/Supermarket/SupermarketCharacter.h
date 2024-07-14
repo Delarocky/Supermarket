@@ -17,7 +17,7 @@
 #include "StoreStatusWidget.h"
 #include "ParkingSpace.h"
 #include "SupermarketCharacter.generated.h"
-
+DECLARE_LOG_CATEGORY_EXTERN(LogBuildMode, Log, All);
 class UInputComponent;
 class USkeletalMeshComponent;
 class UCameraComponent;
@@ -436,5 +436,22 @@ private:
     void UpdateObjectPlacement();
     void ResetObjectToOriginalPosition();
     void ApplyMaterialToActor(AActor* Actor, UMaterialInterface* Material);
+    void RotateSelectedObject(float Angle);
+    FVector GetObjectCenter(AActor* Actor) const;
+    void StoreMaterials(AActor* Actor);
+    void RestoreOriginalMaterials();
+    struct FComponentMaterials
+    {
+        TWeakObjectPtr<UPrimitiveComponent> Component;
+        TArray<TWeakObjectPtr<UMaterialInterface>> Materials;
+    };
 
+    TArray<FComponentMaterials> OriginalMaterials;
+    UPROPERTY()
+    UMaterial* DefaultValidPlacementMaterial;
+
+    UPROPERTY()
+    UMaterial* DefaultInvalidPlacementMaterial;
+
+    void InitializeDefaultMaterials();
 };

@@ -31,7 +31,7 @@
 #include "SceneBoxComponent.h"
 #include "Materials/MaterialInterface.h"
 #include "GameFramework/CharacterMovementComponent.h"
-
+DEFINE_LOG_CATEGORY(LogBuildMode);
 FVector IntersectRayWithPlane(const FVector& RayOrigin, const FVector& RayDirection, const FPlane& Plane)
 {
     float t = (Plane.W - FVector::DotProduct(Plane.GetNormal(), RayOrigin)) / FVector::DotProduct(Plane.GetNormal(), RayDirection);
@@ -121,6 +121,18 @@ ASupermarketCharacter::ASupermarketCharacter()
     RotationAngle = 45.0f;
     bIsMovingObject = false;
     SelectedObject = nullptr;
+
+    static ConstructorHelpers::FObjectFinder<UMaterial> DefaultValidMaterialFinder(TEXT("/Game/M_ValidPlacement"));
+    if (DefaultValidMaterialFinder.Succeeded())
+    {
+        DefaultValidPlacementMaterial = DefaultValidMaterialFinder.Object;
+    }
+
+    static ConstructorHelpers::FObjectFinder<UMaterial> DefaultInvalidMaterialFinder(TEXT("/Game/M_InvalidPlacement"));
+    if (DefaultInvalidMaterialFinder.Succeeded())
+    {
+        DefaultInvalidPlacementMaterial = DefaultInvalidMaterialFinder.Object;
+    }
 }
 
 void ASupermarketCharacter::Tick(float DeltaTime)
@@ -151,7 +163,7 @@ void ASupermarketCharacter::BeginPlay()
     // Call the base class  
     Super::BeginPlay();
     CreateMoneyDisplayWidget();
-    
+    InitializeDefaultMaterials();
     OriginalCameraRotation = FirstPersonCameraComponent->GetRelativeRotation();
     OriginalCameraFOV = FirstPersonCameraComponent->FieldOfView;
     SetupTabletScreen();
@@ -226,6 +238,7 @@ void ASupermarketCharacter::BeginPlay()
         // Ensure the store starts closed
         StoreManager->SetStoreOpen(false);
     }
+
 
 }
 
@@ -1053,28 +1066,8 @@ void ASupermarketCharacter::ToggleObjectMovement()
             InitialObjectPosition = SelectedObject->GetActorLocation();
             OriginalObjectRotation = SelectedObject->GetActorRotation();
 
-            // Store the original material
-            UStaticMeshComponent* MeshComponent = SelectedObject->FindComponentByClass<UStaticMeshComponent>();
-            if (MeshComponent)
-            {
-                OriginalMaterial = MeshComponent->GetMaterial(0);
-            }
-
-            // Calculate and store the click offset
-            APlayerController* PC = Cast<APlayerController>(GetController());
-            if (PC)
-            {
-                FVector WorldLocation, WorldDirection;
-                if (PC->DeprojectMousePositionToWorld(WorldLocation, WorldDirection))
-                {
-                    FVector IntersectionPoint = FMath::LinePlaneIntersection(
-                        WorldLocation,
-                        WorldLocation + WorldDirection * 10000.0f,
-                        FPlane(InitialObjectPosition, FVector::UpVector)
-                    );
-                    ClickOffset = InitialObjectPosition - IntersectionPoint;
-                }
-            }
+            // Store the original materials
+            StoreMaterials(SelectedObject);
 
             // Start moving the object
             StartObjectMovement();
@@ -1087,7 +1080,7 @@ void ASupermarketCharacter::ToggleObjectMovement()
         {
             // If the placement is valid, stop moving the object
             UE_LOG(LogTemp, Display, TEXT("Placed object: %s"), *SelectedObject->GetName());
-            ApplyMaterialToActor(SelectedObject, OriginalMaterial);
+            RestoreOriginalMaterials();
             bIsMovingObject = false;
             SelectedObject = nullptr;
         }
@@ -1101,20 +1094,12 @@ void ASupermarketCharacter::ToggleObjectMovement()
 
 void ASupermarketCharacter::RotateObjectLeft()
 {
-    if (bIsBuildModeActive && SelectedObject)
-    {
-        SelectedObject->AddActorWorldRotation(FRotator(0, -RotationAngle, 0));
-       ////UE_LOGLogTemp, Display, TEXT("Rotated object left: %s"), *SelectedObject->GetName());
-    }
+    RotateSelectedObject(-RotationAngle);
 }
 
 void ASupermarketCharacter::RotateObjectRight()
 {
-    if (bIsBuildModeActive && SelectedObject)
-    {
-        SelectedObject->AddActorWorldRotation(FRotator(0, RotationAngle, 0));
-       ////UE_LOGLogTemp, Display, TEXT("Rotated object right: %s"), *SelectedObject->GetName());
-    }
+    RotateSelectedObject(RotationAngle);
 }
 
 void ASupermarketCharacter::OnLeftMouseButtonPressed()
@@ -1141,40 +1126,31 @@ void ASupermarketCharacter::MoveSelectedObject()
     APlayerController* PC = Cast<APlayerController>(GetController());
     if (!PC) return;
 
-    FVector WorldLocation, WorldDirection;
-    if (PC->DeprojectMousePositionToWorld(WorldLocation, WorldDirection))
+    FVector2D MousePosition;
+    if (PC->GetMousePosition(MousePosition.X, MousePosition.Y))
     {
-        FVector IntersectionPoint = FMath::LinePlaneIntersection(
-            WorldLocation,
-            WorldLocation + WorldDirection * 10000.0f,
-            FPlane(InitialObjectPosition, FVector::UpVector)
-        );
-
-        // Apply the click offset to maintain the relative position
-        FVector NewLocation = IntersectionPoint + ClickOffset;
-        NewLocation.Z = InitialObjectPosition.Z; // Maintain the original height
-
-        // Clamp the position to the building area bounds
-        FVector ClampedLocation = ClampLocationToBuildingArea(NewLocation);
-
-        // Move the object to the new location
-        SelectedObject->SetActorLocation(ClampedLocation);
-
-        // Update the placement validity
-        UpdateObjectPlacement();
-
-        // Apply the appropriate material based on placement validity
-        ApplyMaterialToActor(SelectedObject, bIsValidPlacement ? ValidPlacementMaterial : InvalidPlacementMaterial);
-
-        // Debug visualization
-        if (GetWorld() && GetWorld()->IsPlayInEditor())
+        FVector WorldLocation, WorldDirection;
+        if (PC->DeprojectScreenPositionToWorld(MousePosition.X, MousePosition.Y, WorldLocation, WorldDirection))
         {
-            FColor DebugColor = bIsValidPlacement ? FColor::Green : FColor::Red;
-            DrawDebugBox(GetWorld(), ClampedLocation, FVector(100, 100, 100), DebugColor, false, -1.0f, 0, 2.0f);
-        }
+            FVector IntersectionPoint = FMath::LinePlaneIntersection(
+                WorldLocation,
+                WorldLocation + WorldDirection * 10000.0f,
+                FPlane(InitialObjectPosition, FVector::UpVector)
+            );
 
-        UE_LOG(LogTemp, Verbose, TEXT("Moving object to: %s, Valid Placement: %s"),
-            *ClampedLocation.ToString(), bIsValidPlacement ? TEXT("True") : TEXT("False"));
+            // Apply the click offset to maintain the relative position
+            FVector NewLocation = IntersectionPoint + ClickOffset;
+            NewLocation.Z = InitialObjectPosition.Z; // Maintain the original height
+
+            // Clamp the position to the building area bounds
+            FVector ClampedLocation = ClampLocationToBuildingArea(NewLocation);
+
+            // Move the object to the new location
+            SelectedObject->SetActorLocation(ClampedLocation);
+
+            // Update the placement validity
+            UpdateObjectPlacement();
+        }
     }
 }
 
@@ -1530,7 +1506,13 @@ void ASupermarketCharacter::ResetObjectToOriginalPosition()
 
 void ASupermarketCharacter::UpdateObjectPlacement()
 {
-    if (!SelectedObject) return;
+    UE_LOG(LogBuildMode, Display, TEXT("UpdateObjectPlacement called"));
+
+    if (!SelectedObject)
+    {
+        UE_LOG(LogBuildMode, Warning, TEXT("UpdateObjectPlacement: SelectedObject is null"));
+        return;
+    }
 
     USceneBoxComponent* SceneBox = SelectedObject->FindComponentByClass<USceneBoxComponent>();
     if (SceneBox)
@@ -1539,38 +1521,189 @@ void ASupermarketCharacter::UpdateObjectPlacement()
         bool bInBuildingArea = IsActorInBuildingArea(SelectedObject);
         bIsValidPlacement = !bOverlapping && bInBuildingArea;
 
-        UE_LOG(LogTemp, Display, TEXT("UpdateObjectPlacement - Object: %s, Overlap: %s, In Building Area: %s, Valid Placement: %s"),
+        UE_LOG(LogBuildMode, Display, TEXT("UpdateObjectPlacement - Object: %s, Overlap: %s, In Building Area: %s, Valid Placement: %s"),
             *SelectedObject->GetName(),
             bOverlapping ? TEXT("True") : TEXT("False"),
             bInBuildingArea ? TEXT("True") : TEXT("False"),
             bIsValidPlacement ? TEXT("True") : TEXT("False"));
-
-        
     }
     else
     {
         bIsValidPlacement = IsActorInBuildingArea(SelectedObject);
-        UE_LOG(LogTemp, Warning, TEXT("SceneBox not found on selected object: %s"), *SelectedObject->GetName());
+        UE_LOG(LogBuildMode, Warning, TEXT("SceneBox not found on selected object: %s"), *SelectedObject->GetName());
     }
 
-    // Update the object's appearance based on placement validity
-    ApplyMaterialToActor(SelectedObject, bIsValidPlacement ? ValidPlacementMaterial : InvalidPlacementMaterial);
-}
+    UMaterialInterface* MaterialToApply = bIsValidPlacement ? ValidPlacementMaterial : InvalidPlacementMaterial;
 
+    if (MaterialToApply)
+    {
+        UE_LOG(LogBuildMode, Display, TEXT("Calling ApplyMaterialToActor with %s material: %s"),
+            bIsValidPlacement ? TEXT("valid") : TEXT("invalid"), *MaterialToApply->GetName());
+        ApplyMaterialToActor(SelectedObject, MaterialToApply);
+    }
+    else
+    {
+        UE_LOG(LogBuildMode, Error, TEXT("UpdateObjectPlacement: %s placement material is null"),
+            bIsValidPlacement ? TEXT("Valid") : TEXT("Invalid"));
+    }
+}
 
 void ASupermarketCharacter::ApplyMaterialToActor(AActor* Actor, UMaterialInterface* Material)
 {
-    if (!Actor || !Material) return;
+    UE_LOG(LogBuildMode, Display, TEXT("ApplyMaterialToActor called for Actor: %s, Material: %s"),
+        Actor ? *Actor->GetName() : TEXT("None"),
+        Material ? *Material->GetName() : TEXT("None"));
+
+    if (!Actor || !Material)
+    {
+        UE_LOG(LogBuildMode, Error, TEXT("ApplyMaterialToActor: Actor or Material is null"));
+        return;
+    }
 
     TArray<UStaticMeshComponent*> MeshComponents;
     Actor->GetComponents<UStaticMeshComponent>(MeshComponents);
+
+    UE_LOG(LogBuildMode, Display, TEXT("Found %d StaticMeshComponents in Actor %s"), MeshComponents.Num(), *Actor->GetName());
 
     for (UStaticMeshComponent* MeshComponent : MeshComponents)
     {
         if (MeshComponent)
         {
-            MeshComponent->SetMaterial(0, Material);
+            int32 MaterialCount = MeshComponent->GetNumMaterials();
+            UE_LOG(LogBuildMode, Display, TEXT("Applying material to MeshComponent: %s (Material slots: %d)"),
+                *MeshComponent->GetName(), MaterialCount);
+
+            for (int32 i = 0; i < MaterialCount; ++i)
+            {
+                MeshComponent->SetMaterial(i, Material);
+                UE_LOG(LogBuildMode, Verbose, TEXT("Set material for slot %d"), i);
+            }
+        }
+        else
+        {
+            UE_LOG(LogBuildMode, Warning, TEXT("Null MeshComponent found in Actor %s"), *Actor->GetName());
+        }
+    }
+
+    // If the actor is a Blueprint, it might have child actors that also need updating
+    TArray<AActor*> ChildActors;
+    Actor->GetAttachedActors(ChildActors);
+    for (AActor* ChildActor : ChildActors)
+    {
+        UE_LOG(LogBuildMode, Display, TEXT("Applying material to child actor: %s"), *ChildActor->GetName());
+        ApplyMaterialToActor(ChildActor, Material);
+    }
+
+    UE_LOG(LogBuildMode, Display, TEXT("Finished applying %s material to actor: %s"),
+        Material == ValidPlacementMaterial ? TEXT("valid") : TEXT("invalid"), *Actor->GetName());
+}
+
+void ASupermarketCharacter::RotateSelectedObject(float Angle)
+{
+    if (bIsBuildModeActive && SelectedObject)
+    {
+        FVector ObjectCenter = GetObjectCenter(SelectedObject);
+
+        // Calculate the rotation around the world Z-axis
+        FQuat DeltaRotation = FQuat(FRotator(0, Angle, 0));
+
+        // Get the object's current transform
+        FTransform CurrentTransform = SelectedObject->GetActorTransform();
+
+        // Calculate the new rotation
+        FQuat NewRotation = CurrentTransform.GetRotation() * DeltaRotation;
+
+        // Calculate the new location
+        FVector NewLocation = ObjectCenter + DeltaRotation.RotateVector(CurrentTransform.GetLocation() - ObjectCenter);
+
+        // Set the new transform
+        SelectedObject->SetActorLocationAndRotation(NewLocation, NewRotation.Rotator());
+
+        // Update placement validity and material
+        UpdateObjectPlacement();
+
+        UE_LOG(LogTemp, Display, TEXT("Rotated object %s by %f degrees around center %s"),
+            *SelectedObject->GetName(), Angle, *ObjectCenter.ToString());
+    }
+}
+
+FVector ASupermarketCharacter::GetObjectCenter(AActor* Actor) const
+{
+    if (!Actor)
+        return FVector::ZeroVector;
+
+    FVector Origin, BoxExtent;
+    Actor->GetActorBounds(true, Origin, BoxExtent);
+    return Origin;
+}
+
+void ASupermarketCharacter::StoreMaterials(AActor* Actor)
+{
+    if (!Actor) return;
+
+    OriginalMaterials.Empty();
+
+    TArray<UPrimitiveComponent*> PrimitiveComponents;
+    Actor->GetComponents<UPrimitiveComponent>(PrimitiveComponents);
+
+    for (UPrimitiveComponent* PrimComp : PrimitiveComponents)
+    {
+        if (PrimComp)
+        {
+            FComponentMaterials CompMaterials;
+            CompMaterials.Component = PrimComp;
+
+            int32 MaterialCount = PrimComp->GetNumMaterials();
+            for (int32 i = 0; i < MaterialCount; ++i)
+            {
+                CompMaterials.Materials.Add(PrimComp->GetMaterial(i));
+            }
+
+            OriginalMaterials.Add(CompMaterials);
         }
     }
 }
 
+void ASupermarketCharacter::RestoreOriginalMaterials()
+{
+    if (!SelectedObject) return;
+
+    for (const FComponentMaterials& CompMaterials : OriginalMaterials)
+    {
+        if (CompMaterials.Component.IsValid())
+        {
+            for (int32 i = 0; i < CompMaterials.Materials.Num(); ++i)
+            {
+                if (CompMaterials.Materials[i].IsValid())
+                {
+                    CompMaterials.Component->SetMaterial(i, CompMaterials.Materials[i].Get());
+                }
+            }
+        }
+    }
+
+    OriginalMaterials.Empty();
+}
+
+
+void ASupermarketCharacter::InitializeDefaultMaterials()
+{
+    if (!ValidPlacementMaterial && DefaultValidPlacementMaterial)
+    {
+        UE_LOG(LogBuildMode, Warning, TEXT("ValidPlacementMaterial not set, using default"));
+        ValidPlacementMaterial = DefaultValidPlacementMaterial;
+    }
+
+    if (!InvalidPlacementMaterial && DefaultInvalidPlacementMaterial)
+    {
+        UE_LOG(LogBuildMode, Warning, TEXT("InvalidPlacementMaterial not set, using default"));
+        InvalidPlacementMaterial = DefaultInvalidPlacementMaterial;
+    }
+
+    if (!ValidPlacementMaterial || !InvalidPlacementMaterial)
+    {
+        UE_LOG(LogBuildMode, Error, TEXT("Failed to initialize placement materials. Valid: %s, Invalid: %s"),
+            ValidPlacementMaterial ? TEXT("Set") : TEXT("Not Set"),
+            InvalidPlacementMaterial ? TEXT("Set") : TEXT("Not Set"));
+    }
+}
