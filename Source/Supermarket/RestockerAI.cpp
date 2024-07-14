@@ -392,32 +392,7 @@ void ARestockerAI::OnRotationComplete()
     }
 }
 
-void ARestockerAI::CheckShelfStocked()
-{
-    if (TargetShelf && TargetShelf->IsFullyStocked())
-    {
-        GetWorld()->GetTimerManager().ClearTimer(RestockTimerHandle);
 
-        // Drop the product box
-        if (TargetProductBox)
-        {
-            TargetProductBox->DetachFromActor(FDetachmentTransformRules::KeepWorldTransform);
-            UPrimitiveComponent* PrimitiveComponent = Cast<UPrimitiveComponent>(TargetProductBox->GetRootComponent());
-            if (PrimitiveComponent)
-            {
-                PrimitiveComponent->SetSimulatePhysics(true);
-            }
-        }
-
-        bIsHoldingProductBox = false;
-        TargetProductBox = nullptr;
-        TargetShelf = nullptr;
-
-        //UE_LOGLogTemp, Display, TEXT("RestockerAI: Shelf fully stocked, starting over"));
-        SetState(ERestockerState::Idle);
-        StartRestocking();
-    }
-}
 
 bool ARestockerAI::IsBoxHeldByPlayer(AProductBox* Box)
 {
@@ -435,57 +410,7 @@ bool ARestockerAI::IsBoxHeldByPlayer(AProductBox* Box)
     return false;
 }
 
-void ARestockerAI::FindNewBoxWithSameProduct()
-{
-    TArray<AActor*> FoundProductBoxes;
-    UGameplayStatics::GetAllActorsOfClass(GetWorld(), AProductBox::StaticClass(), FoundProductBoxes);
 
-    for (AActor* Actor : FoundProductBoxes)
-    {
-        AProductBox* ProductBox = Cast<AProductBox>(Actor);
-        if (ProductBox && ProductBox->GetProductClass() == CurrentProductClass && !IsBoxHeldByPlayer(ProductBox))
-        {
-            TargetProductBox = ProductBox;
-            //UE_LOGLogTemp, Display, TEXT("RestockerAI: Found new box with same product: %s"), *ProductBox->GetName());
-            SetState(ERestockerState::MovingToProductBox);
-            MoveToTarget(TargetProductBox);
-            return;
-        }
-    }
-
-    //UE_LOGLogTemp, Display, TEXT("RestockerAI: No more boxes with the same product, moving on to next task"));
-    TargetShelf = nullptr;
-    SetState(ERestockerState::Idle);
-    StartRestocking();
-}
-
-void ARestockerAI::HandleEmptyBox()
-{
-    //UE_LOGLogTemp, Display, TEXT("RestockerAI: Product box is empty, disposing of it"));
-
-    if (TargetProductBox)
-    {
-        ReleaseProductBox(TargetProductBox);
-        TargetProductBox->DetachFromActor(FDetachmentTransformRules::KeepWorldTransform);
-        TargetProductBox->Destroy();
-    }
-
-    bIsHoldingProductBox = false;
-    TargetProductBox = nullptr;
-
-    if (TargetShelf && !TargetShelf->IsFullyStocked())
-    {
-        FindNewBoxWithSameProduct();
-    }
-    else
-    {
-        //UE_LOGLogTemp, Display, TEXT("RestockerAI: Moving on to next task"));
-        ReleaseShelf(TargetShelf);
-        TargetShelf = nullptr;
-        SetState(ERestockerState::Idle);
-        StartRestocking();
-    }
-}
 
 void ARestockerAI::CheckRestockProgress()
 {
@@ -499,48 +424,42 @@ void ARestockerAI::CheckRestockProgress()
 
             if (RemainingProducts == 0)
             {
-               // //UE_LOGLogTemp, Display, TEXT("RestockerAI: Product box is empty, deleting it"));
+                UE_LOG(LogTemp, Display, TEXT("RestockerAI: Product box is empty, deleting it"));
                 // Delete the empty ProductBox
                 TargetProductBox->Destroy();
+                bIsHoldingProductBox = false;
+                TargetProductBox = nullptr;
+                ReleaseShelf(TargetShelf);
+                TargetShelf = nullptr;
+                SetState(ERestockerState::Idle);
+                StartRestocking();
             }
             else
             {
-                // Drop the product box only if it's not empty
-                TargetProductBox->DetachFromActor(FDetachmentTransformRules::KeepWorldTransform);
-                UPrimitiveComponent* PrimitiveComponent = Cast<UPrimitiveComponent>(TargetProductBox->GetRootComponent());
-                if (PrimitiveComponent)
+                if (IsShelfSufficientlyStocked(TargetShelf))
                 {
-                    PrimitiveComponent->SetSimulatePhysics(true);
-                    PrimitiveComponent->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
+                    UE_LOG(LogTemp, Display, TEXT("RestockerAI: Shelf fully stocked, checking for other shelves needing the same product"));
+                    CurrentProductClass = TargetProductBox->GetProductClass();
+                    ReleaseShelf(TargetShelf);
+                    TargetShelf = nullptr;
+                    FindNextShelfForCurrentProduct();
+                }
+                else
+                {
+                    UE_LOG(LogTemp, Display, TEXT("RestockerAI: Box empty but shelf not fully stocked, looking for more boxes"));
+                    DropCurrentBox();
+                    ReleaseShelf(TargetShelf);
+                    TargetShelf = nullptr;
+                    SetState(ERestockerState::Idle);
+                    StartRestocking();
                 }
             }
-
-            // Release the ProductBox
-            UnlockProductBox();
-            ReleaseProductBox(TargetProductBox);
-
-            bIsHoldingProductBox = false;
-            TargetProductBox = nullptr;
-
-            if (IsShelfSufficientlyStocked(TargetShelf))
-            {
-               // //UE_LOGLogTemp, Display, TEXT("RestockerAI: Shelf fully stocked, moving on to next task"));
-            }
-            else
-            {
-               // //UE_LOGLogTemp, Display, TEXT("RestockerAI: Box empty but shelf not fully stocked, looking for more boxes"));
-            }
-
-            ReleaseShelf(TargetShelf);
-            TargetShelf = nullptr;
-            SetState(ERestockerState::Idle);
-            StartRestocking();
         }
     }
     else
     {
         GetWorld()->GetTimerManager().ClearTimer(RestockTimerHandle);
-       // //UE_LOGLogTemp, Warning, TEXT("RestockerAI: Lost target shelf or product box during restocking"));
+        UE_LOG(LogTemp, Warning, TEXT("RestockerAI: Lost target shelf or product box during restocking"));
         AbortCurrentTask();
     }
 }
@@ -572,7 +491,7 @@ void ARestockerAI::DropCurrentBox()
 {
     if (bIsHoldingProductBox && TargetProductBox)
     {
-        //UE_LOGLogTemp, Display, TEXT("RestockerAI: Dropping current box"));
+        UE_LOG(LogTemp, Display, TEXT("RestockerAI: Dropping current box"));
         ReleaseProductBox(TargetProductBox);
         TargetProductBox->DetachFromActor(FDetachmentTransformRules::KeepWorldTransform);
         UPrimitiveComponent* PrimitiveComponent = Cast<UPrimitiveComponent>(TargetProductBox->GetRootComponent());
@@ -600,7 +519,7 @@ void ARestockerAI::FindNextShelfForCurrentProduct()
             {
                 ReleaseShelf(TargetShelf);
                 TargetShelf = Shelf;
-                //UE_LOGLogTemp, Display, TEXT("RestockerAI: Found another shelf for current product: %s"), *Shelf->GetName());
+                UE_LOG(LogTemp, Display, TEXT("RestockerAI: Found another shelf for current product: %s"), *Shelf->GetName());
                 SetState(ERestockerState::MovingToShelf);
                 MoveToTarget(TargetShelf);
                 return;
@@ -609,7 +528,7 @@ void ARestockerAI::FindNextShelfForCurrentProduct()
     }
 
     // If no shelf needs the current product, drop the box and start over
-    //UE_LOGLogTemp, Display, TEXT("RestockerAI: No more shelves need current product, dropping box and starting over"));
+    UE_LOG(LogTemp, Display, TEXT("RestockerAI: No more shelves need current product, dropping box and starting over"));
     DropCurrentBox();
     SetState(ERestockerState::Idle);
     ReleaseAllReservations();
@@ -723,28 +642,8 @@ void ARestockerAI::ReleaseAllReservations()
     UnlockProductBox();
 }
 
-void ARestockerAI::ReleaseTargetProductBox()
-{
-    FScopeLock Lock(&TargetedProductBoxesLock);
-    TargetedProductBoxes.Remove(TargetProductBox);
-    TargetProductBox = nullptr;
-}
 
-bool ARestockerAI::IsTargetingProductBox(AProductBox* ProductBox) const
-{
-    return TargetProductBox == ProductBox;
-}
 
-bool ARestockerAI::ReserveTargetProductBox(AProductBox* ProductBox)
-{
-    FScopeLock Lock(&TargetedProductBoxesLock);
-    if (!TargetedProductBoxes.Contains(ProductBox))
-    {
-        TargetedProductBoxes.Add(ProductBox, this);
-        return true;
-    }
-    return false;
-}
 
 bool ARestockerAI::LockProductBox(AProductBox* ProductBox)
 {

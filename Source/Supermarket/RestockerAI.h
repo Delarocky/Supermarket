@@ -29,8 +29,7 @@ public:
 
     UFUNCTION()
     void OnRotationComplete();
-    UFUNCTION(BlueprintCallable, Category = "Restocking")
-    bool IsTargetingProductBox(AProductBox* ProductBox) const;
+
 protected:
     UPROPERTY()
     AAIController* AIController;
@@ -83,15 +82,13 @@ private:
 
     void MoveToAccessPoint();
     FVector FindNearestAccessPoint(AShelf* Shelf);
-    void CheckShelfStocked();
     FTimerHandle RestockTimerHandle;
     FTimerHandle RotationTimerHandle;
     bool IsBoxHeldByPlayer(AProductBox* Box);
     int32 RemainingProducts;
     TSubclassOf<AProduct> CurrentProductClass;
 
-    void HandleEmptyBox();
-    void FindNewBoxWithSameProduct();
+   
     void CheckRestockProgress();
     float RotationSpeed;
     float CurrentRotationAlpha;
@@ -122,8 +119,7 @@ private:
     AProductBox* GetTargetProductBox() const { return TargetProductBox; }
     virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 
-    bool ReserveTargetProductBox(AProductBox* ProductBox);
-    void ReleaseTargetProductBox();
+  
     static TMap<AProductBox*, ARestockerAI*> TargetedProductBoxes;
     static FCriticalSection TargetedProductBoxesLock;
 
