@@ -144,6 +144,7 @@ void ASupermarketCharacter::Tick(float DeltaTime)
         UpdateCameraTransition();
     }
     
+    CheckAndHighlightHoveredObject();
 
     if (bIsBuildModeActive && BuildModeCamera)
     {
@@ -167,6 +168,7 @@ void ASupermarketCharacter::BeginPlay()
     OriginalCameraRotation = FirstPersonCameraComponent->GetRelativeRotation();
     OriginalCameraFOV = FirstPersonCameraComponent->FieldOfView;
     SetupTabletScreen();
+    SetupHighlightVolume();
     if (Controller)
     {
         OriginalControllerRotation = Controller->GetControlRotation();
@@ -199,20 +201,20 @@ void ASupermarketCharacter::BeginPlay()
             HighlightVolume->bUnbound = true;
             HighlightVolume->Settings.bOverride_DynamicGlobalIlluminationMethod = true;
             HighlightVolume->Settings.DynamicGlobalIlluminationMethod = EDynamicGlobalIlluminationMethod::Lumen;
-           ////UE_LOGLogTemp, Log, TEXT("HighlightVolume created successfully"));
+           UE_LOG(LogTemp, Log, TEXT("HighlightVolume created successfully"));
         }
         else
         {
-           ////UE_LOGLogTemp, Error, TEXT("Failed to create HighlightVolume"));
+            ////UE_LOGLogTemp, Error, TEXT("Failed to create HighlightVolume"));
         }
     }
     else if (HighlightVolume)
     {
-       ////UE_LOGLogTemp, Warning, TEXT("HighlightVolume already exists"));
+        UE_LOG(LogTemp, Warning, TEXT("HighlightVolume already exists"));
     }
     else
     {
-       ////UE_LOGLogTemp, Error, TEXT("Invalid World context"));
+        UE_LOG(LogTemp, Error, TEXT("Invalid World context"));
     }
 
     
@@ -1159,34 +1161,16 @@ void ASupermarketCharacter::HighlightHoveredObject(AActor* HoveredActor)
 {
     static AActor* LastHighlightedActor = nullptr;
 
-    // Clear previous highlight
     if (LastHighlightedActor && LastHighlightedActor != HoveredActor)
     {
-        TArray<UStaticMeshComponent*> MeshComponents;
-        LastHighlightedActor->GetComponents<UStaticMeshComponent>(MeshComponents);
-        for (UStaticMeshComponent* MeshComponent : MeshComponents)
-        {
-            if (MeshComponent)
-            {
-                MeshComponent->SetRenderCustomDepth(false);
-            }
-        }
+        // Clear previous highlight
+        UpdateHighlight(LastHighlightedActor, nullptr);
     }
 
-    // Apply new highlight
-    if (HoveredActor && HoveredActor != LastHighlightedActor)
+    if (HoveredActor && HoveredActor != LastHighlightedActor && HoveredActor->ActorHasTag(FName("Moveable")))
     {
-        TArray<UStaticMeshComponent*> MeshComponents;
-        HoveredActor->GetComponents<UStaticMeshComponent>(MeshComponents);
-        for (UStaticMeshComponent* MeshComponent : MeshComponents)
-        {
-            if (MeshComponent)
-            {
-                MeshComponent->SetRenderCustomDepth(true);
-                MeshComponent->SetCustomDepthStencilValue(1); // Make sure this value matches your post-process material
-            }
-        }
-       ////UE_LOGLogTemp, Verbose, TEXT("Highlighting object: %s"), *HoveredActor->GetName());
+        // Apply new highlight
+        UpdateHighlight(HoveredActor, HoverHighlightMaterial);
     }
 
     LastHighlightedActor = HoveredActor;
@@ -1345,7 +1329,7 @@ void ASupermarketCharacter::StopObjectMovement()
         UE_LOG(LogTemp, Display, TEXT("Valid placement. Object placed at: %s"), *SelectedObject->GetActorLocation().ToString());
 
         // Apply the original material back to the object
-        ApplyMaterialToActor(SelectedObject, OriginalMaterial);
+        UpdateHighlight(SelectedObject, nullptr);
 
         bIsMovingObject = false;
         SelectedObject = nullptr;
@@ -1533,13 +1517,11 @@ void ASupermarketCharacter::UpdateObjectPlacement()
         UE_LOG(LogBuildMode, Warning, TEXT("SceneBox not found on selected object: %s"), *SelectedObject->GetName());
     }
 
-    UMaterialInterface* MaterialToApply = bIsValidPlacement ? ValidPlacementMaterial : InvalidPlacementMaterial;
+    UMaterialInterface* MaterialToApply = bIsValidPlacement ? ValidPlacementHighlightMaterial : InvalidPlacementHighlightMaterial;
 
     if (MaterialToApply)
     {
-        UE_LOG(LogBuildMode, Display, TEXT("Calling ApplyMaterialToActor with %s material: %s"),
-            bIsValidPlacement ? TEXT("valid") : TEXT("invalid"), *MaterialToApply->GetName());
-        ApplyMaterialToActor(SelectedObject, MaterialToApply);
+        UpdateHighlight(SelectedObject, MaterialToApply);
     }
     else
     {
@@ -1705,5 +1687,92 @@ void ASupermarketCharacter::InitializeDefaultMaterials()
         UE_LOG(LogBuildMode, Error, TEXT("Failed to initialize placement materials. Valid: %s, Invalid: %s"),
             ValidPlacementMaterial ? TEXT("Set") : TEXT("Not Set"),
             InvalidPlacementMaterial ? TEXT("Set") : TEXT("Not Set"));
+    }
+}
+
+void ASupermarketCharacter::SetupHighlightVolume()
+{
+    if (!HighlightVolume && GetWorld())
+    {
+        FActorSpawnParameters SpawnParams;
+        SpawnParams.Owner = this;
+        HighlightVolume = GetWorld()->SpawnActor<APostProcessVolume>(APostProcessVolume::StaticClass(), FVector::ZeroVector, FRotator::ZeroRotator, SpawnParams);
+
+        if (HighlightVolume)
+        {
+            HighlightVolume->bUnbound = true;
+            HighlightVolume->Settings.bOverride_DynamicGlobalIlluminationMethod = true;
+            HighlightVolume->Settings.DynamicGlobalIlluminationMethod = EDynamicGlobalIlluminationMethod::Lumen;
+
+            // Remove the line setting BlendWeight
+            // HighlightVolume->Settings.BlendWeight = 1.0f;
+
+            // Set up the post process material
+            if (HighlightMaterial)
+            {
+                HighlightVolume->Settings.WeightedBlendables.Array.Add(FWeightedBlendable(1.0f, HighlightMaterial));
+            }
+
+            // Ensure the post-process volume is always active
+            HighlightVolume->bEnabled = true;
+        }
+    }
+}
+
+void ASupermarketCharacter::UpdateHighlight(AActor* Actor, UMaterialInterface* Material)
+{
+    if (!Actor) return;
+
+    TArray<UPrimitiveComponent*> PrimitiveComponents;
+    Actor->GetComponents<UPrimitiveComponent>(PrimitiveComponents);
+
+    for (UPrimitiveComponent* PrimComp : PrimitiveComponents)
+    {
+        if (PrimComp)
+        {
+            if (Material)
+            {
+                PrimComp->SetRenderCustomDepth(true);
+                PrimComp->SetCustomDepthStencilValue(1);
+            }
+            else
+            {
+                PrimComp->SetRenderCustomDepth(false);
+            }
+        }
+    }
+
+    // Update the highlight material
+    if (HighlightVolume && HighlightVolume->Settings.WeightedBlendables.Array.Num() > 0)
+    {
+        if (Material)
+        {
+            HighlightVolume->Settings.WeightedBlendables.Array[0].Object = Material;
+            HighlightVolume->Settings.WeightedBlendables.Array[0].Weight = 1.0f;
+        }
+        else
+        {
+            HighlightVolume->Settings.WeightedBlendables.Array[0].Weight = 0.0f;
+        }
+    }
+}
+
+void ASupermarketCharacter::CheckAndHighlightHoveredObject()
+{
+    if (bIsBuildModeActive)
+    {
+        AActor* ActorUnderCursor = GetActorUnderCursor();
+        if (ActorUnderCursor && ActorUnderCursor->ActorHasTag(FName("Moveable")))
+        {
+            HighlightHoveredObject(ActorUnderCursor);
+        }
+        else
+        {
+            HighlightHoveredObject(nullptr);
+        }
+    }
+    else
+    {
+        HighlightHoveredObject(nullptr);
     }
 }

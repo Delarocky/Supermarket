@@ -163,6 +163,9 @@ protected:
     UFUNCTION()
     void HighlightHoveredObject(AActor* HoveredActor);
 
+
+    void CheckAndHighlightHoveredObject();
+
 public:
 
     UFUNCTION(BlueprintCallable, Category = "Build Mode")
@@ -343,6 +346,14 @@ public:
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Build Mode")
     UMaterialInterface* InvalidPlacementMaterial;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Highlight")
+    UMaterialInterface* HoverHighlightMaterial;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Highlight")
+    UMaterialInterface* ValidPlacementHighlightMaterial;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Highlight")
+    UMaterialInterface* InvalidPlacementHighlightMaterial;
 private:
     /** Timer handle for camera transition */
     FTimerHandle CameraTransitionTimerHandle;
@@ -454,4 +465,10 @@ private:
     UMaterial* DefaultInvalidPlacementMaterial;
 
     void InitializeDefaultMaterials();
+
+    
+
+    // Add these under the private section:
+    void SetupHighlightVolume();
+    void UpdateHighlight(AActor* Actor, UMaterialInterface* Material);
 };
