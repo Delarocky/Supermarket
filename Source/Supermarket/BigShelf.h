@@ -14,6 +14,7 @@ class SUPERMARKET_API ABigShelf : public AActor
 public:
     ABigShelf();
 
+    virtual void OnConstruction(const FTransform& Transform) override;
     virtual void BeginPlay() override;
 
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
@@ -27,6 +28,9 @@ public:
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Shelves")
     FVector ShelfSpacing;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Shelves")
+    FVector2D GridSize;
 
     UFUNCTION(BlueprintCallable, Category = "BigShelf")
     void InitializeShelves();
@@ -46,6 +50,11 @@ public:
     UFUNCTION(BlueprintCallable, Category = "BigShelf")
     bool AreAllShelvesFullyStocked() const;
 
+#if WITH_EDITOR
+    virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
+#endif
+
 private:
     void CreateShelves();
+    void ClearShelves();
 };

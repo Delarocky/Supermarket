@@ -1,6 +1,6 @@
 // BigShelf.cpp
 #include "BigShelf.h"
-#include "Shelf.h"
+#include "Engine/World.h"
 
 ABigShelf::ABigShelf()
 {
@@ -9,43 +9,80 @@ ABigShelf::ABigShelf()
     RootSceneComponent = CreateDefaultSubobject<USceneComponent>(TEXT("RootSceneComponent"));
     RootComponent = RootSceneComponent;
 
-    ShelfSpacing = FVector(0.0f, 100.0f, 0.0f); // Adjust as needed
+    ShelfSpacing = FVector(150.0f, 0.0f, 200.0f); // Adjust as needed for your shelf sizes
+    GridSize = FVector2D(2, 3); // 2 columns, 3 rows
+
+    // Create shelves in the constructor
+    CreateShelves();
+}
+
+void ABigShelf::OnConstruction(const FTransform& Transform)
+{
+    Super::OnConstruction(Transform);
+
+    // Recreate shelves when the actor is modified in the editor
+    CreateShelves();
 }
 
 void ABigShelf::BeginPlay()
 {
     Super::BeginPlay();
-    InitializeShelves();
+
+    // Initialize shelves for gameplay
+    for (AShelf* Shelf : Shelves)
+    {
+        if (Shelf)
+        {
+            Shelf->UpdateProductSpawnPointRotation();
+            Shelf->SetupAccessPoint();
+            Shelf->InitializeShelf();
+        }
+    }
 }
 
 void ABigShelf::CreateShelves()
 {
+    ClearShelves();
+
     if (!ShelfClass)
     {
         UE_LOG(LogTemp, Error, TEXT("ShelfClass is not set in ABigShelf"));
         return;
     }
 
-    for (int32 i = 0; i < 6; ++i)
+    for (int32 Row = 0; Row < GridSize.Y; ++Row)
     {
-        FVector Location = GetActorLocation() + ShelfSpacing * i;
-        FRotator Rotation = GetActorRotation();
-        FActorSpawnParameters SpawnParams;
-        SpawnParams.Owner = this;
-
-        AShelf* NewShelf = GetWorld()->SpawnActor<AShelf>(ShelfClass, Location, Rotation, SpawnParams);
-        if (NewShelf)
+        for (int32 Column = 0; Column < GridSize.X; ++Column)
         {
-            NewShelf->AttachToComponent(RootSceneComponent, FAttachmentTransformRules::KeepWorldTransform);
-            Shelves.Add(NewShelf);
+            FVector Location = FVector(Column * ShelfSpacing.X, 0.0f, -Row * ShelfSpacing.Z);
+            FRotator Rotation = FRotator::ZeroRotator;
+            FActorSpawnParameters SpawnParams;
+            SpawnParams.Owner = this;
+
+            AShelf* NewShelf = GetWorld()->SpawnActor<AShelf>(ShelfClass, Location, Rotation, SpawnParams);
+            if (NewShelf)
+            {
+                NewShelf->AttachToComponent(RootSceneComponent, FAttachmentTransformRules::KeepRelativeTransform);
+                Shelves.Add(NewShelf);
+            }
         }
     }
 }
 
+void ABigShelf::ClearShelves()
+{
+    for (AShelf* Shelf : Shelves)
+    {
+        if (Shelf)
+        {
+            Shelf->Destroy();
+        }
+    }
+    Shelves.Empty();
+}
+
 void ABigShelf::InitializeShelves()
 {
-    CreateShelves();
-
     for (AShelf* Shelf : Shelves)
     {
         if (Shelf)
@@ -112,3 +149,23 @@ bool ABigShelf::AreAllShelvesFullyStocked() const
     }
     return true;
 }
+
+#if WITH_EDITOR
+void ABigShelf::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
+{
+    Super::PostEditChangeProperty(PropertyChangedEvent);
+
+    if (PropertyChangedEvent.Property)
+    {
+        FName PropertyName = PropertyChangedEvent.Property->GetFName();
+
+        // Recreate shelves if GridSize, ShelfSpacing, or ShelfClass is changed
+        if (PropertyName == GET_MEMBER_NAME_CHECKED(ABigShelf, GridSize) ||
+            PropertyName == GET_MEMBER_NAME_CHECKED(ABigShelf, ShelfSpacing) ||
+            PropertyName == GET_MEMBER_NAME_CHECKED(ABigShelf, ShelfClass))
+        {
+            CreateShelves();
+        }
+    }
+}
+#endif
