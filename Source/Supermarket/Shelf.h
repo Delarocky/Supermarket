@@ -153,6 +153,8 @@ public:
     FVector ProductDimensions;
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
     class USceneBoxComponent* PlacementBox;
+    void SetupAccessPoint();
+    void InitializeShelf();
 protected:
     virtual void BeginPlay() override;
 
@@ -170,9 +172,9 @@ private:
     TArray<AProduct*> Products;
     UPROPERTY()
     AProductBox* ProductBox;
-    void SetupAccessPoint();
+    
     bool AddProduct(const FVector& RelativeLocation);
-    void InitializeShelf();
+    
     FTimerHandle ContinuousStockingTimerHandle;
     FTimerHandle StockingTimerHandle;
     void StockNextProduct();
