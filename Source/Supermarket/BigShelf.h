@@ -14,7 +14,7 @@ class SUPERMARKET_API ABigShelf : public AActor
 public:
     ABigShelf();
 
-    virtual void OnConstruction(const FTransform& Transform) override;
+
     virtual void BeginPlay() override;
 
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
@@ -24,13 +24,15 @@ public:
     TArray<AShelf*> Shelves;
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Shelves")
+    FVector ShelfSpacing = FVector(150.0f, 0.0f, 200.0f);
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Shelves")
+    FVector2D GridSize = FVector2D(2, 4);
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Shelves")
     TSubclassOf<AShelf> ShelfClass;
 
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Shelves")
-    FVector ShelfSpacing;
 
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Shelves")
-    FVector2D GridSize;
 
     UFUNCTION(BlueprintCallable, Category = "BigShelf")
     void InitializeShelves();

@@ -9,24 +9,26 @@ ABigShelf::ABigShelf()
     RootSceneComponent = CreateDefaultSubobject<USceneComponent>(TEXT("RootSceneComponent"));
     RootComponent = RootSceneComponent;
 
-    ShelfSpacing = FVector(150.0f, 0.0f, 200.0f); // Adjust as needed for your shelf sizes
-    GridSize = FVector2D(2, 3); // 2 columns, 3 rows
+   
 
     // Create shelves in the constructor
     CreateShelves();
 }
 
-void ABigShelf::OnConstruction(const FTransform& Transform)
-{
-    Super::OnConstruction(Transform);
-
-    // Recreate shelves when the actor is modified in the editor
-    CreateShelves();
-}
 
 void ABigShelf::BeginPlay()
 {
     Super::BeginPlay();
+
+    // Create the root scene component if it doesn't exist
+    if (!RootSceneComponent)
+    {
+        RootSceneComponent = CreateDefaultSubobject<USceneComponent>(TEXT("RootSceneComponent"));
+        RootComponent = RootSceneComponent;
+    }
+
+    // Create shelves
+    CreateShelves();
 
     // Initialize shelves for gameplay
     for (AShelf* Shelf : Shelves)

@@ -35,9 +35,9 @@ AShelf::AShelf()
     bStartFullyStocked = false; // Set default value
     CurrentProductClass = nullptr;
 
-    PlacementBox = CreateDefaultSubobject<USceneBoxComponent>(TEXT("PlacementBox"));
-    PlacementBox->SetupAttachment(RootComponent);
-    PlacementBox->SetCollisionResponseToAllChannels(ECollisionResponse::ECR_Overlap);
+    //PlacementBox = CreateDefaultSubobject<USceneBoxComponent>(TEXT("PlacementBox"));
+   // PlacementBox->SetupAttachment(RootComponent);
+   // PlacementBox->SetCollisionResponseToAllChannels(ECollisionResponse::ECR_Overlap);
 
     // Load materials
     static ConstructorHelpers::FObjectFinder<UMaterialInterface> ValidMat(TEXT("/Game/M_ValidPlacement"));
