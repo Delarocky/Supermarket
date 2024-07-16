@@ -111,8 +111,7 @@ void ARestockerAI::FindShelfToRestock()
                 if (ReserveShelf(Shelf))
                 {
                     TargetShelf = Shelf;
-                    UE_LOG(LogTemp, Display, TEXT("RestockerAI: Found shelf to restock: %s in BigShelf: %s"),
-                        *Shelf->GetName(), *BigShelf->GetName());
+                    //UE_LOG(LogTemp, Display, TEXT("RestockerAI: Found shelf to restock: %s in BigShelf: %s"),*Shelf->GetName(), *BigShelf->GetName());
                     FindProductBox();
                     return;
                 }
@@ -120,7 +119,7 @@ void ARestockerAI::FindShelfToRestock()
         }
     }
 
-    UE_LOG(LogTemp, Display, TEXT("RestockerAI: No shelf needs restocking, staying idle"));
+    //UE_LOG(LogTemp, Display, TEXT("RestockerAI: No shelf needs restocking, staying idle"));
     SetState(ERestockerState::Idle);
 }
 
