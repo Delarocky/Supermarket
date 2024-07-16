@@ -32,8 +32,10 @@ public:
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Shelves")
     TSubclassOf<AShelf> ShelfClass;
 
-
-
+    UFUNCTION(BlueprintCallable, Category = "BigShelf")
+    void PreloadShelvesWithProduct();
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Products")
+    TSubclassOf<AProduct> PreloadProductClass;
     UFUNCTION(BlueprintCallable, Category = "BigShelf")
     void InitializeShelves();
 

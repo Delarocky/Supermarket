@@ -5,6 +5,7 @@
 #include "Kismet/GameplayStatics.h"
 #include "Kismet/KismetMathLibrary.h"
 #include "TimerManager.h"
+#include "BigShelf.h"
 #include "SupermarketCharacter.h"
 
 TMap<AShelf*, ARestockerAI*> ARestockerAI::ReservedShelves;
@@ -68,25 +69,58 @@ void ARestockerAI::StartRestocking()
 
 void ARestockerAI::FindShelfToRestock()
 {
-    TArray<AActor*> FoundShelves;
-    UGameplayStatics::GetAllActorsOfClass(GetWorld(), AShelf::StaticClass(), FoundShelves);
+    TArray<AActor*> FoundBigShelves;
+    UGameplayStatics::GetAllActorsOfClass(GetWorld(), ABigShelf::StaticClass(), FoundBigShelves);
 
-    for (AActor* Actor : FoundShelves)
+    // Randomize the order of BigShelves
+    for (int32 i = FoundBigShelves.Num() - 1; i > 0; --i)
     {
-        AShelf* Shelf = Cast<AShelf>(Actor);
-        if (Shelf && !IsShelfSufficientlyStocked(Shelf) && Shelf->GetCurrentProductClass() != nullptr && !CheckedShelves.Contains(Shelf) && !IsShelfReserved(Shelf))
+        int32 j = FMath::RandRange(0, i);
+        FoundBigShelves.Swap(i, j);
+    }
+
+    for (AActor* Actor : FoundBigShelves)
+    {
+        ABigShelf* BigShelf = Cast<ABigShelf>(Actor);
+        if (BigShelf)
         {
-            if (ReserveShelf(Shelf))
+            TArray<AShelf*> EligibleShelves;
+
+            // Collect eligible shelves from this BigShelf
+            for (AShelf* Shelf : BigShelf->Shelves)
             {
-                TargetShelf = Shelf;
-               //UE_LOGLogTemp, Display, TEXT("RestockerAI: Found shelf to restock: %s"), *Shelf->GetName());
-                FindProductBox();
-                return;
+                if (Shelf && !IsShelfSufficientlyStocked(Shelf) &&
+                    Shelf->GetCurrentProductClass() != nullptr &&
+                    !CheckedShelves.Contains(Shelf) &&
+                    !IsShelfReserved(Shelf))
+                {
+                    EligibleShelves.Add(Shelf);
+                }
+            }
+
+            // Randomize the order of eligible shelves within this BigShelf
+            for (int32 i = EligibleShelves.Num() - 1; i > 0; --i)
+            {
+                int32 j = FMath::RandRange(0, i);
+                EligibleShelves.Swap(i, j);
+            }
+
+            // Try to reserve a random eligible shelf from this BigShelf
+            for (AShelf* Shelf : EligibleShelves)
+            {
+                if (ReserveShelf(Shelf))
+                {
+                    TargetShelf = Shelf;
+                    UE_LOG(LogTemp, Display, TEXT("RestockerAI: Found shelf to restock: %s in BigShelf: %s"),
+                        *Shelf->GetName(), *BigShelf->GetName());
+                    FindProductBox();
+                    return;
+                }
             }
         }
     }
 
-   //UE_LOGLogTemp, Display, TEXT("RestockerAI: No shelf needs restocking, staying idle"));
+    UE_LOG(LogTemp, Display, TEXT("RestockerAI: No shelf needs restocking, staying idle"));
     SetState(ERestockerState::Idle);
 }
 
@@ -325,7 +359,7 @@ void ARestockerAI::MoveToAccessPoint()
     if (AIController)
     {
         //UE_LOGLogTemp, Display, TEXT("RestockerAI: Moving to access point: %s"), *CurrentAccessPoint.ToString());
-        AIController->MoveToLocation(CurrentAccessPoint, 30.0f); // 50.0f is the acceptance radius
+        AIController->MoveToLocation(CurrentAccessPoint, 10.0f); // 50.0f is the acceptance radius
     }
 }
 

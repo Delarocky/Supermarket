@@ -641,3 +641,8 @@ void AShelf::RearrangeProducts()
         }
     }
 }
+
+void AShelf::SetProductClass(TSubclassOf<AProduct> NewProductClass)
+{
+    ProductClass = NewProductClass;
+}

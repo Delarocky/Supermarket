@@ -40,6 +40,7 @@ void ABigShelf::BeginPlay()
             Shelf->InitializeShelf();
         }
     }
+    PreloadShelvesWithProduct();
 }
 
 void ABigShelf::CreateShelves()
@@ -150,6 +151,20 @@ bool ABigShelf::AreAllShelvesFullyStocked() const
         }
     }
     return true;
+}
+
+void ABigShelf::PreloadShelvesWithProduct()
+{
+    if (PreloadProductClass)
+    {
+        for (AShelf* Shelf : Shelves)
+        {
+            if (Shelf)
+            {
+                Shelf->SetProductClass(PreloadProductClass);
+            }
+        }
+    }
 }
 
 #if WITH_EDITOR

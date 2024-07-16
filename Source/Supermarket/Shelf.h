@@ -155,6 +155,9 @@ public:
     class USceneBoxComponent* PlacementBox;
     void SetupAccessPoint();
     void InitializeShelf();
+
+    UFUNCTION(BlueprintCallable, Category = "Shelf")
+    void SetProductClass(TSubclassOf<AProduct> NewProductClass);
 protected:
     virtual void BeginPlay() override;
 
