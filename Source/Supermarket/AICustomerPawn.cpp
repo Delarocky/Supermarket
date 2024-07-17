@@ -277,6 +277,9 @@ void AAICustomerPawn::DetachAllItems()
 
 void AAICustomerPawn::PickUpProduct()
 {
+    // Clear the timeout timer as we've started picking up the product
+    GetWorldTimerManager().ClearTimer(PickUpTimeoutHandle);
+
     AProduct* PickedProduct = CurrentShelf->RemoveNextProduct();
     if (PickedProduct)
     {
@@ -661,7 +664,7 @@ void AAICustomerPawn::CheckReachedShelf()
     AAIController* AIControllerInstance = Cast<AAIController>(ControllerInstance);
     if (!AIControllerInstance)
     {
-        //UE_LOGLogTemp, Error, TEXT("AIController is null in CheckReachedShelf"));
+        UE_LOG(LogTemp, Error, TEXT("AIController is null in CheckReachedShelf"));
         GetWorldTimerManager().ClearTimer(CheckReachedShelfTimerHandle);
         ChooseProduct();
         return;
@@ -670,12 +673,12 @@ void AAICustomerPawn::CheckReachedShelf()
     if (AIControllerInstance->GetMoveStatus() == EPathFollowingStatus::Idle)
     {
         GetWorldTimerManager().ClearTimer(CheckReachedShelfTimerHandle);
-        //UE_LOGLogTemp, Display, TEXT("AI reached shelf. Turning to face shelf."));
+        UE_LOG(LogTemp, Display, TEXT("AI reached shelf. Turning to face shelf."));
         TurnToFaceShelf();
     }
     else if (GetWorldTimerManager().GetTimerElapsed(CheckReachedShelfTimerHandle) > 15.0f)
     {
-        //UE_LOGLogTemp, Warning, TEXT("Failed to reach shelf after 15 seconds, choosing a new one"));
+        UE_LOG(LogTemp, Warning, TEXT("Failed to reach shelf after 15 seconds, choosing a new one"));
         GetWorldTimerManager().ClearTimer(CheckReachedShelfTimerHandle);
         CurrentShelf = nullptr;
         ChooseProduct();
@@ -726,7 +729,7 @@ void AAICustomerPawn::TryPickUpProduct()
 {
     if (!CurrentShelf || CurrentShelf->GetProductCount() == 0)
     {
-        //UE_LOGLogTemp, Warning, TEXT("No current shelf or shelf is empty"));
+        UE_LOG(LogTemp, Warning, TEXT("No current shelf or shelf is empty"));
         CurrentShelf = nullptr;
         ResetFailedNavigationAttempts();
         ChooseProduct();
@@ -751,10 +754,13 @@ void AAICustomerPawn::TryPickUpProduct()
     {
         DetermineShelfPosition();
         GetWorldTimerManager().SetTimer(RetryPickUpTimerHandle, this, &AAICustomerPawn::PickUpProduct, 0.5f, false);
+
+        // Add a timeout timer
+        GetWorldTimerManager().SetTimer(PickUpTimeoutHandle, this, &AAICustomerPawn::HandlePickUpTimeout, 2.0f, false);
     }
     else
     {
-        //UE_LOGLogTemp, Warning, TEXT("AI is not close enough to an access point. Attempting to navigate."));
+        UE_LOG(LogTemp, Warning, TEXT("AI is not close enough to an access point. Attempting to navigate."));
         FVector NearestAccessPoint = FindMostAccessiblePoint(AccessPoints);
 
         // Use AIController to move to the access point
@@ -765,7 +771,7 @@ void AAICustomerPawn::TryPickUpProduct()
         }
         else
         {
-            //UE_LOGLogTemp, Error, TEXT("AIController is null. Cannot navigate to access point."));
+            UE_LOG(LogTemp, Error, TEXT("AIController is null. Cannot navigate to access point."));
             ResetFailedNavigationAttempts();
             ChooseProduct();
         }
@@ -937,4 +943,16 @@ void AAICustomerPawn::NotifyParkingSpaceAndDestroy()
         AssignedParkingSpace->CustomerReturned(this);
     }
     Destroy();
+}
+
+void AAICustomerPawn::HandlePickUpTimeout()
+{
+    if (CurrentTargetProduct == nullptr)
+    {
+        UE_LOG(LogTemp, Warning, TEXT("Pick up timed out. Retrying movement."));
+        GetWorldTimerManager().ClearTimer(RetryPickUpTimerHandle);
+        ResetFailedNavigationAttempts();
+        ChooseProduct();
+    }
+    // If CurrentTargetProduct is not null, it means the product was picked up successfully, so we don't need to do anything
 }
