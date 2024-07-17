@@ -4,6 +4,7 @@
 #include "TimerManager.h"
 #include "Kismet/KismetMathLibrary.h"
 #include "NavigationSystem.h"
+#include "SupermarketCharacter.h"
 #include "SceneBoxComponent.h"
 #include "AIController.h"
 
@@ -21,7 +22,7 @@ AShelf::AShelf()
 
     MaxProducts = 25; // 1x3x5 grid
     ProductSpacing = FVector(20.0f, 20.0f, 2.67071f); // Adjust as needed
- 
+    ShelfMesh->SetCollisionResponseToChannel(ECC_ShelfTrace, ECollisionResponse::ECR_Block);
 
     bIsStocking = false;
 

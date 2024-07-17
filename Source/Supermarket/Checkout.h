@@ -153,7 +153,7 @@ private:
     FVector TextOffset = FVector(104,80,40);
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Checkout", meta = (AllowPrivateAccess = "true"))
-    float TimeBetweenScans = 0.2f;
+    float TimeBetweenScans = 0.3f;
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Checkout", meta = (AllowPrivateAccess = "true"))
     bool bDebugMode = true;

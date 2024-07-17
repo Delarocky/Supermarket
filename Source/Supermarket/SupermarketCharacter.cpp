@@ -548,7 +548,7 @@ void ASupermarketCharacter::CheckShelfInView()
     FCollisionQueryParams QueryParams;
     QueryParams.AddIgnoredActor(this);
 
-    if (GetWorld()->LineTraceSingleByChannel(HitResult, Start, End, ECC_Visibility, QueryParams))
+    if (GetWorld()->LineTraceSingleByChannel(HitResult, Start, End, ECC_ShelfTrace, QueryParams))
     {
         AShelf* HitShelf = Cast<AShelf>(HitResult.GetActor());
         if (HitShelf)
@@ -1222,6 +1222,7 @@ FVector ASupermarketCharacter::GetMouseWorldPosition()
     UE_LOG(LogTemp, Error, TEXT("Failed to get mouse world position"));
     return FVector::ZeroVector;
 }
+
 AActor* ASupermarketCharacter::GetActorUnderCursor()
 {
     APlayerController* PlayerController = Cast<APlayerController>(GetController());

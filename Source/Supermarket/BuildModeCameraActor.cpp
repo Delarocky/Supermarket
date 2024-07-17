@@ -14,6 +14,7 @@ ABuildModeCameraActor::ABuildModeCameraActor()
     // Set initial position and rotation
     PivotPoint->SetWorldLocation(FVector((2300.000000, 2190.000000, 0.000000)));
     UpdateCameraPosition();
+    CameraComponent->SetFieldOfView(108.0f);
 }
 
 void ABuildModeCameraActor::Tick(float DeltaTime)

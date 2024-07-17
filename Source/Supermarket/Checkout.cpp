@@ -113,10 +113,7 @@ void ACheckout::SetupUpdateQueueTimer()
 bool ACheckout::ProcessPayment(float Amount)
 {
     DisplayTotal(Amount);
-    if (PaymentSound)
-    {
-        PaymentSound->Play();
-    }
+
     return true;
 }
 
@@ -396,12 +393,17 @@ void ACheckout::ScanItem(AProduct* Product)
         return;
     }
 
-    if (Product && ScanItemAnimation)
+    if (Product)
     {
        
         TotalAmount += Product->GetPrice();
         ScannedItems.Add(Product);
         DisplayTotal(TotalAmount);
+
+        if (PaymentSound)
+        {
+            PaymentSound->Play();
+        }
 
         DebugLog(FString::Printf(TEXT("Scanned item: %s, Price: %.2f, New Total: %.2f"),
             *Product->GetProductName(), Product->GetPrice(), TotalAmount));

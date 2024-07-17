@@ -17,6 +17,8 @@
 #include "StoreStatusWidget.h"
 #include "ParkingSpace.h"
 #include "SupermarketCharacter.generated.h"
+
+#define ECC_ShelfTrace ECollisionChannel::ECC_GameTraceChannel1
 DECLARE_LOG_CATEGORY_EXTERN(LogBuildMode, Log, All);
 class UInputComponent;
 class USkeletalMeshComponent;
