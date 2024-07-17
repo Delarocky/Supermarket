@@ -567,7 +567,7 @@ void AAICustomerPawn::LeaveCheckout()
     // Reset shopping state
     CurrentItems = 0;
     ShoppingBag->EmptyBag();
-
+    UE_LOG(LogTemp, Display, TEXT("calling leave store"));
     // Leave the store
     LeaveStore();
 }
@@ -838,7 +838,7 @@ FVector AAICustomerPawn::GetRandomLocationInStore()
 
 void AAICustomerPawn::LeaveStore()
 {
-    //UE_LOGLogTemp, Display, TEXT("AI is returning to the parking space"));
+    UE_LOG(LogTemp, Display, TEXT("leave store called"));
 
     if (AIController)
     {
