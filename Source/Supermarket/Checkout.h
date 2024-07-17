@@ -73,6 +73,8 @@ public:
 
     UFUNCTION(BlueprintCallable, Category = "Checkout")
     bool IsBeingServiced() const { return bPlayerPresent || HasCashier(); }
+    UFUNCTION(BlueprintCallable, Category = "Checkout")
+    ACashierAI* GetCashier() const { return CurrentCashier; }
 protected:
     virtual void BeginPlay() override;
 
@@ -189,7 +191,7 @@ private:
 
     UFUNCTION()
     void OnPlayerExitDetectionArea(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex);
-
+  
     bool bPlayerPresent;
     bool CanProcessCustomers() const;
     static constexpr float PROCESSING_DISTANCE_THRESHOLD = 50.0f;

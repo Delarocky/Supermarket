@@ -471,4 +471,6 @@ private:
     // Add these under the private section:
     void SetupHighlightVolume();
     void UpdateHighlight(AActor* Actor, UMaterialInterface* Material);
+    UPROPERTY(EditAnywhere, Category = "Interaction", meta = (AllowPrivateAccess = "true"))
+    float MouseTraceRadius = 10.0f;
 };

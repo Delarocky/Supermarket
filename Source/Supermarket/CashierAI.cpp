@@ -44,17 +44,16 @@ void ACashierAI::BeginPlay()
     {
         TextBoxWidget->SetWidgetClass(TextBoxWidgetClass);
     }
-   
+
+    GetWorldTimerManager().SetTimer(FindCheckoutTimerHandle, this, &ACashierAI::FindAndMoveToCheckout, 1.0f, false);
+    GetWorldTimerManager().SetTimer(PositionCheckTimerHandle, this, &ACashierAI::PeriodicPositionCheck, 2.0f, true);
 }
 
 void ACashierAI::Tick(float DeltaTime)
 {
     Super::Tick(DeltaTime);
 
-    if (!CurrentCheckout)
-    {
-        FindAndMoveToCheckout();
-    }
+ 
 
     if (bIsRotating)
     {
@@ -93,15 +92,27 @@ void ACashierAI::LeaveCheckout()
     }
 }
 
+
 void ACashierAI::MoveToCheckout(ACheckout* Checkout)
 {
-    if (Checkout)
+    if (IsValid(Checkout))
     {
+        bool bIsNewCheckout = (CurrentCheckout != Checkout);
         CurrentCheckout = Checkout;
         FVector CheckoutLocation = Checkout->GetCashierPosition();
         MoveTo(CheckoutLocation);
-        ClaimCheckout(Checkout);
-        //DebugLog(FString::Printf(TEXT("Moving to Checkout at location: %s"), *CheckoutLocation.ToString()));
+
+        if (bIsNewCheckout)
+        {
+            DebugLog(FString::Printf(TEXT("Moving to new Checkout at location: %s"), *CheckoutLocation.ToString()));
+        }
+        else
+        {
+            DebugLog(FString::Printf(TEXT("Repositioning to current Checkout at location: %s"), *CheckoutLocation.ToString()));
+        }
+
+        // Clear the text when starting to move
+        ShowFloatingText("", false);
 
         // Set up a timer to check if we've reached the checkout
         GetWorldTimerManager().SetTimer(CheckPositionTimerHandle, this, &ACashierAI::CheckPosition, 0.1f, true);
@@ -109,12 +120,14 @@ void ACashierAI::MoveToCheckout(ACheckout* Checkout)
     else
     {
         DebugLog(TEXT("Cannot move to Checkout: Invalid Checkout"));
+        CurrentCheckout = nullptr;
+        FindAndMoveToCheckout();
     }
 }
 
 void ACashierAI::CheckPosition()
 {
-    if (CurrentCheckout)
+    if (IsValid(CurrentCheckout))
     {
         FVector CashierPosition = CurrentCheckout->GetCashierPosition();
         float DistanceToCheckout = FVector::Dist(GetActorLocation(), CashierPosition);
@@ -122,18 +135,18 @@ void ACashierAI::CheckPosition()
         {
             GetWorldTimerManager().ClearTimer(CheckPositionTimerHandle);
             TurnToFaceCheckout();
-        }
-        else
-        {
-            //DebugLog(FString::Printf(TEXT("Still moving to Checkout. Distance: %f"), DistanceToCheckout));
+            // Don't call HandleCheckoutArrival here, it will be called after rotation
         }
     }
     else
     {
         GetWorldTimerManager().ClearTimer(CheckPositionTimerHandle);
-        //DebugLog(TEXT("CheckPosition: No assigned Checkout"));
+        DebugLog(TEXT("CheckPosition: No assigned Checkout"));
+        CurrentCheckout = nullptr;
+        FindAndMoveToCheckout();
     }
 }
+
 
 void ACashierAI::DebugLog(const FString& Message)
 {
@@ -152,17 +165,34 @@ bool ACashierAI::IsCheckoutAvailable(ACheckout* Checkout) const
 
 void ACashierAI::FindAndMoveToCheckout()
 {
+    if (IsValid(CurrentCheckout))
+    {
+        // We already have a valid checkout, no need to find another
+        return;
+    }
+
     ACheckout* AvailableCheckout = FindAvailableCheckout(GetWorld());
     if (AvailableCheckout)
     {
-        MoveToCheckout(AvailableCheckout);
+        if (ClaimCheckout(AvailableCheckout))
+        {
+            MoveToCheckout(AvailableCheckout);
+        }
+        else
+        {
+            // If we couldn't claim the checkout, try again after a short delay
+            GetWorldTimerManager().SetTimer(FindCheckoutTimerHandle, this, &ACashierAI::FindAndMoveToCheckout, 1.0f, false);
+        }
     }
     else
     {
         ShowFloatingText("No available checkout!", true);
-        //DebugLog(TEXT("No available checkout found"));
+        DebugLog(TEXT("No available checkout found"));
+        // Try again after 5 seconds
+        GetWorldTimerManager().SetTimer(FindCheckoutTimerHandle, this, &ACashierAI::FindAndMoveToCheckout, 5.0f, false);
     }
 }
+
 
 void ACashierAI::ShowFloatingText(const FString& Message, bool bShow)
 {
@@ -186,15 +216,10 @@ void ACashierAI::ShowFloatingText(const FString& Message, bool bShow)
 
 void ACashierAI::HandleCheckoutArrival()
 {
-    if (CurrentCheckout)
+    if (IsValid(CurrentCheckout))
     {
-        if (IsCheckoutAvailable(CurrentCheckout))
-        {
-            CurrentCheckout->SetCashier(this);
-            ShowFloatingText("", false);
-            DebugLog(TEXT("Arrived at Checkout and it's available"));
-        }
-        else
+        ACashierAI* AssignedCashier = CurrentCheckout->GetCashier();
+        if (AssignedCashier && AssignedCashier != this)
         {
             ShowFloatingText("This Register is taken!", true);
             DebugLog(TEXT("Arrived at Checkout but it's already taken"));
@@ -202,10 +227,17 @@ void ACashierAI::HandleCheckoutArrival()
             CurrentCheckout = nullptr;
             GetWorldTimerManager().SetTimer(FindCheckoutTimerHandle, this, &ACashierAI::FindAndMoveToCheckout, 1.0f, false);
         }
+        else
+        {
+            CurrentCheckout->SetCashier(this);
+            ShowFloatingText("", false);
+            DebugLog(TEXT("Arrived at Checkout and it's available"));
+        }
     }
     else
     {
         DebugLog(TEXT("HandleCheckoutArrival: No assigned Checkout"));
+        FindAndMoveToCheckout();
     }
 }
 
@@ -311,14 +343,7 @@ void ACashierAI::ReleaseCheckout(ACheckout* Checkout)
     }
 }
 
-void ACashierAI::ClaimCheckout(ACheckout* Checkout)
-{
-    if (Checkout)
-    {
-        FScopeLock Lock(&OccupiedCheckoutsLock);
-        OccupiedCheckouts.AddUnique(Checkout);
-    }
-}
+
 
 ACheckout* ACashierAI::FindAvailableCheckout(UWorld* World)
 {
@@ -401,5 +426,74 @@ void ACashierAI::OnFindPathQueryFinished(UEnvQueryInstanceBlueprintWrapper* Quer
         {
             UAIBlueprintHelperLibrary::SimpleMoveToLocation(AIController, CurrentCheckout->GetCashierPosition());
         }
+    }
+}
+
+void ACashierAI::CheckForAvailableCheckout()
+{
+    ACheckout* AvailableCheckout = FindAvailableCheckout(GetWorld());
+    if (AvailableCheckout)
+    {
+        ShowFloatingText("", false); // Remove the "No available checkout!" text
+        MoveToCheckout(AvailableCheckout);
+        GetWorldTimerManager().ClearTimer(FindCheckoutTimerHandler); // Clear the timer as we found a checkout
+    }
+}
+
+bool ACashierAI::ClaimCheckout(ACheckout* Checkout)
+{
+    if (Checkout)
+    {
+        FScopeLock Lock(&OccupiedCheckoutsLock);
+        if (!OccupiedCheckouts.Contains(Checkout) && !Checkout->IsBeingServiced())
+        {
+            OccupiedCheckouts.Add(Checkout);
+            return true;
+        }
+    }
+    return false;
+}
+
+void ACashierAI::PeriodicPositionCheck()
+{
+    if (IsValid(CurrentCheckout))
+    {
+        FVector CashierPosition = CurrentCheckout->GetCashierPosition();
+        float DistanceToCheckout = FVector::Dist(GetActorLocation(), CashierPosition);
+
+        if (DistanceToCheckout > 100.0f)  // Adjust this threshold as needed
+        {
+            DebugLog(TEXT("Checkout position has changed. Repositioning."));
+            RepositionToCurrentCheckout();
+        }
+    }
+    else
+    {
+        DebugLog(TEXT("Assigned checkout no longer exists. Finding a new one."));
+        ReleaseCheckout(CurrentCheckout);
+        CurrentCheckout = nullptr;
+        FindAndMoveToCheckout();
+    }
+}
+
+void ACashierAI::RepositionToCurrentCheckout()
+{
+    if (IsValid(CurrentCheckout))
+    {
+        FVector CheckoutLocation = CurrentCheckout->GetCashierPosition();
+        MoveTo(CheckoutLocation);
+        DebugLog(FString::Printf(TEXT("Repositioning to current Checkout at location: %s"), *CheckoutLocation.ToString()));
+
+        // Clear any existing text when repositioning
+        ShowFloatingText("", false);
+
+        // Set up a timer to check if we've reached the checkout
+        GetWorldTimerManager().SetTimer(CheckPositionTimerHandle, this, &ACashierAI::CheckPosition, 0.1f, true);
+    }
+    else
+    {
+        DebugLog(TEXT("Cannot reposition: CurrentCheckout is invalid"));
+        CurrentCheckout = nullptr;
+        FindAndMoveToCheckout();
     }
 }

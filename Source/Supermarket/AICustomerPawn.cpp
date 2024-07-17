@@ -166,7 +166,7 @@ void AAICustomerPawn::ChooseProduct()
             FNavLocation NavLocation;
             if (NavSys->ProjectPointToNavigation(TargetLocation, NavLocation, FVector(100, 100, 100)))
             {
-                AIController->MoveToLocation(NavLocation.Location, 10.0f, true, true, false, false, nullptr, true);
+                AIController->MoveToLocation(NavLocation.Location, 20.0f, true, true, false, false, nullptr, true);
 
                 // Set up a timer to check if we've reached the shelf's access point
                 GetWorldTimerManager().SetTimer(CheckReachedShelfTimerHandle, this, &AAICustomerPawn::CheckReachedShelf, 0.1f, true);
@@ -542,7 +542,7 @@ void AAICustomerPawn::MoveTo(const FVector& Location)
     if (AIController)
     {
         // Use MoveToLocation with a small acceptance radius for precise movement
-        AIController->MoveToLocation(Location, 2.0f, false, true, false, false, nullptr, true);
+        AIController->MoveToLocation(Location, 10.0f, false, true, false, false, nullptr, true);
     }
     else
     {
@@ -550,7 +550,7 @@ void AAICustomerPawn::MoveTo(const FVector& Location)
         InitializeAIController();
         if (AIController)
         {
-            AIController->MoveToLocation(Location, 2.0f, false, true, false, false, nullptr, true);
+            AIController->MoveToLocation(Location, 10.0f, false, true, false, false, nullptr, true);
         }
     }
 }
@@ -760,7 +760,7 @@ void AAICustomerPawn::TryPickUpProduct()
         // Use AIController to move to the access point
         if (AIController)
         {
-            AIController->MoveToLocation(NearestAccessPoint, 50.0f, true, true, true, false, nullptr, true);
+            AIController->MoveToLocation(NearestAccessPoint, 60.0f, true, true, true, false, nullptr, true);
             GetWorldTimerManager().SetTimer(RetryPickUpTimerHandle, this, &AAICustomerPawn::CheckReachedAccessPoint, 0.5f, true);
         }
         else

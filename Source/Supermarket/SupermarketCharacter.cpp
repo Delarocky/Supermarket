@@ -1195,16 +1195,33 @@ FVector ASupermarketCharacter::GetMouseWorldPosition()
                 CollisionParams.AddIgnoredActor(this);
                 CollisionParams.AddIgnoredActor(BuildModeCamera);
 
-                if (GetWorld()->LineTraceSingleByChannel(HitResult, Start, End, ECC_Visibility, CollisionParams))
+                // Use SweepSingleByChannel instead of LineTraceSingleByChannel
+                FCollisionShape SphereShape = FCollisionShape::MakeSphere(MouseTraceRadius);
+
+                // Draw debug sphere at the start of the trace
+                DrawDebugSphere(GetWorld(), Start, MouseTraceRadius, 12, FColor::Green, false, 0.5f, 0, 2.0f);
+
+                // Draw debug line to show the trace direction
+                DrawDebugLine(GetWorld(), Start, End, FColor::Red, false, 0.5f, 0, 2.0f);
+
+                if (GetWorld()->SweepSingleByChannel(HitResult, Start, End, FQuat::Identity, ECC_Visibility, SphereShape, CollisionParams))
                 {
+                    // Draw debug sphere at the hit location
+                    DrawDebugSphere(GetWorld(), HitResult.Location, MouseTraceRadius, 12, FColor::Blue, false, 0.5f, 0, 2.0f);
+
+                    UE_LOG(LogTemp, Log, TEXT("Mouse World Position: %s"), *HitResult.Location.ToString());
                     return HitResult.Location;
+                }
+                else
+                {
+                    UE_LOG(LogTemp, Warning, TEXT("No hit detected. Start: %s, End: %s"), *Start.ToString(), *End.ToString());
                 }
             }
         }
     }
+    UE_LOG(LogTemp, Error, TEXT("Failed to get mouse world position"));
     return FVector::ZeroVector;
 }
-
 AActor* ASupermarketCharacter::GetActorUnderCursor()
 {
     APlayerController* PlayerController = Cast<APlayerController>(GetController());

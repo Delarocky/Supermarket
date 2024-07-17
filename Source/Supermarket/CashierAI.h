@@ -91,9 +91,14 @@ private:
     
 
     static ACheckout* FindAvailableCheckout(UWorld* World);
-    void ClaimCheckout(ACheckout* Checkout);
     void ReleaseCheckout(ACheckout* Checkout);
     UPROPERTY()
     FTimerHandle MovementCheckTimerHandle;
     void CheckMovement();
+    FTimerHandle FindCheckoutTimerHandler;
+    bool ClaimCheckout(ACheckout* Checkout);
+    void CheckForAvailableCheckout();
+    FTimerHandle PositionCheckTimerHandle;
+    void PeriodicPositionCheck();
+    void RepositionToCurrentCheckout();
 };
