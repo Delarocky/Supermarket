@@ -143,4 +143,5 @@ private:
     static const int32 MaxAccessPointAttempts = 5;
     void ResetAccessPointAttempts() { AccessPointAttempts = 0; }
     FTimerHandle PickUpTimeoutHandle;
+    void ForceMoveInRandomDirection();
 };

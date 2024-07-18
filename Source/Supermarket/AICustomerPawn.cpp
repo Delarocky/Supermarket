@@ -760,10 +760,8 @@ void AAICustomerPawn::TryPickUpProduct()
         AccessPointAttempts++;
         if (AccessPointAttempts >= MaxAccessPointAttempts)
         {
-            UE_LOG(LogTemp, Warning, TEXT("Max attempts to reach access point reached. Choosing new product."));
-            ResetAccessPointAttempts();
-            CurrentShelf = nullptr;
-            ChooseProduct();
+            UE_LOG(LogTemp, Warning, TEXT("Max attempts to reach access point reached. Forcing move in random direction."));
+            ForceMoveInRandomDirection();
             return;
         }
 
@@ -946,3 +944,27 @@ void AAICustomerPawn::NotifyParkingSpaceAndDestroy()
     Destroy();
 }
 
+void AAICustomerPawn::ForceMoveInRandomDirection()
+{
+    FVector RandomDirection = FMath::VRand();
+    RandomDirection.Z = 0; // Ensure we're not moving up or down
+    RandomDirection.Normalize();
+
+    FVector NewLocation = GetActorLocation() + (RandomDirection * 100.0f); // Move 100cm in the random direction
+
+    // Attempt to move the character
+    bool bSuccess = SetActorLocation(NewLocation, true);
+
+    if (bSuccess)
+    {
+        UE_LOG(LogTemp, Display, TEXT("AI successfully force moved to new location"));
+        ResetAccessPointAttempts();
+        ChooseProduct(); // After force moving, try to choose a new product
+    }
+    else
+    {
+        UE_LOG(LogTemp, Warning, TEXT("AI failed to force move. Attempting to choose new product anyway."));
+        ResetAccessPointAttempts();
+        ChooseProduct();
+    }
+}
