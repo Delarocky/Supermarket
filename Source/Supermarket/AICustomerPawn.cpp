@@ -754,8 +754,6 @@ void AAICustomerPawn::TryPickUpProduct()
     {
         DetermineShelfPosition();
         GetWorldTimerManager().SetTimer(RetryPickUpTimerHandle, this, &AAICustomerPawn::PickUpProduct, 0.5f, false);
-
-       
     }
     else
     {
@@ -765,7 +763,7 @@ void AAICustomerPawn::TryPickUpProduct()
         // Use AIController to move to the access point
         if (AIController)
         {
-            AIController->MoveToLocation(NearestAccessPoint, 60.0f, true, true, true, false, nullptr, true);
+            AIController->MoveToLocation(NearestAccessPoint, 10.0f, true, true, true, false, nullptr, true);
             GetWorldTimerManager().SetTimer(RetryPickUpTimerHandle, this, &AAICustomerPawn::CheckReachedAccessPoint, 0.5f, true);
         }
         else
@@ -776,6 +774,7 @@ void AAICustomerPawn::TryPickUpProduct()
         }
     }
 }
+
 
 AShelf* AAICustomerPawn::FindRandomStockedShelf()
 {
@@ -879,7 +878,7 @@ void AAICustomerPawn::CheckReachedAccessPoint()
     AAIController* AIControllerInstance = Cast<AAIController>(ControllerInstance);
     if (!AIControllerInstance)
     {
-        //UE_LOGLogTemp, Error, TEXT("AIController is null in CheckReachedAccessPoint"));
+        UE_LOG(LogTemp, Error, TEXT("AIController is null in CheckReachedAccessPoint"));
         GetWorldTimerManager().ClearTimer(RetryPickUpTimerHandle);
         ResetFailedNavigationAttempts();
         ChooseProduct();
@@ -906,11 +905,11 @@ void AAICustomerPawn::CheckReachedAccessPoint()
 
         // If we're here, we didn't reach an access point
         FailedNavigationAttempts++;
-        //UE_LOGLogTemp, Warning, TEXT("Failed to reach access point. Attempt %d of %d"), FailedNavigationAttempts, MaxFailedNavigationAttempts);
+        UE_LOG(LogTemp, Warning, TEXT("Failed to reach access point. Attempt %d of %d"), FailedNavigationAttempts, MaxFailedNavigationAttempts);
 
         if (FailedNavigationAttempts >= MaxFailedNavigationAttempts)
         {
-            //UE_LOGLogTemp, Warning, TEXT("Max navigation attempts reached. Choosing new product."));
+            UE_LOG(LogTemp, Warning, TEXT("Max navigation attempts reached. Choosing new product."));
             GetWorldTimerManager().ClearTimer(RetryPickUpTimerHandle);
             CurrentShelf = nullptr;
             ResetFailedNavigationAttempts();
