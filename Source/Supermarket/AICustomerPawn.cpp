@@ -132,7 +132,7 @@ void AAICustomerPawn::FinishShopping()
 void AAICustomerPawn::ChooseProduct()
 {
    //UE_LOGLogTemp, Display, TEXT("ChooseProduct called. Current Items: %d, Max Items: %d"), CurrentItems, MaxItems);
-
+    ResetAccessPointAttempts();
     if (CurrentItems >= MaxItems)
     {
         //UE_LOGLogTemp, Display, TEXT("Max items reached, going to checkout"));
@@ -166,7 +166,7 @@ void AAICustomerPawn::ChooseProduct()
             FNavLocation NavLocation;
             if (NavSys->ProjectPointToNavigation(TargetLocation, NavLocation, FVector(100, 100, 100)))
             {
-                AIController->MoveToLocation(NavLocation.Location, 20.0f, true, true, false, false, nullptr, true);
+                AIController->MoveToLocation(NavLocation.Location, 1.0f, true, true, false, false, nullptr, true);
 
                 // Set up a timer to check if we've reached the shelf's access point
                 GetWorldTimerManager().SetTimer(CheckReachedShelfTimerHandle, this, &AAICustomerPawn::CheckReachedShelf, 0.1f, true);
@@ -545,7 +545,7 @@ void AAICustomerPawn::MoveTo(const FVector& Location)
     if (AIController)
     {
         // Use MoveToLocation with a small acceptance radius for precise movement
-        AIController->MoveToLocation(Location, 10.0f, false, true, false, false, nullptr, true);
+        AIController->MoveToLocation(Location, 1.0f, false, true, false, false, nullptr, true);
     }
     else
     {
@@ -553,7 +553,7 @@ void AAICustomerPawn::MoveTo(const FVector& Location)
         InitializeAIController();
         if (AIController)
         {
-            AIController->MoveToLocation(Location, 10.0f, false, true, false, false, nullptr, true);
+            AIController->MoveToLocation(Location, 1.0f, false, true, false, false, nullptr, true);
         }
     }
 }
@@ -731,7 +731,7 @@ void AAICustomerPawn::TryPickUpProduct()
     {
         UE_LOG(LogTemp, Warning, TEXT("No current shelf or shelf is empty"));
         CurrentShelf = nullptr;
-        ResetFailedNavigationAttempts();
+        ResetAccessPointAttempts();
         ChooseProduct();
         return;
     }
@@ -757,19 +757,29 @@ void AAICustomerPawn::TryPickUpProduct()
     }
     else
     {
-        UE_LOG(LogTemp, Warning, TEXT("AI is not close enough to an access point. Attempting to navigate."));
+        AccessPointAttempts++;
+        if (AccessPointAttempts >= MaxAccessPointAttempts)
+        {
+            UE_LOG(LogTemp, Warning, TEXT("Max attempts to reach access point reached. Choosing new product."));
+            ResetAccessPointAttempts();
+            CurrentShelf = nullptr;
+            ChooseProduct();
+            return;
+        }
+
+        UE_LOG(LogTemp, Warning, TEXT("AI is not close enough to an access point. Attempting to navigate. Attempt %d of %d"), AccessPointAttempts, MaxAccessPointAttempts);
         FVector NearestAccessPoint = FindMostAccessiblePoint(AccessPoints);
 
         // Use AIController to move to the access point
         if (AIController)
         {
-            AIController->MoveToLocation(NearestAccessPoint, 10.0f, true, true, true, false, nullptr, true);
+            AIController->MoveToLocation(NearestAccessPoint, 1.0f, true, true, true, false, nullptr, true);
             GetWorldTimerManager().SetTimer(RetryPickUpTimerHandle, this, &AAICustomerPawn::CheckReachedAccessPoint, 0.5f, true);
         }
         else
         {
             UE_LOG(LogTemp, Error, TEXT("AIController is null. Cannot navigate to access point."));
-            ResetFailedNavigationAttempts();
+            ResetAccessPointAttempts();
             ChooseProduct();
         }
     }
@@ -869,7 +879,7 @@ void AAICustomerPawn::CheckReachedAccessPoint()
     if (!CurrentShelf)
     {
         GetWorldTimerManager().ClearTimer(RetryPickUpTimerHandle);
-        ResetFailedNavigationAttempts();
+        ResetAccessPointAttempts();
         ChooseProduct();
         return;
     }
@@ -880,7 +890,7 @@ void AAICustomerPawn::CheckReachedAccessPoint()
     {
         UE_LOG(LogTemp, Error, TEXT("AIController is null in CheckReachedAccessPoint"));
         GetWorldTimerManager().ClearTimer(RetryPickUpTimerHandle);
-        ResetFailedNavigationAttempts();
+        ResetAccessPointAttempts();
         ChooseProduct();
         return;
     }
@@ -890,7 +900,7 @@ void AAICustomerPawn::CheckReachedAccessPoint()
         // We've either reached the destination or failed to move
         TArray<FVector> AccessPoints = CurrentShelf->GetAllAccessPointLocations();
         FVector AILocation = GetActorLocation();
-        float MinDistance = 260.0f; // Consider adjusting this value if needed
+        float MinDistance = 260.0f;
 
         bool bReachedAccessPoint = false;
         for (const FVector& AccessPoint : AccessPoints)
@@ -905,28 +915,13 @@ void AAICustomerPawn::CheckReachedAccessPoint()
         if (bReachedAccessPoint)
         {
             GetWorldTimerManager().ClearTimer(RetryPickUpTimerHandle);
-            ResetFailedNavigationAttempts();
-            TurnToFaceShelf(); // Always turn to face the shelf when reached
+            ResetAccessPointAttempts();
+            TurnToFaceShelf();
         }
         else
         {
             // If we're here, we didn't reach an access point
-            FailedNavigationAttempts++;
-            UE_LOG(LogTemp, Warning, TEXT("Failed to reach access point. Attempt %d of %d"), FailedNavigationAttempts, MaxFailedNavigationAttempts);
-
-            if (FailedNavigationAttempts >= MaxFailedNavigationAttempts)
-            {
-                UE_LOG(LogTemp, Warning, TEXT("Max navigation attempts reached. Choosing new product."));
-                GetWorldTimerManager().ClearTimer(RetryPickUpTimerHandle);
-                CurrentShelf = nullptr;
-                ResetFailedNavigationAttempts();
-                ChooseProduct();
-            }
-            else
-            {
-                // Retry navigation
-                TryPickUpProduct();
-            }
+            TryPickUpProduct(); // This will increment AccessPointAttempts and potentially choose a new product
         }
     }
     // If still moving, continue waiting

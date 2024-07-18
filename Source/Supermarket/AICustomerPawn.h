@@ -139,6 +139,8 @@ private:
     void ResetFailedNavigationAttempts() { FailedNavigationAttempts = 0; }
     FVector InitialSpawnLocation;
     AParkingSpace* AssignedParkingSpace;
-
+    int32 AccessPointAttempts;
+    static const int32 MaxAccessPointAttempts = 5;
+    void ResetAccessPointAttempts() { AccessPointAttempts = 0; }
     FTimerHandle PickUpTimeoutHandle;
 };
