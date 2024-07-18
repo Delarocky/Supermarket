@@ -689,7 +689,7 @@ void AAICustomerPawn::TurnToFaceShelf()
 {
     if (!CurrentShelf)
     {
-        //UE_LOGLogTemp, Warning, TEXT("AI %s: Cannot turn to face shelf, CurrentShelf is null"), *GetName());
+        UE_LOG(LogTemp, Warning, TEXT("AI %s: Cannot turn to face shelf, CurrentShelf is null"), *GetName());
         ChooseProduct();
         return;
     }
@@ -712,7 +712,7 @@ void AAICustomerPawn::TurnToFaceShelf()
     // Check if the AI is already facing the shelf within 10 degrees
     if (FMath::Abs(DeltaRotation.Yaw) <= 10.0f)
     {
-        //UE_LOGLogTemp, Display, TEXT("AI %s: Already facing the shelf within 10 degrees"), *GetName());
+        UE_LOG(LogTemp, Display, TEXT("AI %s: Already facing the shelf within 10 degrees"), *GetName());
         TryPickUpProduct();
         return;
     }
@@ -890,35 +890,43 @@ void AAICustomerPawn::CheckReachedAccessPoint()
         // We've either reached the destination or failed to move
         TArray<FVector> AccessPoints = CurrentShelf->GetAllAccessPointLocations();
         FVector AILocation = GetActorLocation();
-        float MinDistance = 260.0f;
+        float MinDistance = 260.0f; // Consider adjusting this value if needed
 
+        bool bReachedAccessPoint = false;
         for (const FVector& AccessPoint : AccessPoints)
         {
             if (FVector::Dist(AILocation, AccessPoint) <= MinDistance)
             {
-                GetWorldTimerManager().ClearTimer(RetryPickUpTimerHandle);
-                ResetFailedNavigationAttempts();
-                TryPickUpProduct();
-                return;
+                bReachedAccessPoint = true;
+                break;
             }
         }
 
-        // If we're here, we didn't reach an access point
-        FailedNavigationAttempts++;
-        UE_LOG(LogTemp, Warning, TEXT("Failed to reach access point. Attempt %d of %d"), FailedNavigationAttempts, MaxFailedNavigationAttempts);
-
-        if (FailedNavigationAttempts >= MaxFailedNavigationAttempts)
+        if (bReachedAccessPoint)
         {
-            UE_LOG(LogTemp, Warning, TEXT("Max navigation attempts reached. Choosing new product."));
             GetWorldTimerManager().ClearTimer(RetryPickUpTimerHandle);
-            CurrentShelf = nullptr;
             ResetFailedNavigationAttempts();
-            ChooseProduct();
+            TurnToFaceShelf(); // Always turn to face the shelf when reached
         }
         else
         {
-            // Retry navigation
-            TryPickUpProduct();
+            // If we're here, we didn't reach an access point
+            FailedNavigationAttempts++;
+            UE_LOG(LogTemp, Warning, TEXT("Failed to reach access point. Attempt %d of %d"), FailedNavigationAttempts, MaxFailedNavigationAttempts);
+
+            if (FailedNavigationAttempts >= MaxFailedNavigationAttempts)
+            {
+                UE_LOG(LogTemp, Warning, TEXT("Max navigation attempts reached. Choosing new product."));
+                GetWorldTimerManager().ClearTimer(RetryPickUpTimerHandle);
+                CurrentShelf = nullptr;
+                ResetFailedNavigationAttempts();
+                ChooseProduct();
+            }
+            else
+            {
+                // Retry navigation
+                TryPickUpProduct();
+            }
         }
     }
     // If still moving, continue waiting
