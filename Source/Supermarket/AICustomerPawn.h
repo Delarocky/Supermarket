@@ -140,6 +140,5 @@ private:
     FVector InitialSpawnLocation;
     AParkingSpace* AssignedParkingSpace;
 
-    FTimerHandle PickUpTimeoutHandle;
-    void HandlePickUpTimeout();
+
 };

@@ -755,8 +755,7 @@ void AAICustomerPawn::TryPickUpProduct()
         DetermineShelfPosition();
         GetWorldTimerManager().SetTimer(RetryPickUpTimerHandle, this, &AAICustomerPawn::PickUpProduct, 0.5f, false);
 
-        // Add a timeout timer
-        GetWorldTimerManager().SetTimer(PickUpTimeoutHandle, this, &AAICustomerPawn::HandlePickUpTimeout, 2.0f, false);
+       
     }
     else
     {
@@ -945,14 +944,3 @@ void AAICustomerPawn::NotifyParkingSpaceAndDestroy()
     Destroy();
 }
 
-void AAICustomerPawn::HandlePickUpTimeout()
-{
-    if (CurrentTargetProduct == nullptr)
-    {
-        UE_LOG(LogTemp, Warning, TEXT("Pick up timed out. Retrying movement."));
-        GetWorldTimerManager().ClearTimer(RetryPickUpTimerHandle);
-        ResetFailedNavigationAttempts();
-        ChooseProduct();
-    }
-    // If CurrentTargetProduct is not null, it means the product was picked up successfully, so we don't need to do anything
-}
