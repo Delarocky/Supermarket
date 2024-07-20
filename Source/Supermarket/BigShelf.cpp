@@ -43,6 +43,7 @@ void ABigShelf::BeginPlay()
     PreloadShelvesWithProduct();
 }
 
+// aligns the shelves in a 4x2 grid vertically
 void ABigShelf::CreateShelves()
 {
     ClearShelves();
@@ -72,6 +73,7 @@ void ABigShelf::CreateShelves()
     }
 }
 
+// Makes any current shelves are cleared
 void ABigShelf::ClearShelves()
 {
     for (AShelf* Shelf : Shelves)
@@ -84,75 +86,9 @@ void ABigShelf::ClearShelves()
     Shelves.Empty();
 }
 
-void ABigShelf::InitializeShelves()
-{
-    for (AShelf* Shelf : Shelves)
-    {
-        if (Shelf)
-        {
-            Shelf->UpdateProductSpawnPointRotation();
-            Shelf->SetupAccessPoint();
-            Shelf->InitializeShelf();
-        }
-    }
-}
 
-AShelf* ABigShelf::GetShelf(int32 Index) const
-{
-    if (Shelves.IsValidIndex(Index))
-    {
-        return Shelves[Index];
-    }
-    return nullptr;
-}
 
-void ABigShelf::StartStockingAllShelves(TSubclassOf<AProduct> ProductToStock)
-{
-    for (AShelf* Shelf : Shelves)
-    {
-        if (Shelf)
-        {
-            Shelf->StartStockingShelf(ProductToStock);
-        }
-    }
-}
-
-void ABigShelf::StopStockingAllShelves()
-{
-    for (AShelf* Shelf : Shelves)
-    {
-        if (Shelf)
-        {
-            Shelf->StopStockingShelf();
-        }
-    }
-}
-
-int32 ABigShelf::GetTotalProductCount() const
-{
-    int32 TotalCount = 0;
-    for (const AShelf* Shelf : Shelves)
-    {
-        if (Shelf)
-        {
-            TotalCount += Shelf->GetProductCount();
-        }
-    }
-    return TotalCount;
-}
-
-bool ABigShelf::AreAllShelvesFullyStocked() const
-{
-    for (const AShelf* Shelf : Shelves)
-    {
-        if (Shelf && !Shelf->IsFullyStocked())
-        {
-            return false;
-        }
-    }
-    return true;
-}
-
+// IF set in the editor, you can preload the bigshelf with a select product for testing, on full release set this to none.
 void ABigShelf::PreloadShelvesWithProduct()
 {
     if (PreloadProductClass)

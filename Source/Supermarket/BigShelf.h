@@ -36,23 +36,7 @@ public:
     void PreloadShelvesWithProduct();
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Products")
     TSubclassOf<AProduct> PreloadProductClass;
-    UFUNCTION(BlueprintCallable, Category = "BigShelf")
-    void InitializeShelves();
 
-    UFUNCTION(BlueprintCallable, Category = "BigShelf")
-    AShelf* GetShelf(int32 Index) const;
-
-    UFUNCTION(BlueprintCallable, Category = "BigShelf")
-    void StartStockingAllShelves(TSubclassOf<AProduct> ProductToStock);
-
-    UFUNCTION(BlueprintCallable, Category = "BigShelf")
-    void StopStockingAllShelves();
-
-    UFUNCTION(BlueprintCallable, Category = "BigShelf")
-    int32 GetTotalProductCount() const;
-
-    UFUNCTION(BlueprintCallable, Category = "BigShelf")
-    bool AreAllShelvesFullyStocked() const;
 
 #if WITH_EDITOR
     virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;

@@ -42,17 +42,18 @@ void ARestockerAI::BeginPlay()
 void ARestockerAI::Tick(float DeltaTime)
 {
     Super::Tick(DeltaTime);
-
+    // if idle, start restocking
     if (CurrentState == ERestockerState::Idle)
     {
         StartRestocking();
     }
-
+    //this is for the rotating towards the shelf
     if (bIsRotating)
     {
         UpdateRotation(DeltaTime);
     }
 }
+
 
 void ARestockerAI::StartRestocking()
 {
@@ -66,6 +67,7 @@ void ARestockerAI::StartRestocking()
     CheckedShelves.Empty();
     FindShelfToRestock();
 }
+
 
 void ARestockerAI::FindShelfToRestock()
 {
@@ -650,16 +652,6 @@ void ARestockerAI::ReleaseProductBox(AProductBox* ProductBox)
     ReservedProductBoxes.Remove(ProductBox);
 }
 
-void ARestockerAI::ReleaseProductBox()
-{
-    if (TargetProductBox)
-    {
-        UnlockProductBox();
-        ReleaseProductBox(TargetProductBox);
-        TargetProductBox = nullptr;
-    }
-    bIsHoldingProductBox = false;
-}
 
 bool ARestockerAI::IsShelfReserved(AShelf* Shelf) const
 {
