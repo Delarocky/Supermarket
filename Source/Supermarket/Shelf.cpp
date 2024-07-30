@@ -53,8 +53,7 @@ AShelf::AShelf()
         InvalidPlacementMaterial = InvalidMat.Object;
     }
 
-    StockingSpline = CreateDefaultSubobject<USplineComponent>(TEXT("StockingSpline"));
-    StockingSpline->SetupAttachment(RootComponent);
+
 }
 
 
@@ -415,7 +414,9 @@ FVector AShelf::GetNextProductLocation() const
 
 void AShelf::UpdateStockingSpline()
 {
-    if (!StockingSpline || !ProductBox) return;
+    if (!ProductBox) return;
+
+    CreateStockingSpline(); // Create the spline if it doesn't exist
 
     StockingSpline->ClearSplinePoints();
 
@@ -533,8 +534,21 @@ void AShelf::FinalizeProductPlacement(AProduct* Product)
     Product->AttachToComponent(ProductSpawnPoint, FAttachmentTransformRules::KeepWorldTransform);
     Products.Add(Product);
 
+    // Destroy the StockingSpline as it's no longer needed
+    DestroyStockingSpline();
+
     CurrentMovingProduct = nullptr;
-    ContinueStocking();
+
+    // Check if we need to continue stocking
+    if (bIsStocking && Products.Num() < MaxProducts)
+    {
+        ContinueStocking();
+    }
+    else
+    {
+        bIsStocking = false;
+        // You might want to trigger an event or callback here to indicate that stocking is complete
+    }
 }
 
 int32 AShelf::GetCurrentStock() const
@@ -646,4 +660,24 @@ void AShelf::RearrangeProducts()
 void AShelf::SetProductClass(TSubclassOf<AProduct> NewProductClass)
 {
     ProductClass = NewProductClass;
+}
+
+
+void AShelf::CreateStockingSpline()
+{
+    if (!StockingSpline)
+    {
+        StockingSpline = NewObject<USplineComponent>(this, TEXT("StockingSpline"));
+        StockingSpline->SetupAttachment(RootComponent);
+        StockingSpline->RegisterComponent();
+    }
+}
+
+void AShelf::DestroyStockingSpline()
+{
+    if (StockingSpline)
+    {
+        StockingSpline->DestroyComponent();
+        StockingSpline = nullptr;
+    }
 }

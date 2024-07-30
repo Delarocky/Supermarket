@@ -171,6 +171,9 @@ protected:
     class UMaterialInstanceDynamic* OutlineMaterialInstance;
 
 private:
+    void CreateStockingSpline();
+    void DestroyStockingSpline();
+
     UPROPERTY()
     TArray<AProduct*> Products;
     UPROPERTY()
