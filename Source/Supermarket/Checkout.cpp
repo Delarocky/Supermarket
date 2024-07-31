@@ -576,24 +576,35 @@ void ACheckout::UpdateCustomerRotations()
         if (Customer)
         {
             FVector CustomerLocation = Customer->GetActorLocation();
-            FVector QueuePosition = QueuePositions[CustomersInQueue.Find(Customer)]->GetComponentLocation();
+            int32 CustomerIndex = CustomersInQueue.IndexOfByKey(Customer);
 
-            // Only rotate if the customer is close to their queue position
-            if (FVector::Dist(CustomerLocation, QueuePosition) < 130.0f)
+            // Check if the customer is actually in the queue
+            if (CustomerIndex != INDEX_NONE && QueuePositions.IsValidIndex(CustomerIndex))
             {
-                FRotator CurrentRotation = Customer->GetActorRotation();
-                FRotator NewRotation = FMath::RInterpTo(CurrentRotation, TargetRotation, GetWorld()->GetDeltaSeconds(), RotationSpeed);
-                Customer->SetActorRotation(NewRotation);
+                FVector QueuePosition = QueuePositions[CustomerIndex]->GetComponentLocation();
 
-                // Check if this customer has reached its target rotation
-                if (!NewRotation.Equals(TargetRotation, 1.0f))
+                // Only rotate if the customer is close to their queue position
+                if (FVector::Dist(CustomerLocation, QueuePosition) < 130.0f)
+                {
+                    FRotator CurrentRotation = Customer->GetActorRotation();
+                    FRotator NewRotation = FMath::RInterpTo(CurrentRotation, TargetRotation, GetWorld()->GetDeltaSeconds(), RotationSpeed);
+                    Customer->SetActorRotation(NewRotation);
+
+                    // Check if this customer has reached its target rotation
+                    if (!NewRotation.Equals(TargetRotation, 1.0f))
+                    {
+                        AllCustomersRotated = false;
+                    }
+                }
+                else
                 {
                     AllCustomersRotated = false;
                 }
             }
             else
             {
-                AllCustomersRotated = false;
+                // Customer is not in the queue anymore, remove it from the rotation map
+                CustomerTargetRotations.Remove(Customer);
             }
         }
     }

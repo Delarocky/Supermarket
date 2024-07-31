@@ -130,7 +130,7 @@ private:
     bool bIsProcessingCustomer;
 
     UPROPERTY(EditAnywhere, Category = "Checkout")
-    float ProcessingDistance = 140.0f;
+    float ProcessingDistance = 130.0f;
 
     UPROPERTY()
     UMaterialInterface* OriginalMaterial;
