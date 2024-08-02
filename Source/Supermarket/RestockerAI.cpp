@@ -765,7 +765,9 @@ void ARestockerAI::PeriodicShelfCheck()
 {
     if (CurrentState == ERestockerState::Idle)
     {
-        StartRestocking();
+        // Add a random delay before starting restocking
+        float RandomDelay = FMath::RandRange(0.0f, 5.0f);
+        GetWorldTimerManager().SetTimer(StartRestockingTimerHandle, this, &ARestockerAI::StartRestocking, RandomDelay, false);
     }
 }
 

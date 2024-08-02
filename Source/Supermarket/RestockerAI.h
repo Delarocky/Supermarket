@@ -141,5 +141,6 @@ private:
    void ClearUnattachedProductBoxReservations();
     void StartPeriodicShelfCheck();
     void StopPeriodicShelfCheck();
+    FTimerHandle StartRestockingTimerHandle;
     void ReleaseProductBox();
 };
