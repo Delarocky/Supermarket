@@ -570,7 +570,7 @@ void AAICustomerPawn::LeaveCheckout()
     // Reset shopping state
     CurrentItems = 0;
     ShoppingBag->EmptyBag();
-    UE_LOG(LogTemp, Display, TEXT("calling leave store"));
+    //UE_LOG(LogTemp, Display, TEXT("calling leave store"));
     // Leave the store
     LeaveStore();
 }
@@ -664,7 +664,7 @@ void AAICustomerPawn::CheckReachedShelf()
     AAIController* AIControllerInstance = Cast<AAIController>(ControllerInstance);
     if (!AIControllerInstance)
     {
-        UE_LOG(LogTemp, Error, TEXT("AIController is null in CheckReachedShelf"));
+        //UE_LOG(LogTemp, Error, TEXT("AIController is null in CheckReachedShelf"));
         GetWorldTimerManager().ClearTimer(CheckReachedShelfTimerHandle);
         ChooseProduct();
         return;
@@ -673,12 +673,12 @@ void AAICustomerPawn::CheckReachedShelf()
     if (AIControllerInstance->GetMoveStatus() == EPathFollowingStatus::Idle)
     {
         GetWorldTimerManager().ClearTimer(CheckReachedShelfTimerHandle);
-        UE_LOG(LogTemp, Display, TEXT("AI reached shelf. Turning to face shelf."));
+        //UE_LOG(LogTemp, Display, TEXT("AI reached shelf. Turning to face shelf."));
         TurnToFaceShelf();
     }
     else if (GetWorldTimerManager().GetTimerElapsed(CheckReachedShelfTimerHandle) > 15.0f)
     {
-        UE_LOG(LogTemp, Warning, TEXT("Failed to reach shelf after 15 seconds, choosing a new one"));
+        //UE_LOG(LogTemp, Warning, TEXT("Failed to reach shelf after 15 seconds, choosing a new one"));
         GetWorldTimerManager().ClearTimer(CheckReachedShelfTimerHandle);
         CurrentShelf = nullptr;
         ChooseProduct();
@@ -689,7 +689,7 @@ void AAICustomerPawn::TurnToFaceShelf()
 {
     if (!CurrentShelf)
     {
-        UE_LOG(LogTemp, Warning, TEXT("AI %s: Cannot turn to face shelf, CurrentShelf is null"), *GetName());
+        //UE_LOG(LogTemp, Warning, TEXT("AI %s: Cannot turn to face shelf, CurrentShelf is null"), *GetName());
         ChooseProduct();
         return;
     }
@@ -712,7 +712,7 @@ void AAICustomerPawn::TurnToFaceShelf()
     // Check if the AI is already facing the shelf within 10 degrees
     if (FMath::Abs(DeltaRotation.Yaw) <= 10.0f)
     {
-        UE_LOG(LogTemp, Display, TEXT("AI %s: Already facing the shelf within 10 degrees"), *GetName());
+        //UE_LOG(LogTemp, Display, TEXT("AI %s: Already facing the shelf within 10 degrees"), *GetName());
         TryPickUpProduct();
         return;
     }
@@ -729,7 +729,7 @@ void AAICustomerPawn::TryPickUpProduct()
 {
     if (!CurrentShelf || CurrentShelf->GetProductCount() == 0)
     {
-        UE_LOG(LogTemp, Warning, TEXT("No current shelf or shelf is empty"));
+        //UE_LOG(LogTemp, Warning, TEXT("No current shelf or shelf is empty"));
         CurrentShelf = nullptr;
         ResetAccessPointAttempts();
         ChooseProduct();
@@ -760,12 +760,12 @@ void AAICustomerPawn::TryPickUpProduct()
         AccessPointAttempts++;
         if (AccessPointAttempts >= MaxAccessPointAttempts)
         {
-            UE_LOG(LogTemp, Warning, TEXT("Max attempts to reach access point reached. Forcing move in random direction."));
+            //UE_LOG(LogTemp, Warning, TEXT("Max attempts to reach access point reached. Forcing move in random direction."));
             ForceMoveInRandomDirection();
             return;
         }
 
-        UE_LOG(LogTemp, Warning, TEXT("AI is not close enough to an access point. Attempting to navigate. Attempt %d of %d"), AccessPointAttempts, MaxAccessPointAttempts);
+        //UE_LOG(LogTemp, Warning, TEXT("AI is not close enough to an access point. Attempting to navigate. Attempt %d of %d"), AccessPointAttempts, MaxAccessPointAttempts);
         FVector NearestAccessPoint = FindMostAccessiblePoint(AccessPoints);
 
         // Use AIController to move to the access point
@@ -776,7 +776,7 @@ void AAICustomerPawn::TryPickUpProduct()
         }
         else
         {
-            UE_LOG(LogTemp, Error, TEXT("AIController is null. Cannot navigate to access point."));
+            //UE_LOG(LogTemp, Error, TEXT("AIController is null. Cannot navigate to access point."));
             ResetAccessPointAttempts();
             ChooseProduct();
         }
@@ -850,7 +850,7 @@ FVector AAICustomerPawn::GetRandomLocationInStore()
 
 void AAICustomerPawn::LeaveStore()
 {
-    UE_LOG(LogTemp, Display, TEXT("leave store called"));
+    //UE_LOG(LogTemp, Display, TEXT("leave store called"));
 
     if (AIController)
     {
@@ -886,7 +886,7 @@ void AAICustomerPawn::CheckReachedAccessPoint()
     AAIController* AIControllerInstance = Cast<AAIController>(ControllerInstance);
     if (!AIControllerInstance)
     {
-        UE_LOG(LogTemp, Error, TEXT("AIController is null in CheckReachedAccessPoint"));
+        //UE_LOG(LogTemp, Error, TEXT("AIController is null in CheckReachedAccessPoint"));
         GetWorldTimerManager().ClearTimer(RetryPickUpTimerHandle);
         ResetAccessPointAttempts();
         ChooseProduct();
@@ -957,13 +957,13 @@ void AAICustomerPawn::ForceMoveInRandomDirection()
 
     if (bSuccess)
     {
-        UE_LOG(LogTemp, Display, TEXT("AI successfully force moved to new location"));
+        //UE_LOG(LogTemp, Display, TEXT("AI successfully force moved to new location"));
         ResetAccessPointAttempts();
         ChooseProduct(); // After force moving, try to choose a new product
     }
     else
     {
-        UE_LOG(LogTemp, Warning, TEXT("AI failed to force move. Attempting to choose new product anyway."));
+        //UE_LOG(LogTemp, Warning, TEXT("AI failed to force move. Attempting to choose new product anyway."));
         ResetAccessPointAttempts();
         ChooseProduct();
     }

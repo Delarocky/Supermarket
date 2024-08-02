@@ -50,7 +50,7 @@ void ABigShelf::CreateShelves()
 
     if (!ShelfClass)
     {
-        UE_LOG(LogTemp, Error, TEXT("ShelfClass is not set in ABigShelf"));
+        //UE_LOG(LogTemp, Error, TEXT("ShelfClass is not set in ABigShelf"));
         return;
     }
 

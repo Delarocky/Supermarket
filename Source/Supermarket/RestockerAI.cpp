@@ -113,7 +113,7 @@ void ARestockerAI::FindShelfToRestock()
                 if (ReserveShelf(Shelf))
                 {
                     TargetShelf = Shelf;
-                    //UE_LOG(LogTemp, Display, TEXT("RestockerAI: Found shelf to restock: %s in BigShelf: %s"),*Shelf->GetName(), *BigShelf->GetName());
+                    ////UE_LOG(LogTemp, Display, TEXT("RestockerAI: Found shelf to restock: %s in BigShelf: %s"),*Shelf->GetName(), *BigShelf->GetName());
                     FindProductBox();
                     return;
                 }
@@ -121,7 +121,7 @@ void ARestockerAI::FindShelfToRestock()
         }
     }
 
-    //UE_LOG(LogTemp, Display, TEXT("RestockerAI: No shelf needs restocking, staying idle"));
+    ////UE_LOG(LogTemp, Display, TEXT("RestockerAI: No shelf needs restocking, staying idle"));
     SetState(ERestockerState::Idle);
 }
 
@@ -457,7 +457,7 @@ void ARestockerAI::CheckRestockProgress()
 
             if (RemainingProducts == 0)
             {
-                UE_LOG(LogTemp, Display, TEXT("RestockerAI: Product box is empty, deleting it"));
+                //UE_LOG(LogTemp, Display, TEXT("RestockerAI: Product box is empty, deleting it"));
                 // Delete the empty ProductBox
                 TargetProductBox->Destroy();
                 bIsHoldingProductBox = false;
@@ -471,7 +471,7 @@ void ARestockerAI::CheckRestockProgress()
             {
                 if (IsShelfSufficientlyStocked(TargetShelf))
                 {
-                    UE_LOG(LogTemp, Display, TEXT("RestockerAI: Shelf fully stocked, checking for other shelves needing the same product"));
+                    //UE_LOG(LogTemp, Display, TEXT("RestockerAI: Shelf fully stocked, checking for other shelves needing the same product"));
                     CurrentProductClass = TargetProductBox->GetProductClass();
                     ReleaseShelf(TargetShelf);
                     TargetShelf = nullptr;
@@ -479,7 +479,7 @@ void ARestockerAI::CheckRestockProgress()
                 }
                 else
                 {
-                    UE_LOG(LogTemp, Display, TEXT("RestockerAI: Box empty but shelf not fully stocked, looking for more boxes"));
+                    //UE_LOG(LogTemp, Display, TEXT("RestockerAI: Box empty but shelf not fully stocked, looking for more boxes"));
                     DropCurrentBox();
                     ReleaseShelf(TargetShelf);
                     TargetShelf = nullptr;
@@ -492,7 +492,7 @@ void ARestockerAI::CheckRestockProgress()
     else
     {
         GetWorld()->GetTimerManager().ClearTimer(RestockTimerHandle);
-        UE_LOG(LogTemp, Warning, TEXT("RestockerAI: Lost target shelf or product box during restocking"));
+        //UE_LOG(LogTemp, Warning, TEXT("RestockerAI: Lost target shelf or product box during restocking"));
         AbortCurrentTask();
     }
 }
@@ -524,7 +524,7 @@ void ARestockerAI::DropCurrentBox()
 {
     if (bIsHoldingProductBox && TargetProductBox)
     {
-        UE_LOG(LogTemp, Display, TEXT("RestockerAI: Preparing to drop current box"));
+        //UE_LOG(LogTemp, Display, TEXT("RestockerAI: Preparing to drop current box"));
 
         // Clear all reservations for this product box
         {
@@ -540,7 +540,7 @@ void ARestockerAI::DropCurrentBox()
         // Release the product box
         ReleaseProductBox(TargetProductBox);
 
-        UE_LOG(LogTemp, Display, TEXT("RestockerAI: All reservations cleared, now dropping box physically"));
+        //UE_LOG(LogTemp, Display, TEXT("RestockerAI: All reservations cleared, now dropping box physically"));
 
         // Now physically drop the box
         TargetProductBox->DetachFromActor(FDetachmentTransformRules::KeepWorldTransform);
@@ -554,7 +554,7 @@ void ARestockerAI::DropCurrentBox()
         bIsHoldingProductBox = false;
         TargetProductBox = nullptr;
 
-        UE_LOG(LogTemp, Display, TEXT("RestockerAI: Box fully dropped and available for others"));
+        //UE_LOG(LogTemp, Display, TEXT("RestockerAI: Box fully dropped and available for others"));
     }
 }
 
@@ -572,7 +572,7 @@ void ARestockerAI::FindNextShelfForCurrentProduct()
             {
                 ReleaseShelf(TargetShelf);
                 TargetShelf = Shelf;
-                UE_LOG(LogTemp, Display, TEXT("RestockerAI: Found another shelf for current product: %s"), *Shelf->GetName());
+                //UE_LOG(LogTemp, Display, TEXT("RestockerAI: Found another shelf for current product: %s"), *Shelf->GetName());
                 SetState(ERestockerState::MovingToShelf);
                 MoveToTarget(TargetShelf);
                 return;
@@ -581,7 +581,7 @@ void ARestockerAI::FindNextShelfForCurrentProduct()
     }
 
     // If no shelf needs the current product, drop the box and start over
-    UE_LOG(LogTemp, Display, TEXT("RestockerAI: No more shelves need current product, dropping box and starting over"));
+    //UE_LOG(LogTemp, Display, TEXT("RestockerAI: No more shelves need current product, dropping box and starting over"));
     DropCurrentBox();
     SetState(ERestockerState::Idle);
     ReleaseAllReservations();

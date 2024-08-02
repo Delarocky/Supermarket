@@ -32,7 +32,7 @@ bool USceneBoxComponent::CheckOverlap() const
     {
         if (OverlappingActor != GetOwner() && OverlappingActor->FindComponentByClass<USceneBoxComponent>())
         {
-            UE_LOG(LogTemp, Warning, TEXT("Overlap detected with: %s"), *OverlappingActor->GetName());
+            //UE_LOG(LogTemp, Warning, TEXT("Overlap detected with: %s"), *OverlappingActor->GetName());
             return true;
         }
     }

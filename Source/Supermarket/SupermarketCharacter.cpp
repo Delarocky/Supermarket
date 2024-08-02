@@ -201,7 +201,7 @@ void ASupermarketCharacter::BeginPlay()
             HighlightVolume->bUnbound = true;
             HighlightVolume->Settings.bOverride_DynamicGlobalIlluminationMethod = true;
             HighlightVolume->Settings.DynamicGlobalIlluminationMethod = EDynamicGlobalIlluminationMethod::Lumen;
-           UE_LOG(LogTemp, Log, TEXT("HighlightVolume created successfully"));
+           //UE_LOG(LogTemp, Log, TEXT("HighlightVolume created successfully"));
         }
         else
         {
@@ -210,11 +210,11 @@ void ASupermarketCharacter::BeginPlay()
     }
     else if (HighlightVolume)
     {
-        UE_LOG(LogTemp, Warning, TEXT("HighlightVolume already exists"));
+        //UE_LOG(LogTemp, Warning, TEXT("HighlightVolume already exists"));
     }
     else
     {
-        UE_LOG(LogTemp, Error, TEXT("Invalid World context"));
+        //UE_LOG(LogTemp, Error, TEXT("Invalid World context"));
     }
 
     
@@ -1064,7 +1064,7 @@ void ASupermarketCharacter::ToggleObjectMovement()
         if (SelectedObject)
         {
             bIsMovingObject = true;
-            UE_LOG(LogTemp, Display, TEXT("Selected object: %s"), *SelectedObject->GetName());
+            //UE_LOG(LogTemp, Display, TEXT("Selected object: %s"), *SelectedObject->GetName());
             InitialObjectPosition = SelectedObject->GetActorLocation();
             OriginalObjectRotation = SelectedObject->GetActorRotation();
 
@@ -1081,7 +1081,7 @@ void ASupermarketCharacter::ToggleObjectMovement()
         if (bIsValidPlacement)
         {
             // If the placement is valid, stop moving the object
-            UE_LOG(LogTemp, Display, TEXT("Placed object: %s"), *SelectedObject->GetName());
+            //UE_LOG(LogTemp, Display, TEXT("Placed object: %s"), *SelectedObject->GetName());
             RestoreOriginalMaterials();
             bIsMovingObject = false;
             SelectedObject = nullptr;
@@ -1089,7 +1089,7 @@ void ASupermarketCharacter::ToggleObjectMovement()
         else
         {
             // If the placement is invalid, keep moving the object
-            UE_LOG(LogTemp, Warning, TEXT("Invalid placement. Object remains selected and moving."));
+            //UE_LOG(LogTemp, Warning, TEXT("Invalid placement. Object remains selected and moving."));
         }
     }
 }
@@ -1209,17 +1209,17 @@ FVector ASupermarketCharacter::GetMouseWorldPosition()
                     // Draw debug sphere at the hit location
                     DrawDebugSphere(GetWorld(), HitResult.Location, MouseTraceRadius, 12, FColor::Blue, false, 0.5f, 0, 2.0f);
 
-                    UE_LOG(LogTemp, Log, TEXT("Mouse World Position: %s"), *HitResult.Location.ToString());
+                    //UE_LOG(LogTemp, Log, TEXT("Mouse World Position: %s"), *HitResult.Location.ToString());
                     return HitResult.Location;
                 }
                 else
                 {
-                    UE_LOG(LogTemp, Warning, TEXT("No hit detected. Start: %s, End: %s"), *Start.ToString(), *End.ToString());
+                    //UE_LOG(LogTemp, Warning, TEXT("No hit detected. Start: %s, End: %s"), *Start.ToString(), *End.ToString());
                 }
             }
         }
     }
-    UE_LOG(LogTemp, Error, TEXT("Failed to get mouse world position"));
+    //UE_LOG(LogTemp, Error, TEXT("Failed to get mouse world position"));
     return FVector::ZeroVector;
 }
 
@@ -1344,7 +1344,7 @@ void ASupermarketCharacter::StopObjectMovement()
     if (bIsValidPlacement)
     {
         // Finalize the object's position only if it's a valid placement
-        UE_LOG(LogTemp, Display, TEXT("Valid placement. Object placed at: %s"), *SelectedObject->GetActorLocation().ToString());
+        //UE_LOG(LogTemp, Display, TEXT("Valid placement. Object placed at: %s"), *SelectedObject->GetActorLocation().ToString());
 
         // Apply the original material back to the object
         UpdateHighlight(SelectedObject, nullptr);
@@ -1355,7 +1355,7 @@ void ASupermarketCharacter::StopObjectMovement()
     else
     {
         // If placement is invalid, keep the object attached to the mouse
-        UE_LOG(LogTemp, Warning, TEXT("Invalid placement. Object remains attached to mouse."));
+        //UE_LOG(LogTemp, Warning, TEXT("Invalid placement. Object remains attached to mouse."));
         // Do not reset bIsMovingObject or SelectedObject here
         // The object will continue to move with the mouse in the next frame
     }
@@ -1402,8 +1402,7 @@ void ASupermarketCharacter::StartObjectMovement()
         OriginalMaterial = MeshComponent->GetMaterial(0);
     }
 
-    UE_LOG(LogTemp, Display, TEXT("Started moving object: %s from position: %s"),
-        *SelectedObject->GetName(), *InitialObjectPosition.ToString());
+    //UE_LOG(LogTemp, Display, TEXT("Started moving object: %s from position: %s"),*SelectedObject->GetName(), *InitialObjectPosition.ToString());
 }
 
 bool ASupermarketCharacter::CanObjectBeMoved(AActor* Actor)
@@ -1499,7 +1498,7 @@ void ASupermarketCharacter::ResetObjectToOriginalPosition()
     {
         SelectedObject->SetActorLocation(OriginalObjectPosition);
         SelectedObject->SetActorRotation(OriginalObjectRotation);
-        UE_LOG(LogTemp, Display, TEXT("Object reset to original position: %s"), *OriginalObjectPosition.ToString());
+        //UE_LOG(LogTemp, Display, TEXT("Object reset to original position: %s"), *OriginalObjectPosition.ToString());
 
         // Ensure we update the object's appearance
         ApplyMaterialToActor(SelectedObject, OriginalMaterial);
@@ -1508,11 +1507,11 @@ void ASupermarketCharacter::ResetObjectToOriginalPosition()
 
 void ASupermarketCharacter::UpdateObjectPlacement()
 {
-    UE_LOG(LogBuildMode, Display, TEXT("UpdateObjectPlacement called"));
+    //UE_LOG(LogBuildMode, Display, TEXT("UpdateObjectPlacement called"));
 
     if (!SelectedObject)
     {
-        UE_LOG(LogBuildMode, Warning, TEXT("UpdateObjectPlacement: SelectedObject is null"));
+        //UE_LOG(LogBuildMode, Warning, TEXT("UpdateObjectPlacement: SelectedObject is null"));
         return;
     }
 
@@ -1523,16 +1522,12 @@ void ASupermarketCharacter::UpdateObjectPlacement()
         bool bInBuildingArea = IsActorInBuildingArea(SelectedObject);
         bIsValidPlacement = !bOverlapping && bInBuildingArea;
 
-        UE_LOG(LogBuildMode, Display, TEXT("UpdateObjectPlacement - Object: %s, Overlap: %s, In Building Area: %s, Valid Placement: %s"),
-            *SelectedObject->GetName(),
-            bOverlapping ? TEXT("True") : TEXT("False"),
-            bInBuildingArea ? TEXT("True") : TEXT("False"),
-            bIsValidPlacement ? TEXT("True") : TEXT("False"));
+        //UE_LOG(LogBuildMode, Display, TEXT("UpdateObjectPlacement - Object: %s, Overlap: %s, In Building Area: %s, Valid Placement: %s"),*SelectedObject->GetName(),bOverlapping ? TEXT("True") : TEXT("False"),bInBuildingArea ? TEXT("True") : TEXT("False"),bIsValidPlacement ? TEXT("True") : TEXT("False"));
     }
     else
     {
         bIsValidPlacement = IsActorInBuildingArea(SelectedObject);
-        UE_LOG(LogBuildMode, Warning, TEXT("SceneBox not found on selected object: %s"), *SelectedObject->GetName());
+        //UE_LOG(LogBuildMode, Warning, TEXT("SceneBox not found on selected object: %s"), *SelectedObject->GetName());
     }
 
     UMaterialInterface* MaterialToApply = bIsValidPlacement ? ValidPlacementHighlightMaterial : InvalidPlacementHighlightMaterial;
@@ -1543,45 +1538,41 @@ void ASupermarketCharacter::UpdateObjectPlacement()
     }
     else
     {
-        UE_LOG(LogBuildMode, Error, TEXT("UpdateObjectPlacement: %s placement material is null"),
-            bIsValidPlacement ? TEXT("Valid") : TEXT("Invalid"));
+        //UE_LOG(LogBuildMode, Error, TEXT("UpdateObjectPlacement: %s placement material is null"),bIsValidPlacement ? TEXT("Valid") : TEXT("Invalid"));
     }
 }
 
 void ASupermarketCharacter::ApplyMaterialToActor(AActor* Actor, UMaterialInterface* Material)
 {
-    UE_LOG(LogBuildMode, Display, TEXT("ApplyMaterialToActor called for Actor: %s, Material: %s"),
-        Actor ? *Actor->GetName() : TEXT("None"),
-        Material ? *Material->GetName() : TEXT("None"));
+    //UE_LOG(LogBuildMode, Display, TEXT("ApplyMaterialToActor called for Actor: %s, Material: %s"),Actor ? *Actor->GetName() : TEXT("None"),Material ? *Material->GetName() : TEXT("None"));
 
     if (!Actor || !Material)
     {
-        UE_LOG(LogBuildMode, Error, TEXT("ApplyMaterialToActor: Actor or Material is null"));
+        //UE_LOG(LogBuildMode, Error, TEXT("ApplyMaterialToActor: Actor or Material is null"));
         return;
     }
 
     TArray<UStaticMeshComponent*> MeshComponents;
     Actor->GetComponents<UStaticMeshComponent>(MeshComponents);
 
-    UE_LOG(LogBuildMode, Display, TEXT("Found %d StaticMeshComponents in Actor %s"), MeshComponents.Num(), *Actor->GetName());
+    //UE_LOG(LogBuildMode, Display, TEXT("Found %d StaticMeshComponents in Actor %s"), MeshComponents.Num(), *Actor->GetName());
 
     for (UStaticMeshComponent* MeshComponent : MeshComponents)
     {
         if (MeshComponent)
         {
             int32 MaterialCount = MeshComponent->GetNumMaterials();
-            UE_LOG(LogBuildMode, Display, TEXT("Applying material to MeshComponent: %s (Material slots: %d)"),
-                *MeshComponent->GetName(), MaterialCount);
+            //UE_LOG(LogBuildMode, Display, TEXT("Applying material to MeshComponent: %s (Material slots: %d)"),*MeshComponent->GetName(), MaterialCount);
 
             for (int32 i = 0; i < MaterialCount; ++i)
             {
                 MeshComponent->SetMaterial(i, Material);
-                UE_LOG(LogBuildMode, Verbose, TEXT("Set material for slot %d"), i);
+                //UE_LOG(LogBuildMode, Verbose, TEXT("Set material for slot %d"), i);
             }
         }
         else
         {
-            UE_LOG(LogBuildMode, Warning, TEXT("Null MeshComponent found in Actor %s"), *Actor->GetName());
+            //UE_LOG(LogBuildMode, Warning, TEXT("Null MeshComponent found in Actor %s"), *Actor->GetName());
         }
     }
 
@@ -1590,12 +1581,11 @@ void ASupermarketCharacter::ApplyMaterialToActor(AActor* Actor, UMaterialInterfa
     Actor->GetAttachedActors(ChildActors);
     for (AActor* ChildActor : ChildActors)
     {
-        UE_LOG(LogBuildMode, Display, TEXT("Applying material to child actor: %s"), *ChildActor->GetName());
+        //UE_LOG(LogBuildMode, Display, TEXT("Applying material to child actor: %s"), *ChildActor->GetName());
         ApplyMaterialToActor(ChildActor, Material);
     }
 
-    UE_LOG(LogBuildMode, Display, TEXT("Finished applying %s material to actor: %s"),
-        Material == ValidPlacementMaterial ? TEXT("valid") : TEXT("invalid"), *Actor->GetName());
+    //UE_LOG(LogBuildMode, Display, TEXT("Finished applying %s material to actor: %s"),Material == ValidPlacementMaterial ? TEXT("valid") : TEXT("invalid"), *Actor->GetName());
 }
 
 void ASupermarketCharacter::RotateSelectedObject(float Angle)
@@ -1622,8 +1612,7 @@ void ASupermarketCharacter::RotateSelectedObject(float Angle)
         // Update placement validity and material
         UpdateObjectPlacement();
 
-        UE_LOG(LogTemp, Display, TEXT("Rotated object %s by %f degrees around center %s"),
-            *SelectedObject->GetName(), Angle, *ObjectCenter.ToString());
+        //UE_LOG(LogTemp, Display, TEXT("Rotated object %s by %f degrees around center %s"),*SelectedObject->GetName(), Angle, *ObjectCenter.ToString());
     }
 }
 
@@ -1690,21 +1679,19 @@ void ASupermarketCharacter::InitializeDefaultMaterials()
 {
     if (!ValidPlacementMaterial && DefaultValidPlacementMaterial)
     {
-        UE_LOG(LogBuildMode, Warning, TEXT("ValidPlacementMaterial not set, using default"));
+        //UE_LOG(LogBuildMode, Warning, TEXT("ValidPlacementMaterial not set, using default"));
         ValidPlacementMaterial = DefaultValidPlacementMaterial;
     }
 
     if (!InvalidPlacementMaterial && DefaultInvalidPlacementMaterial)
     {
-        UE_LOG(LogBuildMode, Warning, TEXT("InvalidPlacementMaterial not set, using default"));
+        //UE_LOG(LogBuildMode, Warning, TEXT("InvalidPlacementMaterial not set, using default"));
         InvalidPlacementMaterial = DefaultInvalidPlacementMaterial;
     }
 
     if (!ValidPlacementMaterial || !InvalidPlacementMaterial)
     {
-        UE_LOG(LogBuildMode, Error, TEXT("Failed to initialize placement materials. Valid: %s, Invalid: %s"),
-            ValidPlacementMaterial ? TEXT("Set") : TEXT("Not Set"),
-            InvalidPlacementMaterial ? TEXT("Set") : TEXT("Not Set"));
+        //UE_LOG(LogBuildMode, Error, TEXT("Failed to initialize placement materials. Valid: %s, Invalid: %s"),ValidPlacementMaterial ? TEXT("Set") : TEXT("Not Set"),InvalidPlacementMaterial ? TEXT("Set") : TEXT("Not Set"));
     }
 }
 
