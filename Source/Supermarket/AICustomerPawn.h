@@ -3,7 +3,6 @@
 #include "CoreMinimal.h"
 #include "GameFramework/Character.h"
 #include "Navigation/PathFollowingComponent.h"
-#include "ParkingSpace.h"
 #include "AICustomerPawn.generated.h"
 
 class UShoppingBag;
