@@ -911,11 +911,6 @@ void AAICustomerPawn::CheckReachedAccessPoint()
     // If still moving, continue waiting
 }
 
-
-
-
-
-
 void AAICustomerPawn::ForceMoveInRandomDirection()
 {
     FVector RandomDirection = FMath::VRand();
@@ -939,5 +934,4 @@ void AAICustomerPawn::ForceMoveInRandomDirection()
         ResetAccessPointAttempts();
         ChooseProduct();
     }
-}
 }

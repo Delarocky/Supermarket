@@ -15,7 +15,6 @@
 #include "BuildModeCameraActor.h"
 #include "StoreManager.h"
 #include "StoreStatusWidget.h"
-#include "ParkingSpace.h"
 #include "SupermarketCharacter.generated.h"
 
 #define ECC_ShelfTrace ECollisionChannel::ECC_GameTraceChannel1
@@ -339,8 +338,6 @@ public:
     UFUNCTION(BlueprintCallable, Category = "UI")
     void CreateAndShowStoreStatusWidget();
     FCriticalSection StoreStatusLock;
-    void SetInitialSpawnLocation(const FVector& Location) { InitialSpawnLocation = Location; }
-    void SetAssignedParkingSpace(AParkingSpace* ParkingSpace) { AssignedParkingSpace = ParkingSpace; }
     UFUNCTION(BlueprintCallable, Category = "Interaction")
     bool IsHoldingProductBox(AProductBox* Box) const;
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Build Mode")
@@ -438,7 +435,6 @@ private:
     UPROPERTY()
     AStoreManager* StoreManager;
     FVector InitialSpawnLocation;
-    AParkingSpace* AssignedParkingSpace;
     UPROPERTY()
     UStoreStatusWidget* StoreStatusWidget;
 

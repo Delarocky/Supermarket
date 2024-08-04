@@ -10,6 +10,7 @@
 #include "RestockerAI.generated.h"
 
 class AAIController;
+class ARestockerManager;
 
 UCLASS()
 class SUPERMARKET_API ARestockerAI : public ACharacter
@@ -23,12 +24,10 @@ public:
     virtual void Tick(float DeltaTime) override;
 
     UFUNCTION(BlueprintCallable, Category = "Restocking")
-    void StartRestocking();
-    UFUNCTION()
-    void TurnToFaceTarget();
+    void AssignTask(AShelf* Shelf, AProductBox* ProductBox);
 
-    UFUNCTION()
-    void OnRotationComplete();
+    UFUNCTION(BlueprintCallable, Category = "Restocking")
+    bool IsAvailable() const { return CurrentState == ERestockerState::Idle; }
 
 protected:
     UPROPERTY()
@@ -42,12 +41,6 @@ protected:
 
     UPROPERTY()
     bool bIsHoldingProductBox;
-
-    UFUNCTION()
-    void FindShelfToRestock();
-
-    UFUNCTION()
-    void FindProductBox();
 
     UFUNCTION()
     void MoveToTarget(AActor* Target);
@@ -74,8 +67,7 @@ private:
 
     void SetState(ERestockerState NewState);
     FString GetStateName(ERestockerState State);
-    UPROPERTY()
-    USceneComponent* AttachmentPoint;
+
     FVector CurrentAccessPoint;
     FRotator TargetRotation;
     bool bIsRotating;
@@ -84,63 +76,26 @@ private:
     FVector FindNearestAccessPoint(AShelf* Shelf);
     FTimerHandle RestockTimerHandle;
     FTimerHandle RotationTimerHandle;
-    bool IsBoxHeldByPlayer(AProductBox* Box);
     int32 RemainingProducts;
     TSubclassOf<AProduct> CurrentProductClass;
 
-   
     void CheckRestockProgress();
     float RotationSpeed;
     float CurrentRotationAlpha;
     void UpdateRotation(float DeltaTime);
     void DropCurrentBox();
+
     UFUNCTION()
-    void FindNextShelfForCurrentProduct();
+    void TurnToFaceTarget();
+
     UFUNCTION()
-    bool IsShelfSufficientlyStocked(AShelf* Shelf);
-    FTimerHandle RetryTimerHandle;
-    UPROPERTY()
-    TArray<AShelf*> CheckedShelves;
-    void RetryMove();
-
-    static TMap<AShelf*, ARestockerAI*> ReservedShelves;
-    static TMap<AProductBox*, ARestockerAI*> ReservedProductBoxes;
-    static FCriticalSection ReservationLock;
-
-    bool ReserveShelf(AShelf* Shelf);
-    void ReleaseShelf(AShelf* Shelf);
-    bool ReserveProductBox(AProductBox* ProductBox);
-    void ReleaseProductBox(AProductBox* ProductBox);
-    bool IsShelfReserved(AShelf* Shelf) const;
-    bool IsProductBoxReserved(AProductBox* ProductBox) const;
-
-    void ReleaseAllReservations();
-    UFUNCTION(BlueprintCallable, Category = "Restocking")
-    AProductBox* GetTargetProductBox() const { return TargetProductBox; }
-    virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
-
-  
-    static TMap<AProductBox*, ARestockerAI*> TargetedProductBoxes;
-    static FCriticalSection TargetedProductBoxesLock;
-
-    static TMap<AProductBox*, ARestockerAI*> LockedProductBoxes;
-    static FCriticalSection LockedProductBoxesLock;
-
-    bool LockProductBox(AProductBox* ProductBox);
-    void UnlockProductBox();
-    bool IsProductBoxLocked(AProductBox* ProductBox) const;
+    void OnRotationComplete();
 
     void AbortCurrentTask();
 
-    FTimerHandle ShelfCheckTimerHandle;
+    UPROPERTY()
+    ARestockerManager* Manager;
 
-    UFUNCTION()
-    void PeriodicShelfCheck();
-   FTimerHandle ClearReservationsTimerHandle;
-   UFUNCTION()
-   void ClearUnattachedProductBoxReservations();
-    void StartPeriodicShelfCheck();
-    void StopPeriodicShelfCheck();
-    FTimerHandle StartRestockingTimerHandle;
-    void ReleaseProductBox();
+    void NotifyTaskComplete();
+    AShelf* FindNextShelfToRestock();
 };
