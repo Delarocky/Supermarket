@@ -10,6 +10,7 @@ ARestockerAI::ARestockerAI()
     bIsHoldingProductBox = false;
     RotationSpeed = 10.0f;
     CurrentRotationAlpha = 0.0f;
+    bIsAbortingTask = false;
 }
 
 void ARestockerAI::BeginPlay()
@@ -282,9 +283,16 @@ void ARestockerAI::DropCurrentBox()
 
 void ARestockerAI::AbortCurrentTask()
 {
+    if (bIsAbortingTask)
+    {
+        return; // Prevent recursive calls
+    }
+
+    bIsAbortingTask = true;
+
     if (bIsHoldingProductBox && TargetProductBox)
     {
-        if (TargetProductBox->GetProductCountt() == 0)
+        if (TargetProductBox->GetProductCount() == 0)
         {
             TargetProductBox->Destroy();
         }
@@ -302,7 +310,14 @@ void ARestockerAI::AbortCurrentTask()
     TargetShelf = nullptr;
     TargetProductBox = nullptr;
     SetState(ERestockerState::Idle);
-    NotifyTaskComplete();
+
+    // Instead of calling NotifyTaskComplete, set a flag for the manager
+    if (Manager)
+    {
+        Manager->MarkRestockerAsAvailable(this);
+    }
+
+    bIsAbortingTask = false;
 }
 
 void ARestockerAI::NotifyTaskComplete()

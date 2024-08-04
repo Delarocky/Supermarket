@@ -44,7 +44,7 @@ void ARestockerManager::AssignTaskToRestocker(ARestockerAI* Restocker)
     }
 
     AShelf* ShelfToRestock = FindShelfToRestock();
-    if (ShelfToRestock)
+    if (ShelfToRestock && IsShelfNeedingRestock(ShelfToRestock))
     {
         AProductBox* MatchingProductBox = FindMatchingProductBox(ShelfToRestock->GetCurrentProductClass());
         if (MatchingProductBox)
@@ -66,7 +66,7 @@ void ARestockerManager::UpdateShelvesNeedingRestock()
     for (AActor* Actor : FoundShelves)
     {
         AShelf* Shelf = Cast<AShelf>(Actor);
-        if (Shelf && !IsShelfSufficientlyStocked(Shelf))
+        if (Shelf && IsShelfNeedingRestock(Shelf))
         {
             ShelvesNeedingRestock.Add(Shelf);
         }
@@ -92,7 +92,7 @@ AShelf* ARestockerManager::FindShelfToRestock()
 {
     for (AShelf* Shelf : ShelvesNeedingRestock)
     {
-        if (!ReservedShelves.Contains(Shelf))
+        if (!ReservedShelves.Contains(Shelf) && IsShelfNeedingRestock(Shelf))
         {
             return Shelf;
         }
@@ -203,10 +203,12 @@ void ARestockerManager::OnRestockerTaskComplete(ARestockerAI* Restocker)
             }
         }
 
-        // Assign a new task to the restocker immediately
-        AssignTaskToRestocker(Restocker);
+        // Instead of immediately assigning a new task, schedule it for the next frame
+        FTimerHandle UnusedHandle;
+        GetWorld()->GetTimerManager().SetTimerForNextTick(this, &ARestockerManager::AssignTasksToAvailableRestockers);
     }
 }
+
 
 void ARestockerManager::ScheduledUpdate()
 {
@@ -220,9 +222,13 @@ void ARestockerManager::ScheduledUpdate()
 
 void ARestockerManager::AssignTasks()
 {
-    for (ARestockerAI* Restocker : AvailableRestockers)
+    TArray<ARestockerAI*> RestockersToAssign = AvailableRestockers;
+    for (ARestockerAI* Restocker : RestockersToAssign)
     {
-        AssignTaskToRestocker(Restocker);
+        if (AvailableRestockers.Contains(Restocker))
+        {
+            AssignTaskToRestocker(Restocker);
+        }
     }
 }
 
@@ -242,4 +248,38 @@ AShelf* ARestockerManager::FindShelfNeedingProduct(TSubclassOf<AProduct> Product
         }
     }
     return nullptr;
+}
+
+bool ARestockerManager::IsShelfNeedingRestock(AShelf* Shelf) const
+{
+    if (!Shelf)
+    {
+        return false;
+    }
+
+    int32 CurrentStock = Shelf->GetProductCount();
+    int32 MaxStock = Shelf->GetMaxStock();
+
+    // Consider the shelf as needing restock if it's less than 90% full
+    return (static_cast<float>(CurrentStock) / MaxStock) < 0.9f;
+}
+
+void ARestockerManager::MarkRestockerAsAvailable(ARestockerAI* Restocker)
+{
+    if (Restocker)
+    {
+        AvailableRestockers.AddUnique(Restocker);
+    }
+}
+
+void ARestockerManager::AssignTasksToAvailableRestockers()
+{
+    TArray<ARestockerAI*> RestockersToAssign = AvailableRestockers;
+    for (ARestockerAI* Restocker : RestockersToAssign)
+    {
+        if (AvailableRestockers.Contains(Restocker))
+        {
+            AssignTaskToRestocker(Restocker);
+        }
+    }
 }

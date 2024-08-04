@@ -27,6 +27,7 @@ public:
     void ReleaseShelf(AShelf* Shelf);
     UFUNCTION()
     void OnRestockerTaskComplete(ARestockerAI* Restocker);
+    void MarkRestockerAsAvailable(ARestockerAI* Restocker);
 private:
     UPROPERTY()
     TArray<ARestockerAI*> AvailableRestockers;
@@ -61,6 +62,7 @@ private:
 
     UPROPERTY()
     TMap<AShelf*, ARestockerAI*> ShelvesBeingRestocked;
-
+    bool IsShelfNeedingRestock(AShelf* Shelf) const;
     FCriticalSection ShelfAssignmentLock;
+    void AssignTasksToAvailableRestockers();
 };

@@ -98,4 +98,5 @@ private:
 
     void NotifyTaskComplete();
     AShelf* FindNextShelfToRestock();
+    bool bIsAbortingTask;
 };
