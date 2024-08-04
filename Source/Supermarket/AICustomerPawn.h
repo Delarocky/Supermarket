@@ -65,11 +65,6 @@ public:
     UShoppingBag* ShoppingBag;
     FTimerHandle CheckReachedShelfTimerHandle;
     FTimerHandle RetryTimerHandle;
-    void SetInitialSpawnLocation(const FVector& Location) { InitialSpawnLocation = Location; }
-    void SetAssignedParkingSpace(AParkingSpace* ParkingSpace) { AssignedParkingSpace = ParkingSpace; }
-    void CheckReachedParkingSpace();
-    void NotifyParkingSpaceAndDestroy();
-  
 protected:
 
     UPROPERTY()
@@ -120,7 +115,6 @@ private:
     void DestroyAI();
     UFUNCTION(BlueprintCallable)
     void LeaveStore();
-    FTimerHandle LeaveStoreTimerHandle;
     FVector CurrentTargetLocation;
     FTimerHandle PutInBagTimerHandle;
     FTimerHandle ShoppingTimerHandle;
@@ -138,10 +132,11 @@ private:
     static const int32 MaxFailedNavigationAttempts = 3;
     void ResetFailedNavigationAttempts() { FailedNavigationAttempts = 0; }
     FVector InitialSpawnLocation;
-    AParkingSpace* AssignedParkingSpace;
     int32 AccessPointAttempts;
     static const int32 MaxAccessPointAttempts = 5;
     void ResetAccessPointAttempts() { AccessPointAttempts = 0; }
     FTimerHandle PickUpTimeoutHandle;
     void ForceMoveInRandomDirection();
+    void CheckReachedVehicle();
+    FTimerHandle CheckReachedVehicleTimerHandle;
 };

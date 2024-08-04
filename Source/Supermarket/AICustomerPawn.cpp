@@ -572,7 +572,6 @@ void AAICustomerPawn::LeaveCheckout()
     ShoppingBag->EmptyBag();
     //UE_LOG(LogTemp, Display, TEXT("calling leave store"));
     // Leave the store
-    LeaveStore();
 }
 
 
@@ -850,20 +849,7 @@ FVector AAICustomerPawn::GetRandomLocationInStore()
 
 void AAICustomerPawn::LeaveStore()
 {
-    //UE_LOG(LogTemp, Display, TEXT("leave store called"));
 
-    if (AIController)
-    {
-        UAIBlueprintHelperLibrary::SimpleMoveToLocation(AIController, InitialSpawnLocation);
-
-        // Set a timer to check if the AI has reached the parking space
-        GetWorldTimerManager().SetTimer(LeaveStoreTimerHandle, this, &AAICustomerPawn::CheckReachedParkingSpace, 0.5f, true);
-    }
-    else
-    {
-        //UE_LOGLogTemp, Error, TEXT("AIController is null in LeaveStore!"));
-        NotifyParkingSpaceAndDestroy();
-    }
 }
 
 void AAICustomerPawn::DestroyAI()
@@ -926,23 +912,9 @@ void AAICustomerPawn::CheckReachedAccessPoint()
 }
 
 
-void AAICustomerPawn::CheckReachedParkingSpace()
-{
-    if (FVector::Dist(GetActorLocation(), InitialSpawnLocation) < 200.0f) // Adjust this distance as needed
-    {
-        GetWorldTimerManager().ClearTimer(LeaveStoreTimerHandle);
-        NotifyParkingSpaceAndDestroy();
-    }
-}
 
-void AAICustomerPawn::NotifyParkingSpaceAndDestroy()
-{
-    if (AssignedParkingSpace)
-    {
-        AssignedParkingSpace->CustomerReturned(this);
-    }
-    Destroy();
-}
+
+
 
 void AAICustomerPawn::ForceMoveInRandomDirection()
 {
@@ -967,4 +939,5 @@ void AAICustomerPawn::ForceMoveInRandomDirection()
         ResetAccessPointAttempts();
         ChooseProduct();
     }
+}
 }
