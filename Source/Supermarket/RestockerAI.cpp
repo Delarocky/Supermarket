@@ -8,7 +8,7 @@ ARestockerAI::ARestockerAI()
     PrimaryActorTick.bCanEverTick = true;
     CurrentState = ERestockerState::Idle;
     bIsHoldingProductBox = false;
-    RotationSpeed = 10.0f;
+    RotationSpeed = 360.0f;
     CurrentRotationAlpha = 0.0f;
     bIsAbortingTask = false;
 }
@@ -249,17 +249,15 @@ void ARestockerAI::UpdateRotation(float DeltaTime)
 {
     if (bIsRotating)
     {
-        CurrentRotationAlpha += DeltaTime * RotationSpeed;
+        FRotator CurrentRotation = GetActorRotation();
+        FRotator NewRotation = FMath::RInterpConstantTo(CurrentRotation, TargetRotation, DeltaTime, RotationSpeed);
+        SetActorRotation(NewRotation);
 
-        if (CurrentRotationAlpha >= 1.0f)
+        // Check if we've essentially reached the target rotation
+        if (NewRotation.Equals(TargetRotation, 0.1f))
         {
-            SetActorRotation(TargetRotation);
+            bIsRotating = false;
             OnRotationComplete();
-        }
-        else
-        {
-            FRotator NewRotation = FMath::RInterpTo(GetActorRotation(), TargetRotation, DeltaTime, RotationSpeed);
-            SetActorRotation(NewRotation);
         }
     }
 }
