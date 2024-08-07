@@ -39,10 +39,30 @@ void ASplinePathfinder::GeneratePath()
     TArray<FVector> PathPoints = FindPath(WorldStartLocation, WorldEndLocation, ObstacleActors);
 
     SplineComponent->ClearSplinePoints();
-    for (const FVector& Point : PathPoints)
+    for (int32 i = 0; i < PathPoints.Num(); ++i)
     {
-        SplineComponent->AddSplinePoint(Point, ESplineCoordinateSpace::World);
+        SplineComponent->AddSplinePoint(PathPoints[i], ESplineCoordinateSpace::World);
+
+        // Set tangents to create sharp corners
+        if (i > 0 && i < PathPoints.Num() - 1)
+        {
+            FVector PrevTangent = (PathPoints[i] - PathPoints[i - 1]).GetSafeNormal() * 0.0001f;
+            FVector NextTangent = (PathPoints[i + 1] - PathPoints[i]).GetSafeNormal() * 0.0001f;
+
+            SplineComponent->SetTangentsAtSplinePoint(i, PrevTangent, NextTangent, ESplineCoordinateSpace::World);
+        }
     }
+
+    // Set start and end tangents
+    if (PathPoints.Num() > 1)
+    {
+        FVector StartTangent = (PathPoints[1] - PathPoints[0]).GetSafeNormal() * 0.0001f;
+        FVector EndTangent = (PathPoints.Last() - PathPoints[PathPoints.Num() - 2]).GetSafeNormal() * 0.0001f;
+
+        SplineComponent->SetTangentAtSplinePoint(0, StartTangent, ESplineCoordinateSpace::World);
+        SplineComponent->SetTangentAtSplinePoint(PathPoints.Num() - 1, EndTangent, ESplineCoordinateSpace::World);
+    }
+
     SplineComponent->UpdateSpline();
 }
 
@@ -73,14 +93,7 @@ TArray<FVector> ASplinePathfinder::FindPath(const FVector& Start, const FVector&
 
         if (FVector2D::Distance(FVector2D(Current), FVector2D(End)) < 100.0f)
         {
-            TArray<FVector> Path;
-            while (CameFrom.Contains(Current))
-            {
-                Path.Insert(Current, 0);
-                Current = CameFrom[Current];
-            }
-            Path.Insert(Start, 0);
-            return Path;
+            return OptimizePath(ReconstructPath(CameFrom, Current, Start), ObstacleActors);
         }
 
         OpenSet.Remove(Current);
@@ -197,4 +210,67 @@ void ASplinePathfinder::FindAllObstacles(TArray<AActor*>& OutObstacles)
     {
         UE_LOG(LogTemp, Warning, TEXT("ObstacleClass is not set in ASplinePathfinder"));
     }
+}
+
+TArray<FVector> ASplinePathfinder::ReconstructPath(const TMap<FVector, FVector>& CameFrom, FVector Current, const FVector& Start)
+{
+    TArray<FVector> Path;
+    while (CameFrom.Contains(Current))
+    {
+        Path.Insert(Current, 0);
+        Current = CameFrom[Current];
+    }
+    Path.Insert(Start, 0);
+    return Path;
+}
+
+TArray<FVector> ASplinePathfinder::OptimizePath(const TArray<FVector>& OriginalPath, const TArray<AActor*>& ObstacleActors)
+{
+    TArray<FVector> OptimizedPath;
+    if (OriginalPath.Num() < 2) return OriginalPath;
+
+    OptimizedPath.Add(OriginalPath[0]);
+
+    for (int32 i = 1; i < OriginalPath.Num() - 1; ++i)
+    {
+        FVector PrevPoint = OptimizedPath.Last();
+        FVector CurrentPoint = OriginalPath[i];
+        FVector NextPoint = OriginalPath[i + 1];
+
+        // Check if the current point is necessary
+        if (!IsLineClear(PrevPoint, NextPoint, ObstacleActors) || !ArePointsCollinear(PrevPoint, CurrentPoint, NextPoint))
+        {
+            OptimizedPath.Add(CurrentPoint);
+        }
+    }
+
+    OptimizedPath.Add(OriginalPath.Last());
+    return OptimizedPath;
+}
+
+bool ASplinePathfinder::IsLineClear(const FVector& Start, const FVector& End, const TArray<AActor*>& ObstacleActors)
+{
+    FVector Direction = (End - Start).GetSafeNormal();
+    float Distance = FVector::Dist(Start, End);
+
+    for (float Step = 0; Step < Distance; Step += 50.0f)
+    {
+        FVector CheckPoint = Start + Direction * Step;
+        if (!IsValidLocation(CheckPoint, ObstacleActors))
+        {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+bool ASplinePathfinder::ArePointsCollinear(const FVector& A, const FVector& B, const FVector& C)
+{
+    FVector AB = B - A;
+    FVector BC = C - B;
+    FVector Cross = FVector::CrossProduct(AB, BC);
+
+    // If the cross product is close to zero, the points are collinear
+    return Cross.SizeSquared() < 1.0f;
 }

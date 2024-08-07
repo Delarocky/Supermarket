@@ -43,4 +43,8 @@ private:
     TArray<FVector> GetNeighbors(const FVector& Current, float StepSize);
     bool IsValidLocation(const FVector& Location, const TArray<AActor*>& ObstacleActors);
     void FindAllObstacles(TArray<AActor*>& OutObstacles);
+    TArray<FVector> ReconstructPath(const TMap<FVector, FVector>& CameFrom, FVector Current, const FVector& Start);
+    TArray<FVector> OptimizePath(const TArray<FVector>& OriginalPath, const TArray<AActor*>& ObstacleActors);
+    bool IsLineClear(const FVector& Start, const FVector& End, const TArray<AActor*>& ObstacleActors);
+    bool ArePointsCollinear(const FVector& A, const FVector& B, const FVector& C);
 };
