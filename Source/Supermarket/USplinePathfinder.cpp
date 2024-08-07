@@ -30,11 +30,17 @@ void ASplinePathfinder::BeginPlay()
 void ASplinePathfinder::UpdatePathAndDebug()
 {
     GeneratePath();
-    //DrawDebugSpline(UpdateInterval, FColor::Green, 3.0f);
+    DrawDebugSpline(UpdateInterval, FColor::Green, 3.0f);
 }
 
 void ASplinePathfinder::GeneratePath()
 {
+    if (!SplineComponent)
+    {
+        UE_LOG(LogTemp, Error, TEXT("SplineComponent is null in ASplinePathfinder::GeneratePath"));
+        return;
+    }
+
     // Convert local space to world space
     FVector WorldStartLocation = GetActorTransform().TransformPosition(StartLocation);
     FVector WorldEndLocation = GetActorTransform().TransformPosition(EndLocation);
@@ -45,7 +51,23 @@ void ASplinePathfinder::GeneratePath()
     TArray<AActor*> ObstacleActors;
     FindAllObstacles(ObstacleActors);
 
+    // Check if start or end positions are invalid
+    if (!IsValidLocation(WorldStartLocation, ObstacleActors) || !IsValidLocation(WorldEndLocation, ObstacleActors))
+    {
+        UE_LOG(LogTemp, Warning, TEXT("Start or end position is invalid (overlapping with an obstacle). Path generation aborted."));
+        SplineComponent->ClearSplinePoints();
+        return;
+    }
+
     TArray<FVector> PathPoints = FindPath(WorldStartLocation, WorldEndLocation, ObstacleActors);
+
+    // Check if a valid path was found
+    if (PathPoints.Num() < 2)
+    {
+        UE_LOG(LogTemp, Warning, TEXT("No valid path found between start and end points. Path generation aborted."));
+        SplineComponent->ClearSplinePoints();
+        return;
+    }
 
     SplineComponent->ClearSplinePoints();
     for (int32 i = 0; i < PathPoints.Num(); ++i)
@@ -162,10 +184,10 @@ bool ASplinePathfinder::IsValidLocation(const FVector& Location, const TArray<AA
     {
         FVector ObstacleLocation = Obstacle->GetActorLocation();
         FVector ObstacleExtent = Obstacle->GetComponentsBoundingBox().GetExtent();
-        
-        // Add a small buffer around the obstacle
-        float Buffer = 50.0f; // Adjust this value as needed
-        
+
+        // Use MinDistanceFromObstacles instead of a fixed buffer
+        float Buffer = MinDistanceFromObstacles;
+
         // Check if the location is inside the obstacle's 2D bounding box with buffer
         if (FMath::Abs(Location.X - ObstacleLocation.X) < (ObstacleExtent.X + Buffer) &&
             FMath::Abs(Location.Y - ObstacleLocation.Y) < (ObstacleExtent.Y + Buffer))
@@ -269,7 +291,10 @@ bool ASplinePathfinder::IsLineClear(const FVector& Start, const FVector& End, co
     FVector Direction = (End - Start).GetSafeNormal();
     float Distance = FVector::Dist(Start, End);
 
-    for (float Step = 0; Step < Distance; Step += 50.0f)
+    // Increase the check frequency for more precise obstacle avoidance
+    float StepSize = FMath::Min(50.0f, MinDistanceFromObstacles / 2.0f);
+
+    for (float Step = 0; Step < Distance; Step += StepSize)
     {
         FVector CheckPoint = Start + Direction * Step;
         if (!IsValidLocation(CheckPoint, ObstacleActors))
