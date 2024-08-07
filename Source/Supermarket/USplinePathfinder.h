@@ -35,7 +35,7 @@ public:
     TSubclassOf<AActor> ObstacleClass;
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Pathfinding")
-    float MinDistanceFromObstacles = 500.0f; // New variable for minimum distance from obstacles
+    float MinDistanceFromObstacles = 1.0f; // New variable for minimum distance from obstacles
 
 
     UFUNCTION()

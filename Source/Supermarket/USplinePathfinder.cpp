@@ -19,6 +19,9 @@ void ASplinePathfinder::BeginPlay()
 {
     Super::BeginPlay();
 
+    //GeneratePath();
+    //DrawDebugSpline(UpdateInterval, FColor::Green, 3.0f);
+
     // Set up the timer to call UpdatePathAndDebug every UpdateInterval seconds
     GetWorldTimerManager().SetTimer(UpdateTimerHandle, this, &ASplinePathfinder::UpdatePathAndDebug, UpdateInterval, true);
 }
@@ -27,7 +30,7 @@ void ASplinePathfinder::BeginPlay()
 void ASplinePathfinder::UpdatePathAndDebug()
 {
     GeneratePath();
-    DrawDebugSpline(UpdateInterval, FColor::Green, 3.0f);
+    //DrawDebugSpline(UpdateInterval, FColor::Green, 3.0f);
 }
 
 void ASplinePathfinder::GeneratePath()
