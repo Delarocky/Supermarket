@@ -19,9 +19,15 @@ void ASplinePathfinder::BeginPlay()
 {
     Super::BeginPlay();
 
-    // Generate and draw the path
+    // Set up the timer to call UpdatePathAndDebug every UpdateInterval seconds
+    GetWorldTimerManager().SetTimer(UpdateTimerHandle, this, &ASplinePathfinder::UpdatePathAndDebug, UpdateInterval, true);
+}
+
+
+void ASplinePathfinder::UpdatePathAndDebug()
+{
     GeneratePath();
-    DrawDebugSpline(10.0f, FColor::Green, 3.0f);
+    DrawDebugSpline(UpdateInterval, FColor::Green, 3.0f);
 }
 
 void ASplinePathfinder::GeneratePath()
@@ -231,20 +237,27 @@ TArray<FVector> ASplinePathfinder::OptimizePath(const TArray<FVector>& OriginalP
 
     OptimizedPath.Add(OriginalPath[0]);
 
-    for (int32 i = 1; i < OriginalPath.Num() - 1; ++i)
+    int32 currentIndex = 0;
+    while (currentIndex < OriginalPath.Num() - 1)
     {
-        FVector PrevPoint = OptimizedPath.Last();
-        FVector CurrentPoint = OriginalPath[i];
-        FVector NextPoint = OriginalPath[i + 1];
+        int32 furthestValidIndex = currentIndex + 1;
 
-        // Check if the current point is necessary
-        if (!IsLineClear(PrevPoint, NextPoint, ObstacleActors) || !ArePointsCollinear(PrevPoint, CurrentPoint, NextPoint))
+        for (int32 i = currentIndex + 2; i < OriginalPath.Num(); ++i)
         {
-            OptimizedPath.Add(CurrentPoint);
+            if (IsLineClear(OriginalPath[currentIndex], OriginalPath[i], ObstacleActors))
+            {
+                furthestValidIndex = i;
+            }
+            else
+            {
+                break;
+            }
         }
+
+        OptimizedPath.Add(OriginalPath[furthestValidIndex]);
+        currentIndex = furthestValidIndex;
     }
 
-    OptimizedPath.Add(OriginalPath.Last());
     return OptimizedPath;
 }
 

@@ -35,7 +35,14 @@ public:
     TSubclassOf<AActor> ObstacleClass;
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Pathfinding")
-    float MinDistanceFromObstacles = 200.0f; // New variable for minimum distance from obstacles
+    float MinDistanceFromObstacles = 500.0f; // New variable for minimum distance from obstacles
+
+
+    UFUNCTION()
+    void UpdatePathAndDebug();
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Pathfinding")
+    float UpdateInterval = 1.0f;
 
 private:
     TArray<FVector> FindPath(const FVector& Start, const FVector& End, const TArray<AActor*>& ObstacleActors);
@@ -47,4 +54,5 @@ private:
     TArray<FVector> OptimizePath(const TArray<FVector>& OriginalPath, const TArray<AActor*>& ObstacleActors);
     bool IsLineClear(const FVector& Start, const FVector& End, const TArray<AActor*>& ObstacleActors);
     bool ArePointsCollinear(const FVector& A, const FVector& B, const FVector& C);
+    FTimerHandle UpdateTimerHandle;
 };
