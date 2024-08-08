@@ -1,6 +1,7 @@
 
 // ParkingSpot.cpp
 #include "ParkingSpot.h"
+#include "SceneBoxComponent.h"
 
 AParkingSpot::AParkingSpot()
 {
@@ -15,6 +16,10 @@ AParkingSpot::AParkingSpot()
     // static ConstructorHelpers::FObjectFinder<UStaticMesh> MeshAsset(TEXT("/Game/Path/To/Your/Mesh"));
     // if (MeshAsset.Succeeded())
     //     MeshComponent->SetStaticMesh(MeshAsset.Object);
+
+  PlacementBox = CreateDefaultSubobject<USceneBoxComponent>(TEXT("PlacementBox"));
+  PlacementBox->SetupAttachment(RootComponent);
+  PlacementBox->SetCollisionResponseToAllChannels(ECollisionResponse::ECR_Overlap);
 }
 
 void AParkingSpot::OccupySpot()

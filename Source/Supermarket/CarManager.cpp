@@ -66,7 +66,7 @@ void ACarManager::SpawnCarAndNavigateToParkingSpot(TSubclassOf<ACar> CarClass)
     UE_LOG(LogTemp, Log, TEXT("CarManager: Generating path from (%s) to parking spot at (%s) with rotation (%s)"),
         *CarSpawnLocation.ToString(), *EndLocation.ToString(), *EndRotation.ToString());
 
-    USplineComponent* Path = Pathfinder->GeneratePathForCar(CarSpawnLocation, EndLocation, EndRotation);
+    USplineComponent* Path = Pathfinder->GeneratePathForCar(CarSpawnLocation, EndLocation, EndRotation, AvailableSpot);
 
     if (Path)
     {

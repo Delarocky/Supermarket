@@ -27,4 +27,6 @@ public:
 
     UFUNCTION(BlueprintCallable, Category = "Parking")
     void VacateSpot();
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
+    class USceneBoxComponent* PlacementBox;
 };

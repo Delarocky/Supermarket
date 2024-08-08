@@ -10,22 +10,22 @@ ACarSplinePathfinder::ACarSplinePathfinder()
     RootComponent = SplineComponent;
 }
 
-USplineComponent* ACarSplinePathfinder::GeneratePathForCar(const FVector& StartLocation, const FVector& EndLocation, const FRotator& EndRotation)
+USplineComponent* ACarSplinePathfinder::GeneratePathForCar(const FVector& StartLocation, const FVector& EndLocation, const FRotator& EndRotation, AParkingSpot* TargetParkingSpot)
 {
     TArray<AActor*> ObstacleActors;
-    FindAllObstacles(ObstacleActors);
+    FindAllObstacles(ObstacleActors, TargetParkingSpot);
 
     UE_LOG(LogTemp, Log, TEXT("Generating path from (%s) to (%s) with end rotation (%s)"),
         *StartLocation.ToString(), *EndLocation.ToString(), *EndRotation.ToString());
 
-    if (!IsValidLocation(StartLocation, ObstacleActors) || !IsValidLocation(EndLocation, ObstacleActors))
+    if (!IsValidLocation(StartLocation, ObstacleActors, true))
     {
-        UE_LOG(LogTemp, Warning, TEXT("Start or end position is invalid (overlapping with an obstacle). Path generation aborted."));
+        UE_LOG(LogTemp, Warning, TEXT("Start position is invalid (overlapping with an obstacle). Path generation aborted."));
         SplineComponent->ClearSplinePoints();
         return nullptr;
     }
 
-    TArray<FVector> NewPathPoints = FindPath(StartLocation, EndLocation, ObstacleActors);
+    TArray<FVector> NewPathPoints = FindPath(StartLocation, EndLocation, ObstacleActors, TargetParkingSpot);
 
     if (NewPathPoints.Num() < 2)
     {
@@ -84,7 +84,7 @@ USplineComponent* ACarSplinePathfinder::GeneratePathForCar(const FVector& StartL
     return SplineComponent;
 }
 
-TArray<FVector> ACarSplinePathfinder::FindPath(const FVector& Start, const FVector& End, const TArray<AActor*>& ObstacleActors)
+TArray<FVector> ACarSplinePathfinder::FindPath(const FVector& Start, const FVector& End, const TArray<AActor*>& ObstacleActors, AParkingSpot* TargetParkingSpot)
 {
     TArray<FVector> OpenSet;
     OpenSet.Add(Start);
@@ -121,7 +121,8 @@ TArray<FVector> ACarSplinePathfinder::FindPath(const FVector& Start, const FVect
 
         for (const FVector& Neighbor : GetNeighbors(Current, 100.0f))
         {
-            if (!IsValidLocation(Neighbor, ObstacleActors))
+            // Allow the path to reach the end point even if it's close to obstacles
+            if (!IsValidLocation(Neighbor, ObstacleActors, Neighbor != End))
                 continue;
 
             float TentativeGScore = GScore[Current] + FVector::Dist2D(Current, Neighbor);
@@ -170,8 +171,10 @@ TArray<FVector> ACarSplinePathfinder::GetNeighbors(const FVector& Current, float
     return Neighbors;
 }
 
-bool ACarSplinePathfinder::IsValidLocation(const FVector& Location, const TArray<AActor*>& ObstacleActors)
+bool ACarSplinePathfinder::IsValidLocation(const FVector& Location, const TArray<AActor*>& ObstacleActors, bool bCheckObstacles = true)
 {
+    if (!bCheckObstacles) return true;
+
     for (AActor* Obstacle : ObstacleActors)
     {
         FVector ObstacleLocation = Obstacle->GetActorLocation();
@@ -182,14 +185,13 @@ bool ACarSplinePathfinder::IsValidLocation(const FVector& Location, const TArray
         if (FMath::Abs(Location.X - ObstacleLocation.X) < (ObstacleExtent.X + Buffer) &&
             FMath::Abs(Location.Y - ObstacleLocation.Y) < (ObstacleExtent.Y + Buffer))
         {
-            //UE_LOG(LogTemp, Warning, TEXT("Location (%s) is invalid due to obstacle at (%s)"),*Location.ToString(), *ObstacleLocation.ToString());
             return false;
         }
     }
     return true;
 }
 
-void ACarSplinePathfinder::FindAllObstacles(TArray<AActor*>& OutObstacles)
+void ACarSplinePathfinder::FindAllObstacles(TArray<AActor*>& OutObstacles, AParkingSpot* TargetParkingSpot)
 {
     for (TSubclassOf<AActor> ObstacleClass : ObstacleClasses)
     {
@@ -197,11 +199,18 @@ void ACarSplinePathfinder::FindAllObstacles(TArray<AActor*>& OutObstacles)
         {
             TArray<AActor*> ObstaclesOfClass;
             UGameplayStatics::GetAllActorsOfClass(GetWorld(), ObstacleClass, ObstaclesOfClass);
-            OutObstacles.Append(ObstaclesOfClass);
+            for (AActor* Obstacle : ObstaclesOfClass)
+            {
+                // Exclude the target parking spot from obstacles
+                if (Obstacle != Cast<AActor>(TargetParkingSpot))
+                {
+                    OutObstacles.Add(Obstacle);
+                }
+            }
         }
     }
 
-    UE_LOG(LogTemp, Log, TEXT("Found %d obstacles from %d obstacle classes."), OutObstacles.Num(), ObstacleClasses.Num());
+    UE_LOG(LogTemp, Log, TEXT("Found %d obstacles (excluding target parking spot)."), OutObstacles.Num());
 }
 
 TArray<FVector> ACarSplinePathfinder::ReconstructPath(const TMap<FVector, FVector>& CameFrom, FVector Current, const FVector& Start)
