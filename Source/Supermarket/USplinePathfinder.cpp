@@ -1,7 +1,6 @@
 // USplinePathfinder.cpp
 #include "USplinePathfinder.h"
 #include "Kismet/GameplayStatics.h"
-
 #include "DrawDebugHelpers.h"
 
 ASplinePathfinder::ASplinePathfinder()
@@ -28,7 +27,6 @@ void ASplinePathfinder::BeginPlay()
 
     //GeneratePath();
     //DrawDebugSpline(100, FColor::Green, 3.0f);
-    SpawnAICar();
     // Set up the timer to call UpdatePathAndDebug every UpdateInterval seconds
     GetWorldTimerManager().SetTimer(UpdateTimerHandle, this, &ASplinePathfinder::UpdatePathAndDebug, UpdateInterval, true);
 }
@@ -367,21 +365,6 @@ bool ASplinePathfinder::ArePointsCollinear(const FVector& A, const FVector& B, c
 
     // If the cross product is close to zero, the points are collinear
     return Cross.SizeSquared() < 1.0f;
-}
-
-void ASplinePathfinder::SpawnAICar()
-{
-    if (AICarClass && SplineComponent)
-    {
-        FVector SpawnLocation = SplineComponent->GetLocationAtSplinePoint(0, ESplineCoordinateSpace::World);
-        FRotator SpawnRotation = SplineComponent->GetRotationAtSplinePoint(0, ESplineCoordinateSpace::World);
-
-        AAISplineCar* SpawnedCar = GetWorld()->SpawnActor<AAISplineCar>(AICarClass, SpawnLocation, SpawnRotation);
-        if (SpawnedCar)
-        {
-            SpawnedCar->SetSplineToFollow(SplineComponent);
-        }
-    }
 }
 
 bool ASplinePathfinder::HaveObstaclesMoved(const TArray<AActor*>& ObstacleActors)

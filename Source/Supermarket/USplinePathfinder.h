@@ -4,7 +4,6 @@
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
 #include "Components/SplineComponent.h"
-#include "AISplineCar.h"
 #include "USplinePathfinder.generated.h"
 
 UCLASS()
@@ -57,11 +56,6 @@ public:
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Pathfinding|Optimization", Meta = (ClampMin = "0.0", ClampMax = "180.0"))
     float MinAngleForTurn;
 
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "AI")
-    TSubclassOf<AAISplineCar> AICarClass;
-
-    UFUNCTION(BlueprintCallable, Category = "AI")
-    void SpawnAICar();
 private:
     TArray<FVector> FindPath(const FVector& Start, const FVector& End, const TArray<AActor*>& ObstacleActors);
     float Heuristic(const FVector& A, const FVector& B);
