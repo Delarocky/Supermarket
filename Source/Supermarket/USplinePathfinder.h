@@ -74,5 +74,12 @@ private:
     bool ArePointsCollinear(const FVector& A, const FVector& B, const FVector& C);
     FTimerHandle UpdateTimerHandle;
 
+    UPROPERTY()
+    TArray<FRotator> LastObstacleRotations;
 
+    UPROPERTY()
+    TArray<FVector> LastObstaclePositions;
+    bool HaveObstaclesMoved(const TArray<AActor*>& ObstacleActors);
+    void UpdateLastObstaclePositions(const TArray<AActor*>& ObstacleActors);
+    bool IsSignificantRotation(const FRotator& OldRotation, const FRotator& NewRotation, float Threshold = 1.0f);
 };

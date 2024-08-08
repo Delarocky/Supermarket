@@ -36,8 +36,22 @@ void ASplinePathfinder::BeginPlay()
 
 void ASplinePathfinder::UpdatePathAndDebug()
 {
+    TArray<AActor*> ObstacleActors;
+    FindAllObstacles(ObstacleActors);
+
+    // Check if obstacles have moved
+    if (!HaveObstaclesMoved(ObstacleActors))
+    {
+        // If obstacles haven't moved, no need to update the path
+        UE_LOG(LogTemp, Log, TEXT("Obstacles haven't moved. Skipping path update."));
+        return;
+    }
+
     GeneratePath();
     DrawDebugSpline(UpdateInterval, FColor::Green, 3.0f);
+
+    // Update the last known obstacle positions
+    UpdateLastObstaclePositions(ObstacleActors);
 }
 
 void ASplinePathfinder::GeneratePath()
@@ -66,45 +80,26 @@ void ASplinePathfinder::GeneratePath()
         return;
     }
 
-    TArray<FVector> PathPoints = FindPath(WorldStartLocation, WorldEndLocation, ObstacleActors);
+    TArray<FVector> NewPathPoints = FindPath(WorldStartLocation, WorldEndLocation, ObstacleActors);
 
     // Check if a valid path was found
-    if (PathPoints.Num() < 2)
+    if (NewPathPoints.Num() < 2)
     {
         UE_LOG(LogTemp, Warning, TEXT("No valid path found between start and end points. Path generation aborted."));
         SplineComponent->ClearSplinePoints();
         return;
     }
 
+    // Update the spline with the new path
     SplineComponent->ClearSplinePoints();
-
-    TArray<FVector> OptimizedPoints;
-    OptimizedPoints.Add(PathPoints[0]);
-
-    for (int32 i = 1; i < PathPoints.Num() - 1; ++i)
+    for (int32 i = 0; i < NewPathPoints.Num(); ++i)
     {
-        FVector PrevVector = (PathPoints[i] - PathPoints[i - 1]).GetSafeNormal();
-        FVector NextVector = (PathPoints[i + 1] - PathPoints[i]).GetSafeNormal();
+        SplineComponent->AddSplinePoint(NewPathPoints[i], ESplineCoordinateSpace::World);
 
-        float Angle = FMath::Acos(FVector::DotProduct(PrevVector, NextVector));
-        float AngleDegrees = FMath::RadiansToDegrees(Angle);
-
-        if (AngleDegrees > MinAngleForTurn)
+        if (i > 0 && i < NewPathPoints.Num() - 1)
         {
-            OptimizedPoints.Add(PathPoints[i]);
-        }
-    }
-
-    OptimizedPoints.Add(PathPoints.Last());
-
-    for (int32 i = 0; i < OptimizedPoints.Num(); ++i)
-    {
-        SplineComponent->AddSplinePoint(OptimizedPoints[i], ESplineCoordinateSpace::World);
-
-        if (i > 0 && i < OptimizedPoints.Num() - 1)
-        {
-            FVector PrevVector = (OptimizedPoints[i] - OptimizedPoints[i - 1]).GetSafeNormal();
-            FVector NextVector = (OptimizedPoints[i + 1] - OptimizedPoints[i]).GetSafeNormal();
+            FVector PrevVector = (NewPathPoints[i] - NewPathPoints[i - 1]).GetSafeNormal();
+            FVector NextVector = (NewPathPoints[i + 1] - NewPathPoints[i]).GetSafeNormal();
 
             float Angle = FMath::Acos(FVector::DotProduct(PrevVector, NextVector));
             float AngleDegrees = FMath::RadiansToDegrees(Angle);
@@ -117,8 +112,8 @@ void ASplinePathfinder::GeneratePath()
             );
 
             FVector AverageTangent = (PrevVector + NextVector).GetSafeNormal();
-            float SegmentLength = FMath::Min((OptimizedPoints[i] - OptimizedPoints[i - 1]).Size(),
-                (OptimizedPoints[i + 1] - OptimizedPoints[i]).Size());
+            float SegmentLength = FMath::Min((NewPathPoints[i] - NewPathPoints[i - 1]).Size(),
+                (NewPathPoints[i + 1] - NewPathPoints[i]).Size());
 
             FVector SmoothTangent = AverageTangent * (SegmentLength * SmoothingFactor);
 
@@ -127,19 +122,20 @@ void ASplinePathfinder::GeneratePath()
     }
 
     // Set start and end tangents
-    if (OptimizedPoints.Num() > 1)
+    if (NewPathPoints.Num() > 1)
     {
-        float StartLength = (OptimizedPoints[1] - OptimizedPoints[0]).Size();
-        float EndLength = (OptimizedPoints.Last() - OptimizedPoints[OptimizedPoints.Num() - 2]).Size();
+        float StartLength = (NewPathPoints[1] - NewPathPoints[0]).Size();
+        float EndLength = (NewPathPoints.Last() - NewPathPoints[NewPathPoints.Num() - 2]).Size();
 
-        FVector StartTangent = (OptimizedPoints[1] - OptimizedPoints[0]).GetSafeNormal() * (StartLength * MinSmoothingFactor);
-        FVector EndTangent = (OptimizedPoints.Last() - OptimizedPoints[OptimizedPoints.Num() - 2]).GetSafeNormal() * (EndLength * MinSmoothingFactor);
+        FVector StartTangent = (NewPathPoints[1] - NewPathPoints[0]).GetSafeNormal() * (StartLength * MinSmoothingFactor);
+        FVector EndTangent = (NewPathPoints.Last() - NewPathPoints[NewPathPoints.Num() - 2]).GetSafeNormal() * (EndLength * MinSmoothingFactor);
 
         SplineComponent->SetTangentAtSplinePoint(0, StartTangent, ESplineCoordinateSpace::World);
-        SplineComponent->SetTangentAtSplinePoint(OptimizedPoints.Num() - 1, EndTangent, ESplineCoordinateSpace::World);
+        SplineComponent->SetTangentAtSplinePoint(NewPathPoints.Num() - 1, EndTangent, ESplineCoordinateSpace::World);
     }
 
     SplineComponent->UpdateSpline();
+    UE_LOG(LogTemp, Log, TEXT("Path updated."));
 }
 
 TArray<FVector> ASplinePathfinder::FindPath(const FVector& Start, const FVector& End, const TArray<AActor*>& ObstacleActors)
@@ -380,4 +376,46 @@ void ASplinePathfinder::SpawnAICar()
             SpawnedCar->SetSplineToFollow(SplineComponent);
         }
     }
+}
+
+bool ASplinePathfinder::HaveObstaclesMoved(const TArray<AActor*>& ObstacleActors)
+{
+    if (ObstacleActors.Num() != LastObstaclePositions.Num() || ObstacleActors.Num() != LastObstacleRotations.Num())
+    {
+        return true;  // Number of obstacles has changed
+    }
+
+    for (int32 i = 0; i < ObstacleActors.Num(); ++i)
+    {
+        if (!ObstacleActors[i]->GetActorLocation().Equals(LastObstaclePositions[i], 1.0f))
+        {
+            return true;  // An obstacle has moved
+        }
+
+        if (IsSignificantRotation(LastObstacleRotations[i], ObstacleActors[i]->GetActorRotation()))
+        {
+            return true;  // An obstacle has rotated significantly
+        }
+    }
+
+    return false;  // No obstacles have moved or rotated significantly
+}
+
+void ASplinePathfinder::UpdateLastObstaclePositions(const TArray<AActor*>& ObstacleActors)
+{
+    LastObstaclePositions.Empty();
+    LastObstacleRotations.Empty();
+    for (const AActor* Obstacle : ObstacleActors)
+    {
+        LastObstaclePositions.Add(Obstacle->GetActorLocation());
+        LastObstacleRotations.Add(Obstacle->GetActorRotation());
+    }
+}
+
+bool ASplinePathfinder::IsSignificantRotation(const FRotator& OldRotation, const FRotator& NewRotation, float Threshold)
+{
+    // Check if any component (Pitch, Yaw, Roll) has changed more than the threshold
+    return FMath::Abs(FMath::FindDeltaAngleDegrees(OldRotation.Pitch, NewRotation.Pitch)) > Threshold ||
+        FMath::Abs(FMath::FindDeltaAngleDegrees(OldRotation.Yaw, NewRotation.Yaw)) > Threshold ||
+        FMath::Abs(FMath::FindDeltaAngleDegrees(OldRotation.Roll, NewRotation.Roll)) > Threshold;
 }
