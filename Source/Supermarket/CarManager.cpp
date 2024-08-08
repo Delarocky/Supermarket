@@ -1,95 +1,105 @@
 // CarManager.cpp
 #include "CarManager.h"
 #include "Kismet/GameplayStatics.h"
+
 ACarManager::ACarManager()
 {
     PrimaryActorTick.bCanEverTick = false;
+    OccupiedParkingSpots = 0;
 }
 
 void ACarManager::BeginPlay()
 {
     Super::BeginPlay();
     FindAllParkingSpots();
+
+    UE_LOG(LogTemp, Log, TEXT("CarManager: Begin Play. Found %d parking spots."), ParkingSpots.Num());
+
+    GetWorld()->GetTimerManager().SetTimer(SpawnTimerHandle, this, &ACarManager::SpawnCarTimerCallback, CarSpawnInterval, true);
 }
 
-void ACarManager::SpawnCarAndNavigateToParkingSpot(TSubclassOf<ACar> CarClass, const FVector& StartLocation)
+void ACarManager::SpawnCarTimerCallback()
 {
-    AParkingSpot* AvailableSpot = FindAvailableParkingSpot();
-    if (!AvailableSpot)
-    {
-        UE_LOG(LogTemp, Warning, TEXT("No available parking spots."));
-        return;
-    }
+    UE_LOG(LogTemp, Log, TEXT("CarManager: Spawn Timer Callback. Occupied spots: %d/%d"), OccupiedParkingSpots, ParkingSpots.Num());
 
-    if (!Pathfinder)
+    if (OccupiedParkingSpots < ParkingSpots.Num())
     {
-        Pathfinder = GetWorld()->SpawnActor<ACarSplinePathfinder>(ACarSplinePathfinder::StaticClass());
-        if (Pathfinder)
+        if (CarClassToSpawn)
         {
-            Pathfinder->ObstacleClasses = ObstacleClasses;
-        }
-    }
-
-    if (Pathfinder)
-    {
-        // Use the actual parking spot location
-        FVector EndLocation = AvailableSpot->GetActorLocation();
-
-        UE_LOG(LogTemp, Log, TEXT("Generating path from (%s) to parking spot at (%s)"),
-            *StartLocation.ToString(), *EndLocation.ToString());
-
-        USplineComponent* Path = Pathfinder->GeneratePathForCar(StartLocation, EndLocation);
-
-        if (Path)
-        {
-            FActorSpawnParameters SpawnParams;
-            SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn;
-
-            ACar* Car = GetWorld()->SpawnActor<ACar>(CarClass, StartLocation, FRotator::ZeroRotator, SpawnParams);
-
-            if (Car)
-            {
-                Car->FollowSpline(Path);
-                Car->OnCarParked.AddDynamic(this, &ACarManager::OnCarParked);
-                AvailableSpot->OccupySpot();
-                UE_LOG(LogTemp, Log, TEXT("Car spawned and set to follow path to parking spot."));
-            }
-            else
-            {
-                UE_LOG(LogTemp, Error, TEXT("Failed to spawn car."));
-            }
+            SpawnCarAndNavigateToParkingSpot(CarClassToSpawn);
         }
         else
         {
-            UE_LOG(LogTemp, Warning, TEXT("Failed to generate path for car."));
+            UE_LOG(LogTemp, Error, TEXT("CarManager: CarClassToSpawn is not set!"));
         }
     }
     else
     {
-        UE_LOG(LogTemp, Error, TEXT("Failed to spawn CarSplinePathfinder."));
+        GetWorld()->GetTimerManager().ClearTimer(SpawnTimerHandle);
+        UE_LOG(LogTemp, Log, TEXT("CarManager: All parking spots are full. Stopped spawning cars."));
+    }
+}
+
+void ACarManager::SpawnCarAndNavigateToParkingSpot(TSubclassOf<ACar> CarClass)
+{
+    UE_LOG(LogTemp, Log, TEXT("CarManager: Attempting to spawn car and navigate to parking spot."));
+
+    AParkingSpot* AvailableSpot = FindAvailableParkingSpot();
+    if (!AvailableSpot)
+    {
+        UE_LOG(LogTemp, Warning, TEXT("CarManager: No available parking spots."));
+        return;
+    }
+
+    ACarSplinePathfinder* Pathfinder = GetWorld()->SpawnActor<ACarSplinePathfinder>(ACarSplinePathfinder::StaticClass());
+    if (!Pathfinder)
+    {
+        UE_LOG(LogTemp, Error, TEXT("CarManager: Failed to spawn CarSplinePathfinder."));
+        return;
+    }
+
+    Pathfinder->ObstacleClasses = ObstacleClasses;
+
+    FVector EndLocation = AvailableSpot->GetActorLocation();
+
+    UE_LOG(LogTemp, Log, TEXT("CarManager: Generating path from (%s) to parking spot at (%s)"),
+        *CarSpawnLocation.ToString(), *EndLocation.ToString());
+
+    USplineComponent* Path = Pathfinder->GeneratePathForCar(CarSpawnLocation, EndLocation);
+
+    if (Path)
+    {
+        FActorSpawnParameters SpawnParams;
+        SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn;
+
+        ACar* Car = GetWorld()->SpawnActor<ACar>(CarClass, CarSpawnLocation, FRotator::ZeroRotator, SpawnParams);
+
+        if (Car)
+        {
+            Car->FollowSpline(Path);
+            Car->OnCarParked.AddDynamic(this, &ACarManager::OnCarParked);
+            AvailableSpot->OccupySpot();
+            OccupiedParkingSpots++;
+            UE_LOG(LogTemp, Log, TEXT("CarManager: Car spawned at (%s) and set to follow path to parking spot. Occupied spots: %d/%d"),
+                *CarSpawnLocation.ToString(), OccupiedParkingSpots, ParkingSpots.Num());
+        }
+        else
+        {
+            UE_LOG(LogTemp, Error, TEXT("CarManager: Failed to spawn car."));
+            Pathfinder->Destroy(); // Clean up the pathfinder if car spawn fails
+        }
+    }
+    else
+    {
+        UE_LOG(LogTemp, Warning, TEXT("CarManager: Failed to generate path for car."));
+        Pathfinder->Destroy(); // Clean up the pathfinder if path generation fails
     }
 }
 
 void ACarManager::FindAllParkingSpots()
 {
     UGameplayStatics::GetAllActorsOfClass(GetWorld(), AParkingSpot::StaticClass(), reinterpret_cast<TArray<AActor*>&>(ParkingSpots));
-    UE_LOG(LogTemp, Log, TEXT("Found %d parking spots."), ParkingSpots.Num());
-}
-
-void ACarManager::OnCarParked(ACar* ParkedCar)
-{
-    // Handle any post-parking logic here
-    UE_LOG(LogTemp, Log, TEXT("Car parked successfully."));
-
-    // Destroy the spline component
-    if (Pathfinder)
-    {
-        USplineComponent* SplineToDestroy = Pathfinder->GetSplineComponent();
-        if (SplineToDestroy)
-        {
-            SplineToDestroy->DestroyComponent();
-        }
-    }
+    UE_LOG(LogTemp, Log, TEXT("CarManager: Found %d parking spots."), ParkingSpots.Num());
 }
 
 AParkingSpot* ACarManager::FindAvailableParkingSpot()
@@ -98,10 +108,21 @@ AParkingSpot* ACarManager::FindAvailableParkingSpot()
     {
         if (Spot && !Spot->bIsOccupied)
         {
-            UE_LOG(LogTemp, Log, TEXT("Found available parking spot at location: %s"), *Spot->GetActorLocation().ToString());
+            UE_LOG(LogTemp, Log, TEXT("CarManager: Found available parking spot at location: %s"), *Spot->GetActorLocation().ToString());
             return Spot;
         }
     }
-    UE_LOG(LogTemp, Warning, TEXT("No available parking spots found."));
+    UE_LOG(LogTemp, Warning, TEXT("CarManager: No available parking spots found."));
     return nullptr;
+}
+
+void ACarManager::OnCarParked(ACar* ParkedCar)
+{
+    UE_LOG(LogTemp, Log, TEXT("CarManager: Car parked successfully."));
+
+    // Clean up the spline
+    if (ParkedCar)
+    {
+        ParkedCar->CleanupSpline();
+    }
 }

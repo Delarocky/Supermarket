@@ -19,13 +19,18 @@ public:
     virtual void BeginPlay() override;
 
     UFUNCTION(BlueprintCallable, Category = "Car Management")
-    void SpawnCarAndNavigateToParkingSpot(TSubclassOf<ACar> CarClass, const FVector& StartLocation);
+    void SpawnCarAndNavigateToParkingSpot(TSubclassOf<ACar> CarClass);
+
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Car Pathfinding")
     TArray<TSubclassOf<AActor>> ObstacleClasses;
-private:
-    UPROPERTY()
-    ACarSplinePathfinder* Pathfinder;
 
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Car Spawning")
+    float CarSpawnInterval = 3.0f;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Car Spawning")
+    TSubclassOf<ACar> CarClassToSpawn;
+
+private:
     UPROPERTY()
     TArray<AParkingSpot*> ParkingSpots;
 
@@ -34,4 +39,11 @@ private:
 
     AParkingSpot* FindAvailableParkingSpot();
     void FindAllParkingSpots();
+
+    FTimerHandle SpawnTimerHandle;
+    void SpawnCarTimerCallback();
+
+    int32 OccupiedParkingSpots;
+
+    const FVector CarSpawnLocation = FVector(0, 0, 70);
 };

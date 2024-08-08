@@ -44,8 +44,8 @@ void ACar::MoveAlongSpline(float DeltaTime)
     {
         // Reached the end of the spline
         SetActorLocation(CurrentSpline->GetLocationAtSplinePoint(CurrentSpline->GetNumberOfSplinePoints() - 1, ESplineCoordinateSpace::World));
-        CurrentSpline = nullptr;
         OnCarParked.Broadcast(this);
+        CleanupSpline();
     }
     else
     {
@@ -60,4 +60,19 @@ void ACar::RotateAlongSpline()
 
     FVector ForwardVector = CurrentSpline->GetDirectionAtDistanceAlongSpline(DistanceTraveled, ESplineCoordinateSpace::World);
     SetActorRotation(ForwardVector.Rotation());
+}
+
+void ACar::CleanupSpline()
+{
+    if (CurrentSpline)
+    {
+        CurrentSpline->DestroyComponent();
+        CurrentSpline = nullptr;
+    }
+
+    if (SplineOwner)
+    {
+        SplineOwner->Destroy();
+        SplineOwner = nullptr;
+    }
 }

@@ -24,7 +24,17 @@ public:
     float MinDistanceFromObstacles = 200.0f;
     UFUNCTION(BlueprintCallable, Category = "Car Pathfinding")
     USplineComponent* GetSplineComponent() const { return SplineComponent; }
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Car Pathfinding|Smoothing", Meta = (ClampMin = "0.0", ClampMax = "360.0"))
+    float MaxSmoothingAngle = 66.239998f;
 
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Car Pathfinding|Smoothing", Meta = (ClampMin = "0.0", ClampMax = "1.0"))
+    float MinSmoothingFactor = 1.0f;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Car Pathfinding|Smoothing", Meta = (ClampMin = "0.0", ClampMax = "1.0"))
+    float MaxSmoothingFactor = 0.508798f;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Car Pathfinding|Optimization", Meta = (ClampMin = "0.0", ClampMax = "180.0"))
+    float MinAngleForTurn = 40.0f;
 private:
     UPROPERTY()
     USplineComponent* SplineComponent;

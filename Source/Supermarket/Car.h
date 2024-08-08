@@ -23,7 +23,10 @@ public:
 
     UPROPERTY(BlueprintAssignable, Category = "Car Events")
     FOnCarParked OnCarParked;
-
+    UFUNCTION(BlueprintCallable, Category = "Car Movement")
+    void CleanupSpline();
+    UPROPERTY()
+    AActor* SplineOwner;
 private:
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Car", meta = (AllowPrivateAccess = "true"))
     UStaticMeshComponent* CarMesh;

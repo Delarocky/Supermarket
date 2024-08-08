@@ -15,38 +15,69 @@ USplineComponent* ACarSplinePathfinder::GeneratePathForCar(const FVector& StartL
     TArray<AActor*> ObstacleActors;
     FindAllObstacles(ObstacleActors);
 
-    UE_LOG(LogTemp, Log, TEXT("Attempting to generate path from (%s) to (%s)"),
+    UE_LOG(LogTemp, Log, TEXT("Generating path from (%s) to (%s)"),
         *StartLocation.ToString(), *EndLocation.ToString());
 
-    if (!IsValidLocation(StartLocation, ObstacleActors))
+    if (!IsValidLocation(StartLocation, ObstacleActors) || !IsValidLocation(EndLocation, ObstacleActors))
     {
-        UE_LOG(LogTemp, Warning, TEXT("Start position (%s) is invalid (overlapping with an obstacle). Path generation aborted."), *StartLocation.ToString());
+        UE_LOG(LogTemp, Warning, TEXT("Start or end position is invalid (overlapping with an obstacle). Path generation aborted."));
+        SplineComponent->ClearSplinePoints();
         return nullptr;
     }
 
-    if (!IsValidLocation(EndLocation, ObstacleActors))
-    {
-        UE_LOG(LogTemp, Warning, TEXT("End position (%s) is invalid (overlapping with an obstacle). Path generation aborted."), *EndLocation.ToString());
-        return nullptr;
-    }
+    TArray<FVector> NewPathPoints = FindPath(StartLocation, EndLocation, ObstacleActors);
 
-    TArray<FVector> PathPoints = FindPath(StartLocation, EndLocation, ObstacleActors);
-
-    if (PathPoints.Num() < 2)
+    if (NewPathPoints.Num() < 2)
     {
-        UE_LOG(LogTemp, Warning, TEXT("No valid path found between start (%s) and end (%s) points. Path generation aborted."),
-            *StartLocation.ToString(), *EndLocation.ToString());
+        UE_LOG(LogTemp, Warning, TEXT("No valid path found between start and end points. Path generation aborted."));
+        SplineComponent->ClearSplinePoints();
         return nullptr;
     }
 
     SplineComponent->ClearSplinePoints();
-    for (const FVector& Point : PathPoints)
+    for (int32 i = 0; i < NewPathPoints.Num(); ++i)
     {
-        SplineComponent->AddSplinePoint(Point, ESplineCoordinateSpace::World);
+        SplineComponent->AddSplinePoint(NewPathPoints[i], ESplineCoordinateSpace::World);
+
+        if (i > 0 && i < NewPathPoints.Num() - 1)
+        {
+            FVector PrevVector = (NewPathPoints[i] - NewPathPoints[i - 1]).GetSafeNormal();
+            FVector NextVector = (NewPathPoints[i + 1] - NewPathPoints[i]).GetSafeNormal();
+
+            float Angle = FMath::Acos(FVector::DotProduct(PrevVector, NextVector));
+            float AngleDegrees = FMath::RadiansToDegrees(Angle);
+
+            float SmoothingFactor = FMath::GetMappedRangeValueClamped(
+                FVector2D(0, MaxSmoothingAngle),
+                FVector2D(MinSmoothingFactor, MaxSmoothingFactor),
+                AngleDegrees
+            );
+
+            FVector AverageTangent = (PrevVector + NextVector).GetSafeNormal();
+            float SegmentLength = FMath::Min((NewPathPoints[i] - NewPathPoints[i - 1]).Size(),
+                (NewPathPoints[i + 1] - NewPathPoints[i]).Size());
+
+            FVector SmoothTangent = AverageTangent * (SegmentLength * SmoothingFactor);
+
+            SplineComponent->SetTangentsAtSplinePoint(i, SmoothTangent, SmoothTangent, ESplineCoordinateSpace::World);
+        }
+    }
+
+    if (NewPathPoints.Num() > 1)
+    {
+        float StartLength = (NewPathPoints[1] - NewPathPoints[0]).Size();
+        float EndLength = (NewPathPoints.Last() - NewPathPoints[NewPathPoints.Num() - 2]).Size();
+
+        FVector StartTangent = (NewPathPoints[1] - NewPathPoints[0]).GetSafeNormal() * (StartLength * MinSmoothingFactor);
+        FVector EndTangent = (NewPathPoints.Last() - NewPathPoints[NewPathPoints.Num() - 2]).GetSafeNormal() * (EndLength * MinSmoothingFactor);
+
+        SplineComponent->SetTangentAtSplinePoint(0, StartTangent, ESplineCoordinateSpace::World);
+        SplineComponent->SetTangentAtSplinePoint(NewPathPoints.Num() - 1, EndTangent, ESplineCoordinateSpace::World);
     }
 
     SplineComponent->UpdateSpline();
-    UE_LOG(LogTemp, Log, TEXT("Path generated successfully with %d points."), PathPoints.Num());
+    UE_LOG(LogTemp, Log, TEXT("Path generated with %d points."), NewPathPoints.Num());
+
     return SplineComponent;
 }
 
@@ -148,8 +179,7 @@ bool ACarSplinePathfinder::IsValidLocation(const FVector& Location, const TArray
         if (FMath::Abs(Location.X - ObstacleLocation.X) < (ObstacleExtent.X + Buffer) &&
             FMath::Abs(Location.Y - ObstacleLocation.Y) < (ObstacleExtent.Y + Buffer))
         {
-            UE_LOG(LogTemp, Warning, TEXT("Location (%s) is invalid due to obstacle at (%s)"),
-                *Location.ToString(), *ObstacleLocation.ToString());
+            //UE_LOG(LogTemp, Warning, TEXT("Location (%s) is invalid due to obstacle at (%s)"),*Location.ToString(), *ObstacleLocation.ToString());
             return false;
         }
     }
