@@ -71,25 +71,47 @@ void ASplinePathfinder::GeneratePath()
     }
 
     SplineComponent->ClearSplinePoints();
+
+    const float MaxSmoothingAngle = 360.0f; // Maximum angle (in degrees) for full smoothing
+    const float MinSmoothingFactor = 0.9f;
+    const float MaxSmoothingFactor = 0.9f;
+
     for (int32 i = 0; i < PathPoints.Num(); ++i)
     {
         SplineComponent->AddSplinePoint(PathPoints[i], ESplineCoordinateSpace::World);
 
-        // Set tangents to create sharp corners
         if (i > 0 && i < PathPoints.Num() - 1)
         {
-            FVector PrevTangent = (PathPoints[i] - PathPoints[i - 1]).GetSafeNormal() * 0.0001f;
-            FVector NextTangent = (PathPoints[i + 1] - PathPoints[i]).GetSafeNormal() * 0.0001f;
+            FVector PrevVector = (PathPoints[i] - PathPoints[i - 1]).GetSafeNormal();
+            FVector NextVector = (PathPoints[i + 1] - PathPoints[i]).GetSafeNormal();
 
-            SplineComponent->SetTangentsAtSplinePoint(i, PrevTangent, NextTangent, ESplineCoordinateSpace::World);
+            float Angle = FMath::Acos(FVector::DotProduct(PrevVector, NextVector));
+            float AngleDegrees = FMath::RadiansToDegrees(Angle);
+
+            // Calculate smoothing factor based on angle
+            float SmoothingFactor = FMath::GetMappedRangeValueClamped(
+                FVector2D(0, MaxSmoothingAngle),
+                FVector2D(MinSmoothingFactor, MaxSmoothingFactor),
+                AngleDegrees
+            );
+
+            FVector AverageTangent = (PrevVector + NextVector).GetSafeNormal();
+            float SegmentLength = FMath::Min((PathPoints[i] - PathPoints[i - 1]).Size(), (PathPoints[i + 1] - PathPoints[i]).Size());
+
+            FVector SmoothTangent = AverageTangent * (SegmentLength * SmoothingFactor);
+
+            SplineComponent->SetTangentsAtSplinePoint(i, SmoothTangent, SmoothTangent, ESplineCoordinateSpace::World);
         }
     }
 
     // Set start and end tangents
     if (PathPoints.Num() > 1)
     {
-        FVector StartTangent = (PathPoints[1] - PathPoints[0]).GetSafeNormal() * 0.0001f;
-        FVector EndTangent = (PathPoints.Last() - PathPoints[PathPoints.Num() - 2]).GetSafeNormal() * 0.0001f;
+        float StartLength = (PathPoints[1] - PathPoints[0]).Size();
+        float EndLength = (PathPoints.Last() - PathPoints[PathPoints.Num() - 2]).Size();
+
+        FVector StartTangent = (PathPoints[1] - PathPoints[0]).GetSafeNormal() * (StartLength * MinSmoothingFactor);
+        FVector EndTangent = (PathPoints.Last() - PathPoints[PathPoints.Num() - 2]).GetSafeNormal() * (EndLength * MinSmoothingFactor);
 
         SplineComponent->SetTangentAtSplinePoint(0, StartTangent, ESplineCoordinateSpace::World);
         SplineComponent->SetTangentAtSplinePoint(PathPoints.Num() - 1, EndTangent, ESplineCoordinateSpace::World);
