@@ -44,6 +44,19 @@ public:
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Pathfinding")
     float UpdateInterval = 1.0f;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Pathfinding|Smoothing", Meta = (ClampMin = "0.0", ClampMax = "360.0"))
+    float MaxSmoothingAngle;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Pathfinding|Smoothing", Meta = (ClampMin = "0.0", ClampMax = "1.0"))
+    float MinSmoothingFactor;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Pathfinding|Smoothing", Meta = (ClampMin = "0.0", ClampMax = "1.0"))
+    float MaxSmoothingFactor;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Pathfinding|Optimization", Meta = (ClampMin = "0.0", ClampMax = "180.0"))
+    float MinAngleForTurn;
+
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "AI")
     TSubclassOf<AAISplineCar> AICarClass;
 
@@ -60,4 +73,6 @@ private:
     bool IsLineClear(const FVector& Start, const FVector& End, const TArray<AActor*>& ObstacleActors);
     bool ArePointsCollinear(const FVector& A, const FVector& B, const FVector& C);
     FTimerHandle UpdateTimerHandle;
+
+
 };
