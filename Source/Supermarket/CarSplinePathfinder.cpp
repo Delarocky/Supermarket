@@ -34,6 +34,9 @@ USplineComponent* ACarSplinePathfinder::GeneratePathForCar(const FVector& StartL
         return nullptr;
     }
 
+    // Modify the end of the path for smooth parking approach
+    ModifyPathForParking(NewPathPoints, EndLocation, EndRotation);
+
     SplineComponent->ClearSplinePoints();
     for (int32 i = 0; i < NewPathPoints.Num(); ++i)
     {
@@ -74,9 +77,6 @@ USplineComponent* ACarSplinePathfinder::GeneratePathForCar(const FVector& StartL
         SplineComponent->SetTangentAtSplinePoint(0, StartTangent, ESplineCoordinateSpace::World);
         SplineComponent->SetTangentAtSplinePoint(NewPathPoints.Num() - 1, EndTangent, ESplineCoordinateSpace::World);
     }
-
-    // Add parking approach
-    AddParkingApproach(EndLocation, EndRotation);
 
     SplineComponent->UpdateSpline();
     UE_LOG(LogTemp, Log, TEXT("Path generated with %d points."), NewPathPoints.Num());
@@ -267,23 +267,35 @@ bool ACarSplinePathfinder::IsLineClear(const FVector& Start, const FVector& End,
     return true;
 }
 
-void ACarSplinePathfinder::AddParkingApproach(const FVector& EndLocation, const FRotator& EndRotation)
+void ACarSplinePathfinder::ModifyPathForParking(TArray<FVector>& PathPoints, const FVector& EndLocation, const FRotator& EndRotation)
 {
-    int32 LastPointIndex = SplineComponent->GetNumberOfSplinePoints() - 1;
-    FVector LastPoint = SplineComponent->GetLocationAtSplinePoint(LastPointIndex, ESplineCoordinateSpace::World);
+    if (PathPoints.Num() < 2) return;
 
     // Calculate approach vector
-    FVector ApproachVector = EndRotation.Vector() * -300.0f; // 3 meters approach distance
+    FVector ApproachVector = EndRotation.Vector() * -300.0f;
+    ApproachVector.Z = 0;
 
-    // Add approach point
+    // Calculate the approach point
     FVector ApproachPoint = EndLocation + ApproachVector;
-    SplineComponent->AddSplinePoint(ApproachPoint, ESplineCoordinateSpace::World);
+    ApproachPoint.Z = PathPoints.Last().Z;  // Maintain the last point's height
 
-    // Add final parking point
-    SplineComponent->AddSplinePoint(EndLocation, ESplineCoordinateSpace::World);
+    // Remove any points that are closer to the end than the approach point
+    while (PathPoints.Num() > 1 && FVector::DistSquared(PathPoints.Last(), EndLocation) < FVector::DistSquared(ApproachPoint, EndLocation))
+    {
+        PathPoints.Pop();
+    }
 
-    // Set tangents for smooth approach
-    FVector ApproachTangent = (EndLocation - ApproachPoint).GetSafeNormal() * 200.0f;
-    SplineComponent->SetTangentAtSplinePoint(LastPointIndex + 1, ApproachTangent, ESplineCoordinateSpace::World, true);
-    SplineComponent->SetTangentAtSplinePoint(LastPointIndex + 2, ApproachTangent, ESplineCoordinateSpace::World, true);
+    // Add the approach point
+    PathPoints.Add(ApproachPoint);
+
+    // Add the final parking point
+    PathPoints.Add(EndLocation);
+
+    // Adjust the last few points to create a smoother approach
+    int32 NumPointsToSmooth = FMath::Min(3, PathPoints.Num() - 1);
+    for (int32 i = PathPoints.Num() - NumPointsToSmooth; i < PathPoints.Num(); ++i)
+    {
+        FVector& Point = PathPoints[i];
+        Point.Z = PathPoints[PathPoints.Num() - NumPointsToSmooth - 1].Z;  // Maintain constant height for the approach
+    }
 }

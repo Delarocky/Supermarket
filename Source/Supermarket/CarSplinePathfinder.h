@@ -47,5 +47,5 @@ private:
     TArray<FVector> ReconstructPath(const TMap<FVector, FVector>& CameFrom, FVector Current, const FVector& Start);
     TArray<FVector> OptimizePath(const TArray<FVector>& OriginalPath, const TArray<AActor*>& ObstacleActors);
     bool IsLineClear(const FVector& Start, const FVector& End, const TArray<AActor*>& ObstacleActors);
-    void AddParkingApproach(const FVector& EndLocation, const FRotator& EndRotation);
+    void ModifyPathForParking(TArray<FVector>& PathPoints, const FVector& EndLocation, const FRotator& EndRotation);
 };
