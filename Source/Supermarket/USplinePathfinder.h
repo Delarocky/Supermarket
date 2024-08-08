@@ -4,6 +4,7 @@
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
 #include "Components/SplineComponent.h"
+#include "AISplineCar.h"
 #include "USplinePathfinder.generated.h"
 
 UCLASS()
@@ -32,7 +33,7 @@ public:
     FVector EndLocation;
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Pathfinding")
-    TSubclassOf<AActor> ObstacleClass;
+    TArray<TSubclassOf<AActor>> ObstacleClasses;
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Pathfinding")
     float MinDistanceFromObstacles = 1.0f; // New variable for minimum distance from obstacles
@@ -43,7 +44,11 @@ public:
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Pathfinding")
     float UpdateInterval = 1.0f;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "AI")
+    TSubclassOf<AAISplineCar> AICarClass;
 
+    UFUNCTION(BlueprintCallable, Category = "AI")
+    void SpawnAICar();
 private:
     TArray<FVector> FindPath(const FVector& Start, const FVector& End, const TArray<AActor*>& ObstacleActors);
     float Heuristic(const FVector& A, const FVector& B);

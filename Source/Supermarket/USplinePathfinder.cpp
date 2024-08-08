@@ -1,6 +1,7 @@
 // USplinePathfinder.cpp
 #include "USplinePathfinder.h"
 #include "Kismet/GameplayStatics.h"
+
 #include "DrawDebugHelpers.h"
 
 ASplinePathfinder::ASplinePathfinder()
@@ -20,8 +21,8 @@ void ASplinePathfinder::BeginPlay()
     Super::BeginPlay();
 
     //GeneratePath();
-    //DrawDebugSpline(UpdateInterval, FColor::Green, 3.0f);
-
+    //DrawDebugSpline(100, FColor::Green, 3.0f);
+    SpawnAICar();
     // Set up the timer to call UpdatePathAndDebug every UpdateInterval seconds
     GetWorldTimerManager().SetTimer(UpdateTimerHandle, this, &ASplinePathfinder::UpdatePathAndDebug, UpdateInterval, true);
 }
@@ -233,13 +234,19 @@ void ASplinePathfinder::DrawDebugSpline(float Duration, FColor Color, float Thic
 
 void ASplinePathfinder::FindAllObstacles(TArray<AActor*>& OutObstacles)
 {
-    if (ObstacleClass)
+    for (TSubclassOf<AActor> ObstacleClass : ObstacleClasses)
     {
-        UGameplayStatics::GetAllActorsOfClass(GetWorld(), ObstacleClass, OutObstacles);
+        if (ObstacleClass)
+        {
+            TArray<AActor*> ObstaclesOfClass;
+            UGameplayStatics::GetAllActorsOfClass(GetWorld(), ObstacleClass, ObstaclesOfClass);
+            OutObstacles.Append(ObstaclesOfClass);
+        }
     }
-    else
+
+    if (ObstacleClasses.Num() == 0)
     {
-        UE_LOG(LogTemp, Warning, TEXT("ObstacleClass is not set in ASplinePathfinder"));
+        UE_LOG(LogTemp, Warning, TEXT("No ObstacleClasses set in ASplinePathfinder"));
     }
 }
 
@@ -314,4 +321,19 @@ bool ASplinePathfinder::ArePointsCollinear(const FVector& A, const FVector& B, c
 
     // If the cross product is close to zero, the points are collinear
     return Cross.SizeSquared() < 1.0f;
+}
+
+void ASplinePathfinder::SpawnAICar()
+{
+    if (AICarClass && SplineComponent)
+    {
+        FVector SpawnLocation = SplineComponent->GetLocationAtSplinePoint(0, ESplineCoordinateSpace::World);
+        FRotator SpawnRotation = SplineComponent->GetRotationAtSplinePoint(0, ESplineCoordinateSpace::World);
+
+        AAISplineCar* SpawnedCar = GetWorld()->SpawnActor<AAISplineCar>(AICarClass, SpawnLocation, SpawnRotation);
+        if (SpawnedCar)
+        {
+            SpawnedCar->SetSplineToFollow(SplineComponent);
+        }
+    }
 }
