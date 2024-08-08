@@ -61,11 +61,12 @@ void ACarManager::SpawnCarAndNavigateToParkingSpot(TSubclassOf<ACar> CarClass)
     Pathfinder->ObstacleClasses = ObstacleClasses;
 
     FVector EndLocation = AvailableSpot->GetActorLocation();
+    FRotator EndRotation = AvailableSpot->GetActorRotation();
 
-    UE_LOG(LogTemp, Log, TEXT("CarManager: Generating path from (%s) to parking spot at (%s)"),
-        *CarSpawnLocation.ToString(), *EndLocation.ToString());
+    UE_LOG(LogTemp, Log, TEXT("CarManager: Generating path from (%s) to parking spot at (%s) with rotation (%s)"),
+        *CarSpawnLocation.ToString(), *EndLocation.ToString(), *EndRotation.ToString());
 
-    USplineComponent* Path = Pathfinder->GeneratePathForCar(CarSpawnLocation, EndLocation);
+    USplineComponent* Path = Pathfinder->GeneratePathForCar(CarSpawnLocation, EndLocation, EndRotation);
 
     if (Path)
     {
@@ -80,6 +81,7 @@ void ACarManager::SpawnCarAndNavigateToParkingSpot(TSubclassOf<ACar> CarClass)
             Car->OnCarParked.AddDynamic(this, &ACarManager::OnCarParked);
             AvailableSpot->OccupySpot();
             OccupiedParkingSpots++;
+            Car->SplineOwner = Pathfinder;
             UE_LOG(LogTemp, Log, TEXT("CarManager: Car spawned at (%s) and set to follow path to parking spot. Occupied spots: %d/%d"),
                 *CarSpawnLocation.ToString(), OccupiedParkingSpots, ParkingSpots.Num());
         }

@@ -10,13 +10,13 @@ ACarSplinePathfinder::ACarSplinePathfinder()
     RootComponent = SplineComponent;
 }
 
-USplineComponent* ACarSplinePathfinder::GeneratePathForCar(const FVector& StartLocation, const FVector& EndLocation)
+USplineComponent* ACarSplinePathfinder::GeneratePathForCar(const FVector& StartLocation, const FVector& EndLocation, const FRotator& EndRotation)
 {
     TArray<AActor*> ObstacleActors;
     FindAllObstacles(ObstacleActors);
 
-    UE_LOG(LogTemp, Log, TEXT("Generating path from (%s) to (%s)"),
-        *StartLocation.ToString(), *EndLocation.ToString());
+    UE_LOG(LogTemp, Log, TEXT("Generating path from (%s) to (%s) with end rotation (%s)"),
+        *StartLocation.ToString(), *EndLocation.ToString(), *EndRotation.ToString());
 
     if (!IsValidLocation(StartLocation, ObstacleActors) || !IsValidLocation(EndLocation, ObstacleActors))
     {
@@ -74,6 +74,9 @@ USplineComponent* ACarSplinePathfinder::GeneratePathForCar(const FVector& StartL
         SplineComponent->SetTangentAtSplinePoint(0, StartTangent, ESplineCoordinateSpace::World);
         SplineComponent->SetTangentAtSplinePoint(NewPathPoints.Num() - 1, EndTangent, ESplineCoordinateSpace::World);
     }
+
+    // Add parking approach
+    AddParkingApproach(EndLocation, EndRotation);
 
     SplineComponent->UpdateSpline();
     UE_LOG(LogTemp, Log, TEXT("Path generated with %d points."), NewPathPoints.Num());
@@ -262,4 +265,25 @@ bool ACarSplinePathfinder::IsLineClear(const FVector& Start, const FVector& End,
     }
 
     return true;
+}
+
+void ACarSplinePathfinder::AddParkingApproach(const FVector& EndLocation, const FRotator& EndRotation)
+{
+    int32 LastPointIndex = SplineComponent->GetNumberOfSplinePoints() - 1;
+    FVector LastPoint = SplineComponent->GetLocationAtSplinePoint(LastPointIndex, ESplineCoordinateSpace::World);
+
+    // Calculate approach vector
+    FVector ApproachVector = EndRotation.Vector() * -300.0f; // 3 meters approach distance
+
+    // Add approach point
+    FVector ApproachPoint = EndLocation + ApproachVector;
+    SplineComponent->AddSplinePoint(ApproachPoint, ESplineCoordinateSpace::World);
+
+    // Add final parking point
+    SplineComponent->AddSplinePoint(EndLocation, ESplineCoordinateSpace::World);
+
+    // Set tangents for smooth approach
+    FVector ApproachTangent = (EndLocation - ApproachPoint).GetSafeNormal() * 200.0f;
+    SplineComponent->SetTangentAtSplinePoint(LastPointIndex + 1, ApproachTangent, ESplineCoordinateSpace::World, true);
+    SplineComponent->SetTangentAtSplinePoint(LastPointIndex + 2, ApproachTangent, ESplineCoordinateSpace::World, true);
 }

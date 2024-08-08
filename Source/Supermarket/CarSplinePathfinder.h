@@ -15,7 +15,7 @@ public:
     ACarSplinePathfinder();
 
     UFUNCTION(BlueprintCallable, Category = "Car Pathfinding")
-    USplineComponent* GeneratePathForCar(const FVector& StartLocation, const FVector& EndLocation);
+    USplineComponent* GeneratePathForCar(const FVector& StartLocation, const FVector& EndLocation, const FRotator& EndRotation);
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Car Pathfinding")
     TArray<TSubclassOf<AActor>> ObstacleClasses;
@@ -47,4 +47,5 @@ private:
     TArray<FVector> ReconstructPath(const TMap<FVector, FVector>& CameFrom, FVector Current, const FVector& Start);
     TArray<FVector> OptimizePath(const TArray<FVector>& OriginalPath, const TArray<AActor*>& ObstacleActors);
     bool IsLineClear(const FVector& Start, const FVector& End, const TArray<AActor*>& ObstacleActors);
+    void AddParkingApproach(const FVector& EndLocation, const FRotator& EndRotation);
 };

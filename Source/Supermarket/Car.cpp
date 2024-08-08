@@ -43,7 +43,9 @@ void ACar::MoveAlongSpline(float DeltaTime)
     if (DistanceTraveled >= CurrentSpline->GetSplineLength())
     {
         // Reached the end of the spline
-        SetActorLocation(CurrentSpline->GetLocationAtSplinePoint(CurrentSpline->GetNumberOfSplinePoints() - 1, ESplineCoordinateSpace::World));
+        int32 LastSplinePoint = CurrentSpline->GetNumberOfSplinePoints() - 1;
+        SetActorLocation(CurrentSpline->GetLocationAtSplinePoint(LastSplinePoint, ESplineCoordinateSpace::World));
+        SetActorRotation(CurrentSpline->GetRotationAtSplinePoint(LastSplinePoint, ESplineCoordinateSpace::World));
         OnCarParked.Broadcast(this);
         CleanupSpline();
     }
@@ -59,9 +61,14 @@ void ACar::RotateAlongSpline()
     if (!CurrentSpline) return;
 
     FVector ForwardVector = CurrentSpline->GetDirectionAtDistanceAlongSpline(DistanceTraveled, ESplineCoordinateSpace::World);
-    SetActorRotation(ForwardVector.Rotation());
-}
+    FRotator NewRotation = ForwardVector.Rotation();
 
+    // Interpolate rotation for smoother turning
+    FRotator CurrentRotation = GetActorRotation();
+    FRotator SmoothedRotation = FMath::RInterpTo(CurrentRotation, NewRotation, GetWorld()->GetDeltaSeconds(), 5.0f);
+
+    SetActorRotation(SmoothedRotation);
+}
 void ACar::CleanupSpline()
 {
     if (CurrentSpline)
