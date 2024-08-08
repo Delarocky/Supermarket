@@ -150,7 +150,10 @@ TArray<FVector> ASplinePathfinder::FindPath(const FVector& Start, const FVector&
     GScore.Add(Start, 0);
     FScore.Add(Start, Heuristic(Start, End));
 
-    while (OpenSet.Num() > 0)
+    int32 IterationLimit = 10000; // Prevent infinite loops
+    int32 Iterations = 0;
+
+    while (OpenSet.Num() > 0 && Iterations < IterationLimit)
     {
         FVector Current = OpenSet[0];
         float LowestFScore = FScore[Current];
@@ -188,9 +191,12 @@ TArray<FVector> ASplinePathfinder::FindPath(const FVector& Start, const FVector&
                 }
             }
         }
+
+        Iterations++;
     }
 
-    return TArray<FVector>();  // No path found
+    UE_LOG(LogTemp, Warning, TEXT("Path finding exceeded iteration limit or no path found. Returning empty path."));
+    return TArray<FVector>();  // No path found or iteration limit exceeded
 }
 
 float ASplinePathfinder::Heuristic(const FVector& A, const FVector& B)
